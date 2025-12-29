@@ -1,0 +1,51 @@
+# Options Trading Dashboard
+
+Professional options trading dashboard built with Streamlit for analyzing and executing cash-secured puts (CSPs) and covered calls (CCs).
+
+## Features
+
+### Cash-Secured Puts (CSP) Dashboard
+- Pull option chains from Tastytrade API
+- Dual scoring system (Primary + Secondary scores)
+- Smart recommendations with auto-selection
+- Interactive filters and sorting
+- Real-time summary card (premium, collateral, buying power)
+- One-click order submission to Tastytrade
+
+### Covered Calls (CC) Dashboard
+- Pull existing positions from Tastytrade
+- Analyze covered call opportunities
+- Score and rank CC opportunities
+- Submit CC orders to Tastytrade
+
+### Technical Analysis
+- RSI (Relative Strength Index)
+- Bollinger Bands %
+- Moving Average %
+- 52-Week Range %
+
+## API Integrations
+
+- **Tastytrade API** - Account data, option chains, order submission
+- **Tradier API** - Market data, option chains (backup/alternative)
+- **Yahoo Finance** - Historical price data for technical indicators
+
+## Tech Stack
+
+- **Frontend:** Streamlit
+- **Backend:** Python
+- **Data:** Pandas, NumPy
+- **Charts:** Plotly
+- **APIs:** Requests, python-dotenv
+
+## Setup
+
+1. Clone this repository
+2. Install dependencies: `pip install -r requirements.txt`
+3. Create `.env` file with API credentials
+4. Run: `streamlit run app.py`
+
+## Environment Variables
+
+Create a `.env` file with:
+
