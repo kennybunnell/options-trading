@@ -1,0 +1,13 @@
+{
+  "name": "Options Trading Dashboard",
+  "postStartCommand": "pip install -r requirements.txt --quiet",
+  "postAttachCommand": "echo '🚀 Run ./start.sh to start the app!'",
+  "forwardPorts": [8501],
+  "portsAttributes": {
+    "8501": {
+      "label": "Streamlit App",
+      "onAutoForward": "openBrowser",
+      "visibility": "public"
+    }
+  }
+}
