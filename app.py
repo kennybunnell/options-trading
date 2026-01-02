@@ -1,84 +1,2240 @@
 import streamlit as st
 import os
 from dotenv import load_dotenv
+import pandas as pd
+from datetime import datetime
 
 # Load environment variables
 load_dotenv()
 
+from utils.tastytrade_api import TastytradeAPI
+
 # Page config
 st.set_page_config(
     page_title="Options Trading Dashboard",
-    page_icon="💰",
+    page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Title
-st.title("💰 Options Trading Dashboard")
+# Initialize API with session state for token management
+if 'api' not in st.session_state:
+    st.session_state.api = TastytradeAPI()
 
-# Sidebar navigation
+api = st.session_state.api
+
+# Sidebar
 with st.sidebar:
-    st.header("Navigation")
+    st.header("📊 Options Trading")
+    
+    # Account selector
+    st.subheader("💼 Select Account")
+    accounts = api.get_accounts_with_names()
+    
+    if accounts:
+        account_options = {acc['display']: acc['account_number'] for acc in accounts}
+        
+        default_account = os.getenv('TASTYTRADE_DEFAULT_ACCOUNT', '')
+        default_index = 0
+        
+        for idx, acc in enumerate(accounts):
+            if acc['account_number'] == default_account:
+                default_index = idx
+                break
+        
+        selected_display = st.selectbox(
+            "Account",
+            options=list(account_options.keys()),
+            index=default_index,
+            label_visibility="collapsed"
+        )
+        selected_account = account_options[selected_display]
+    else:
+        st.error("No accounts found")
+        selected_account = None
+    
+    st.divider()
+    
+    # Navigation
+    st.subheader("📍 Navigation")
     page = st.radio(
-        "Select Page",
-        ["🏠 Home", "📊 CSP Dashboard", "📈 CC Dashboard", "⚙️ Settings"]
+        "Go to",
+        ["Home", "Analysis Dashboard", "CSP Dashboard", "CC Dashboard", "Settings"],
+        label_visibility="collapsed"
     )
 
-# Main content based on page selection
-if page == "🏠 Home":
-    st.write("## Welcome to Your Options Trading Dashboard!")
+# Main content area
+if page == "Home":
+    st.title("🏠 Home Dashboard")
     
-    st.write("""
-    This professional web application helps you:
-    - 📊 Find the best **cash-secured put** opportunities
-    - 📈 Manage **covered call** positions  
-    - 🚀 Submit orders to **Tastytrade** with one click
-    - 📉 Track your portfolio performance
-    """)
+    if selected_account:
+        st.subheader(f"Account: {selected_display}")
+        
+        # Get account balances
+        balances = api.get_account_balances(selected_account)
+        
+        if balances:
+            col1, col2, col3 = st.columns(3)
+            
+            nlv = float(balances.get('net-liquidating-value', 0))
+            cash = float(balances.get('cash-balance', 0))
+            buying_power = float(balances.get('derivative-buying-power', 0))
+            
+            with col1:
+                st.metric("Net Liquidating Value", f"${nlv:,.2f}")
+            with col2:
+                st.metric("Cash Balance", f"${cash:,.2f}")
+            with col3:
+                st.metric("Buying Power", f"${buying_power:,.2f}")
+        
+        st.divider()
+        
+        # Get positions
+        st.subheader("📊 Current Positions")
+        positions = api.get_positions(selected_account)
+        
+        if positions:
+            st.write(f"You have {len(positions)} open positions")
+            # TODO: Display positions in a nice table
+        else:
+            st.info("No open positions")
+
+elif page == "Analysis Dashboard":
+    st.title("🔬 Stock Analysis Dashboard")
+    st.write("Scan stocks for CSP opportunities based on technical indicators")
     
-    # Check API credentials
-    st.write("---")
-    st.write("### 🔑 API Status")
+    # Read stock universe
+    try:
+        with open('stock_universe.txt', 'r') as f:
+            stock_universe = [line.strip() for line in f if line.strip()]
+    except Exception as e:
+        st.error(f"❌ Could not read stock_universe.txt: {str(e)}")
+        st.stop()
+    
+    st.info(f"📋 Stock Universe: {len(stock_universe)} symbols")
+    
+    # ========== STOCK UNIVERSE MANAGER ==========
+    st.divider()
+    
+    with st.expander("⚙️ Manage Stock Universe", expanded=False):
+        st.markdown("""
+        **Manage your Stock Universe file:**
+        
+        - **View:** See all stocks currently in universe
+        - **Clear:** Remove all stocks (start fresh)
+        - **Replace:** Upload new CSV to replace entire universe
+        - **Download:** Backup current universe
+        """)
+        
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            if st.button("👁️ View Universe", key="view_universe"):
+                st.write(f"**Current Stock Universe ({len(stock_universe)} stocks):**")
+                if len(stock_universe) <= 100:
+                    st.text_area("Symbols:", "\n".join(stock_universe), height=300)
+                else:
+                    st.text_area("First 100 symbols:", "\n".join(stock_universe[:100]), height=300)
+                    st.info(f"Showing first 100 of {len(stock_universe)} total stocks")
+        
+        with col2:
+            if st.button("🗑️ Clear Universe", type="secondary", key="clear_universe"):
+                if st.session_state.get('confirm_clear_universe', False):
+                    with open('stock_universe.txt', 'w') as f:
+                        f.write('')
+                    st.success("✅ Stock Universe cleared! Refresh page to see changes.")
+                    st.session_state['confirm_clear_universe'] = False
+                else:
+                    st.session_state['confirm_clear_universe'] = True
+                    st.warning("⚠️ Click again to confirm clearing all stocks")
+        
+        with col3:
+            # Replace universe with new CSV
+            replace_file = st.file_uploader(
+                "Replace Universe",
+                type=['csv', 'txt'],
+                help="Upload CSV or TXT to replace entire universe",
+                key="replace_universe_uploader"
+            )
+            
+            if replace_file is not None:
+                try:
+                    import pandas as pd
+                    
+                    if replace_file.name.endswith('.csv'):
+                        df = pd.read_csv(replace_file)
+                        symbol_col = None
+                        for col in df.columns:
+                            if col.lower() in ['symbol', 'ticker', 'stock']:
+                                symbol_col = col
+                                break
+                        
+                        if symbol_col:
+                            new_symbols = df[symbol_col].dropna().unique().tolist()
+                            new_symbols = [str(s).strip().upper() for s in new_symbols if str(s).strip()]
+                        else:
+                            st.error("❌ No 'Symbol' or 'Ticker' column found")
+                            new_symbols = []
+                    else:  # TXT file
+                        content = replace_file.read().decode('utf-8')
+                        new_symbols = [line.strip().upper() for line in content.split('\n') if line.strip()]
+                    
+                    if new_symbols:
+                        with open('stock_universe.txt', 'w') as f:
+                            for symbol in new_symbols:
+                                f.write(f"{symbol}\n")
+                        st.success(f"✅ Replaced universe with {len(new_symbols)} stocks! Refresh page.")
+                        
+                except Exception as e:
+                    st.error(f"❌ Error: {str(e)}")
+        
+        with col4:
+            # Download current universe
+            if len(stock_universe) > 0:
+                universe_txt = "\n".join(stock_universe)
+                st.download_button(
+                    label="💾 Download",
+                    data=universe_txt,
+                    file_name="stock_universe_backup.txt",
+                    mime="text/plain",
+                    key="download_universe"
+                )
+    
+    # ========== CSV IMPORT SECTION ==========
+    st.divider()
+    
+    with st.expander("📄 Import Stocks from TradingView CSV", expanded=False):
+        st.markdown("""
+        **Import a list of stocks from TradingView or other screeners:**
+        
+        1. Export your TradingView screener results to CSV
+        2. Upload the CSV file below
+        3. Stocks will be added to **Stock Universe** for analysis
+        4. After analysis, move vetted stocks to **Watchlist** for CSP scanning
+        
+        **CSV Format:** Must have a column named "Symbol" or "Ticker"
+        
+        **🔄 Workflow:** Discovery → Stock Universe → Analysis → Watchlist → CSP Dashboard
+        """)
+        
+        uploaded_file = st.file_uploader(
+            "Choose a CSV file",
+            type=['csv'],
+            help="Upload CSV with stock symbols",
+            key="csv_import_uploader"
+        )
+        
+        if uploaded_file is not None:
+            try:
+                import pandas as pd
+                import io
+                
+                # Read CSV
+                df = pd.read_csv(uploaded_file)
+                
+                # Find symbol column (case insensitive)
+                symbol_col = None
+                for col in df.columns:
+                    if col.lower() in ['symbol', 'ticker', 'stock']:
+                        symbol_col = col
+                        break
+                
+                if symbol_col is None:
+                    st.error("❌ No 'Symbol' or 'Ticker' column found in CSV")
+                else:
+                    symbols = df[symbol_col].dropna().unique().tolist()
+                    symbols = [str(s).strip().upper() for s in symbols if str(s).strip()]
+                    
+                    st.success(f"✅ Found {len(symbols)} unique symbols in CSV")
+                    
+                    # Show preview
+                    st.write("**Preview (first 20):**")
+                    st.write(", ".join(symbols[:20]) + ("..." if len(symbols) > 20 else ""))
+                    
+                    st.info("👉 **Next Step:** These stocks will be added to Stock Universe for technical analysis")
+                    
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        if st.button("➕ Add to Stock Universe", type="primary", key="add_csv_to_universe"):
+                            # Read existing stock universe
+                            universe_path = "stock_universe.txt"
+                            existing_symbols = set()
+                            
+                            if os.path.exists(universe_path):
+                                with open(universe_path, 'r') as f:
+                                    existing_symbols = set(line.strip().upper() for line in f if line.strip())
+                            
+                            # Add new symbols
+                            new_symbols = [s for s in symbols if s not in existing_symbols]
+                            
+                            if new_symbols:
+                                with open(universe_path, 'a') as f:
+                                    for symbol in new_symbols:
+                                        f.write(f"{symbol}\n")
+                                
+                                st.success(f"✅ Added {len(new_symbols)} new symbols to Stock Universe!")
+                                st.info(f"📊 {len(existing_symbols)} symbols were already in Stock Universe")
+                                st.info("🔄 Refresh page to see updated count")
+                            else:
+                                st.info("📊 All symbols already in Stock Universe")
+                    
+                    with col2:
+                        if st.button("💾 Download Symbols as TXT", key="download_csv_symbols"):
+                            symbols_text = "\n".join(symbols)
+                            st.download_button(
+                                label="💾 Download",
+                                data=symbols_text,
+                                file_name="imported_symbols.txt",
+                                mime="text/plain"
+                            )
+                    
+            except Exception as e:
+                st.error(f"❌ Error reading CSV: {e}")
+    
+    # ========== END CSV IMPORT SECTION ==========
+    st.divider()
+    
+    # ========== DISCOVERY SCANNER (REMOVED) ==========
+    # The Discovery Scanner has been removed from the UI due to Yahoo Finance rate limiting.
+    # REASON: Yahoo Finance API returns 429 "Too Many Requests" errors when scanning stocks
+    # ALTERNATIVE: Use TradingView CSV Import instead (works perfectly!)
+    # CODE BACKUP: Saved in /home/ubuntu/discovery_section_backup.txt
+    # TO RESTORE: Contact developer or check backup file
+    # LAST UPDATED: 2026-01-01
+    # ========== END DISCOVERY SCANNER ==========
+    
+    st.divider()
+    
+    # Quick Presets
+    st.subheader("⚡ Quick Presets")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        if st.button("🟢 Conservative", use_container_width=True):
+            st.session_state.min_csp_score = 60
+            st.session_state.max_rsi = 40
+            st.session_state.max_bb = 40
+            st.session_state.max_52w = 40
+            st.session_state.min_price = 20.0
+            st.session_state.max_price = 300.0
+            st.session_state.min_avg_volume = 1000000  # NEW: 1M+ volume
+            st.session_state.max_spread = 2.0  # NEW: ≤2% spread
+            st.session_state.max_support_dist = 15.0  # NEW: ≤15% above support
+            st.rerun()
+    
+    with col2:
+        if st.button("🟡 Medium", use_container_width=True):
+            st.session_state.min_csp_score = 40
+            st.session_state.max_rsi = 55
+            st.session_state.max_bb = 55
+            st.session_state.max_52w = 55
+            st.session_state.min_price = 10.0
+            st.session_state.max_price = 500.0
+            st.session_state.min_avg_volume = 500000  # NEW: 500K+ volume
+            st.session_state.max_spread = 3.0  # NEW: ≤3% spread
+            st.session_state.max_support_dist = 25.0  # NEW: ≤25% above support
+            st.rerun()
+    
+    with col3:
+        if st.button("🔴 Aggressive", use_container_width=True):
+            st.session_state.min_csp_score = 20
+            st.session_state.max_rsi = 70
+            st.session_state.max_bb = 70
+            st.session_state.max_52w = 70
+            st.session_state.min_price = 5.0
+            st.session_state.max_price = 1000.0
+            st.session_state.min_avg_volume = 100000  # NEW: 100K+ volume
+            st.session_state.max_spread = 5.0  # NEW: ≤5% spread
+            st.session_state.max_support_dist = 50.0  # NEW: ≤50% above support
+            st.rerun()
+    
+    with col4:
+        if st.button("🟦 Pass All", use_container_width=True, help="Pass all stocks without filtering"):
+            st.session_state.min_csp_score = 0
+            st.session_state.max_rsi = 100
+            st.session_state.max_bb = 100
+            st.session_state.max_52w = 100
+            st.session_state.min_price = 0.01
+            st.session_state.max_price = 10000.0
+            st.session_state.min_avg_volume = 0  # NEW: No limit
+            st.session_state.max_spread = 100.0  # NEW: No limit
+            st.session_state.max_support_dist = 1000.0  # NEW: No limit
+            st.rerun()
+    
+    with st.expander("📘 Preset Explanations"):
+        st.markdown("""
+        **🟢 Conservative (High Quality)**
+        - Min CSP Score: 60 (only high-scoring opportunities)
+        - Max RSI: 40 (oversold to neutral)
+        - Max BB%: 40% (lower band area)
+        - Max 52W%: 40% (near 52-week lows)
+        - Price Range: $20-$300
+        - Expected: 5-15 results in normal markets
+        
+        **🟡 Medium (Balanced)**
+        - Min CSP Score: 40 (good balance)
+        - Max RSI: 55 (neutral range)
+        - Max BB%: 55% (middle range)
+        - Max 52W%: 55% (middle range)
+        - Price Range: $10-$500
+        - Expected: 15-30 results
+        
+        **🔴 Aggressive (More Opportunities)**
+        - Min CSP Score: 20 (more permissive)
+        - Max RSI: 70 (allow overbought)
+        - Max BB%: 70% (allow upper band)
+        - Max 52W%: 70% (allow near highs)
+        - Price Range: $5-$1000
+        - Expected: 30-50+ results
+        
+        **🟦 Pass All (No Filtering)**
+        - Min CSP Score: 0 (accept all)
+        - Max RSI: 100 (no limit)
+        - Max BB%: 100% (no limit)
+        - Max 52W%: 100% (no limit)
+        - Price Range: $0.01-$10,000
+        - Expected: ALL stocks in universe
+        - **Use Case:** You already vetted stocks in TradingView, just want to pass them through
+        """)
+    
+    st.divider()
+    
+    # Custom Filters
+    st.subheader("🔍 Custom Filters")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        min_csp_score = st.number_input(
+            "Min CSP Score",
+            min_value=0,
+            max_value=100,
+            value=st.session_state.get('min_csp_score', 20),
+            step=5
+        )
+    
+    with col2:
+        max_rsi = st.number_input(
+            "Max RSI",
+            min_value=0,
+            max_value=100,
+            value=st.session_state.get('max_rsi', 70),
+            step=5
+        )
+    
+    with col3:
+        max_bb = st.number_input(
+            "Max BB %",
+            min_value=0,
+            max_value=100,
+            value=st.session_state.get('max_bb', 70),
+            step=5
+        )
+    
+    with col4:
+        max_52w = st.number_input(
+            "Max 52W %",
+            min_value=0,
+            max_value=100,
+            value=st.session_state.get('max_52w', 70),
+            step=5
+        )
+    
+    col5, col6, col7 = st.columns(3)
+    
+    with col5:
+        min_price = st.number_input(
+            "Min Stock Price $",
+            min_value=0.0,
+            max_value=10000.0,
+            value=st.session_state.get('min_price', 5.0),
+            step=5.0
+        )
+    
+    with col6:
+        max_price = st.number_input(
+            "Max Stock Price $",
+            min_value=0.0,
+            max_value=10000.0,
+            value=st.session_state.get('max_price', 1000.0),
+            step=50.0
+        )
+    
+    with col7:
+        limit_results = st.number_input(
+            "Limit Results",
+            min_value=10,
+            max_value=200,
+            value=50,
+            step=10
+        )
+    
+    # Removed "Scan All Stocks" checkbox - always scan all stocks by default
+    # Users can limit results with "Limit Results" filter above
+    
+    if st.button("🔍 Scan for Opportunities", type="primary", use_container_width=True):
+        from utils.yahoo_finance import get_technical_indicators
+        from utils.scoring import calculate_csp_readiness_score
+        
+        symbols_to_scan = stock_universe  # Always scan all stocks
+        
+        with st.status(f"Scanning {len(symbols_to_scan)} stocks... This may take {len(symbols_to_scan)//2} seconds", expanded=True) as status:
+            opportunities = []
+            
+            progress_bar = st.progress(0)
+            
+            for idx, symbol in enumerate(symbols_to_scan):
+                st.write(f"Processing {symbol}... ({idx+1}/{len(symbols_to_scan)})")
+                
+                indicators = get_technical_indicators(symbol)
+                
+                if indicators:
+                    score = calculate_csp_readiness_score(indicators)
+                    
+                    # Apply filters
+                    min_avg_volume = st.session_state.get('min_avg_volume', 0)
+                    max_spread = st.session_state.get('max_spread', 100.0)
+                    max_support_dist = st.session_state.get('max_support_dist', 1000.0)
+                    
+                    if (score >= min_csp_score and
+                        (indicators['rsi'] is None or indicators['rsi'] <= max_rsi) and
+                        (indicators['bb_percent'] is None or indicators['bb_percent'] <= max_bb) and
+                        (indicators['week_52_percent'] is None or indicators['week_52_percent'] <= max_52w) and
+                        min_price <= indicators['current_price'] <= max_price and
+                        (indicators.get('avg_volume') is None or indicators.get('avg_volume') >= min_avg_volume) and
+                        (indicators.get('bid_ask_spread') is None or indicators.get('bid_ask_spread') <= max_spread) and
+                        (indicators.get('support_distance') is None or indicators.get('support_distance') <= max_support_dist)):
+                        
+                        # Color coding functions
+                        def color_rsi(val):
+                            if val is None:
+                                return "⚪ N/A"
+                            if val < 30:
+                                return f"🟢 {val:.1f}"
+                            elif val <= 70:
+                                return f"🟡 {val:.1f}"
+                            else:
+                                return f"🔴 {val:.1f}"
+                        
+                        def color_bb(val):
+                            if val is None:
+                                return "⚪ N/A"
+                            if val <= 40:
+                                return f"🟢 {val:.1f}%"
+                            elif val <= 60:
+                                return f"🟡 {val:.1f}%"
+                            else:
+                                return f"🔴 {val:.1f}%"
+                        
+                        def color_52w(val):
+                            if val is None:
+                                return "⚪ N/A"
+                            if val <= 40:
+                                return f"🟢 {val:.1f}%"
+                            elif val <= 60:
+                                return f"🟡 {val:.1f}%"
+                            else:
+                                return f"🔴 {val:.1f}%"
+                        
+                        def color_score(val):
+                            if val >= 70:
+                                return f"🟢 {val:.1f}"
+                            elif val >= 40:
+                                return f"🟡 {val:.1f}"
+                            else:
+                                return f"🔴 {val:.1f}"
+                        
+                        # NEW: Color coding for volume
+                        def color_volume(val):
+                            if val is None:
+                                return "⚪ N/A"
+                            if val >= 1000000:  # 1M+
+                                return f"🟢 {val/1000000:.1f}M"
+                            elif val >= 500000:  # 500K+
+                                return f"🟡 {val/1000:.0f}K"
+                            else:
+                                return f"🔴 {val/1000:.0f}K"
+                        
+                        # NEW: Color coding for bid-ask spread
+                        def color_spread(val):
+                            if val is None:
+                                return "⚪ N/A"
+                            if val <= 1.0:  # ≤1% spread
+                                return f"🟢 {val:.2f}%"
+                            elif val <= 3.0:  # 1-3% spread
+                                return f"🟡 {val:.2f}%"
+                            else:  # >3% spread
+                                return f"🔴 {val:.2f}%"
+                        
+                        # NEW: Color coding for support distance
+                        def color_support(val):
+                            if val is None:
+                                return "⚪ N/A"
+                            if val <= 10:  # Within 10% of support
+                                return f"🟢 {val:.1f}%"
+                            elif val <= 25:  # 10-25% above support
+                                return f"🟡 {val:.1f}%"
+                            else:  # >25% above support
+                                return f"🔴 {val:.1f}%"
+                        
+                        opportunities.append({
+                            'Select': False,
+                            'Symbol': symbol,
+                            'Price': f"${indicators['current_price']:.2f}",
+                            'CSP Score': color_score(score),
+                            'RSI': color_rsi(indicators['rsi']),
+                            'BB %': color_bb(indicators['bb_percent']),
+                            '52W %': color_52w(indicators['week_52_percent']),
+                            'MA %': f"{indicators['ma_percent']:.1f}" if indicators['ma_percent'] else "N/A",
+                            'Avg Vol': color_volume(indicators.get('avg_volume')),  # NEW
+                            'Spread %': color_spread(indicators.get('bid_ask_spread')),  # NEW
+                            'Support %': color_support(indicators.get('support_distance')),  # NEW
+                            '_score_raw': score,
+                            '_symbol_raw': symbol,
+                            '_avg_volume_raw': indicators.get('avg_volume'),  # NEW - for filtering
+                            '_spread_raw': indicators.get('bid_ask_spread'),  # NEW - for filtering
+                            '_support_raw': indicators.get('support_distance'),  # NEW - for filtering
+                        })
+                
+                progress_bar.progress((idx + 1) / len(symbols_to_scan))
+            
+            status.update(label=f"✅ Scan complete!", state="complete")
+        
+        if opportunities:
+            # Sort by score
+            opportunities.sort(key=lambda x: x['_score_raw'], reverse=True)
+            
+            # Limit results
+            opportunities = opportunities[:limit_results]
+            
+            # STORE IN SESSION STATE IMMEDIATELY
+            st.session_state.scan_results = pd.DataFrame(opportunities)
+            st.session_state.has_results = True
+            
+            st.rerun()
+        else:
+            st.warning("⚠️ No opportunities found matching your criteria")
+            st.info("💡 Try using the 'Aggressive' preset or lowering the filter values")
+    
+    # Display results if they exist in session state
+    if st.session_state.get('has_results', False) and 'scan_results' in st.session_state:
+        df = st.session_state.scan_results
+        
+        st.success(f"✅ Found {len(df)} opportunities!")
+        
+        # Summary stats
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("Total Found", len(df))
+        with col2:
+            avg_score = df['_score_raw'].mean()
+            st.metric("Avg Score", f"{avg_score:.1f}")
+        with col3:
+            max_score = df['_score_raw'].max()
+            st.metric("Max Score", f"{max_score:.1f}")
+        with col4:
+            high_score_count = (df['_score_raw'] >= 70).sum()
+            st.metric("High Score (≥70)", high_score_count)
+        
+        # CSP Score Explanation
+        with st.expander("📊 CSP Score Explanation & Legend"):
+            st.markdown("""
+            ### CSP Readiness Score Formula
+            
+            **Score = (RSI Score × 40%) + (BB% Score × 30%) + (52W% Score × 30%)**
+            
+            #### Component Scoring:
+            
+            **RSI (40% weight - Most Important)**
+            - 100 pts: RSI < 30 (Deeply oversold - BEST)
+            - 80 pts: RSI 30-35 (Oversold)
+            - 60 pts: RSI 35-40 (Slightly oversold)
+            - 40 pts: RSI 40-50 (Neutral)
+            - 20 pts: RSI 50-70 (Neutral to overbought)
+            - 0 pts: RSI > 70 (Overbought - AVOID)
+            
+            **Bollinger Band % (30% weight)**
+            - 100 pts: BB% 0-20% (Very near lower band - BEST)
+            - 80 pts: BB% 20-30% (Near lower band)
+            - 60 pts: BB% 30-40% (Below middle)
+            - 40 pts: BB% 40-50% (Middle range)
+            - 20 pts: BB% 50-60% (Above middle)
+            - 0 pts: BB% > 60% (Near upper band - AVOID)
+            
+            **52-Week % (30% weight)**
+            - 100 pts: 52W% 0-20% (Near 52-week lows - BEST)
+            - 80 pts: 52W% 20-30% (Below average)
+            - 60 pts: 52W% 30-40% (Lower range)
+            - 40 pts: 52W% 40-50% (Middle range)
+            - 20 pts: 52W% 50-60% (Upper range)
+            - 0 pts: 52W% > 60% (Near 52-week highs - AVOID)
+            
+            #### Color Legend:
+            - 🟢 Green = Good for CSP (oversold, near lows, lower band)
+            - 🟡 Yellow = Neutral/Medium
+            - 🔴 Red = Avoid for CSP (overbought, near highs, upper band)
+            """)
+        
+        # Selection controls
+        st.subheader("📋 Select Stocks for Watchlist")
+        
+        col1, col2, col3, col4 = st.columns([1, 1, 1, 3])
+        
+        with col1:
+            if st.button("✅ Select All", use_container_width=True):
+                st.session_state.scan_results['Select'] = True
+                st.rerun()
+        
+        with col2:
+            if st.button("❌ Clear Selection", use_container_width=True):
+                st.session_state.scan_results['Select'] = False
+                st.rerun()
+        
+        with col3:
+            selected_count = st.session_state.scan_results['Select'].sum()
+            st.metric("Selected", selected_count)
+        
+        # Display editable table
+        edited_df = st.data_editor(
+            st.session_state.scan_results,
+            column_config={
+                "Select": st.column_config.CheckboxColumn(
+                    "Select",
+                    help="Select stocks to add to watchlist",
+                    default=False,
+                ),
+                "Symbol": st.column_config.TextColumn("Symbol", disabled=True),
+                "Price": st.column_config.TextColumn("Price", disabled=True),
+                "CSP Score": st.column_config.TextColumn("↓ CSP Score", disabled=True),
+                "RSI": st.column_config.TextColumn("RSI", disabled=True),
+                "BB %": st.column_config.TextColumn("BB %", disabled=True),
+                "52W %": st.column_config.TextColumn("52W %", disabled=True),
+                "MA %": st.column_config.TextColumn("MA %", disabled=True),
+                "Avg Vol": st.column_config.TextColumn("Avg Vol", disabled=True),  # NEW
+                "Spread %": st.column_config.TextColumn("Spread %", disabled=True),  # NEW
+                "Support %": st.column_config.TextColumn("Support %", disabled=True),  # NEW
+                "_score_raw": None,  # Hide
+                "_symbol_raw": None,  # Hide
+                "_avg_volume_raw": None,  # NEW - Hide
+                "_spread_raw": None,  # NEW - Hide
+                "_support_raw": None,  # NEW - Hide
+            },
+            disabled=["Symbol", "Price", "CSP Score", "RSI", "BB %", "52W %", "MA %", "Avg Vol", "Spread %", "Support %"],
+            hide_index=True,
+            use_container_width=True,
+            height=600,
+            key="stock_selector"
+        )
+        
+        # Update session state with manual checkbox changes
+        st.session_state.scan_results = edited_df
+        
+        # Add to watchlist section
+        st.divider()
+        
+        col1, col2 = st.columns([1, 4])
+        
+        with col1:
+            selected_rows = edited_df[edited_df['Select'] == True]
+            selected_count = len(selected_rows)
+            
+            if st.button(
+                f"➕ Add {selected_count} to Watchlist" if selected_count > 0 else "➕ Add to Watchlist",
+                disabled=selected_count == 0,
+                type="primary",
+                use_container_width=True
+            ):
+                # Read current watchlist
+                try:
+                    with open('watchlist.txt', 'r') as f:
+                        current_watchlist = set(line.strip() for line in f if line.strip())
+                except:
+                    current_watchlist = set()
+                
+                # Add selected symbols
+                new_symbols = selected_rows['_symbol_raw'].tolist()
+                updated_watchlist = current_watchlist.union(set(new_symbols))
+                
+                # Write back
+                with open('watchlist.txt', 'w') as f:
+                    for symbol in sorted(updated_watchlist):
+                        f.write(f"{symbol}\n")
+                
+                new_count = len(updated_watchlist) - len(current_watchlist)
+                st.success(f"✅ Added {new_count} new symbols to watchlist! Total: {len(updated_watchlist)}")
+                st.balloons()
+                
+                # Clear selections after adding
+                st.session_state.scan_results['Select'] = False
+                st.rerun()
+        
+        with col2:
+            # Download CSV
+            csv = df.drop(columns=['Select', '_score_raw', '_symbol_raw']).to_csv(index=False)
+            st.download_button(
+                label="📥 Download CSV",
+                data=csv,
+                file_name=f"stock_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
+
+elif page == "CSP Dashboard":
+    st.title("💰 Cash-Secured Puts Dashboard")
+    
+    from utils.tradier_api import TradierAPI
+    from utils.yahoo_finance import get_technical_indicators
+    
+    tradier = TradierAPI()
+    
+    # Read watchlist
+    try:
+        with open('watchlist.txt', 'r') as f:
+            watchlist = [line.strip() for line in f if line.strip()]
+    except:
+        watchlist = []
+    
+    # Watchlist Management Section
+    st.subheader("📝 Watchlist Management")
+    
+    col1, col2, col3 = st.columns([2, 1, 1])
+    
+    with col1:
+        st.info(f"📋 Currently monitoring **{len(watchlist)}** symbols from watchlist")
+    
+    with col2:
+        if st.button("👁️ View/Edit Watchlist", use_container_width=True):
+            st.session_state.show_watchlist_editor = not st.session_state.get('show_watchlist_editor', False)
+    
+    with col3:
+        if st.button("🗑️ Clear Watchlist", use_container_width=True, type="secondary"):
+            if len(watchlist) > 0:
+                with open('watchlist.txt', 'w') as f:
+                    f.write("")
+                st.success("✅ Watchlist cleared!")
+                st.rerun()
+    
+    # Show watchlist editor if toggled
+    if st.session_state.get('show_watchlist_editor', False):
+        st.subheader("✏️ Edit Watchlist")
+        
+        if len(watchlist) > 0:
+            # Create DataFrame for editing
+            watchlist_df = pd.DataFrame({
+                'Remove': [False] * len(watchlist),
+                'Symbol': watchlist
+            })
+            
+            edited_watchlist = st.data_editor(
+                watchlist_df,
+                column_config={
+                    "Remove": st.column_config.CheckboxColumn(
+                        "Remove",
+                        help="Check to remove from watchlist",
+                        default=False,
+                    ),
+                    "Symbol": st.column_config.TextColumn("Symbol", disabled=True),
+                },
+                hide_index=True,
+                use_container_width=True,
+                key="watchlist_editor"
+            )
+            
+            # Remove selected symbols
+            if st.button("🗑️ Remove Selected", type="primary"):
+                symbols_to_keep = edited_watchlist[edited_watchlist['Remove'] == False]['Symbol'].tolist()
+                
+                with open('watchlist.txt', 'w') as f:
+                    for symbol in sorted(symbols_to_keep):
+                        f.write(f"{symbol}\n")
+                
+                removed_count = len(watchlist) - len(symbols_to_keep)
+                st.success(f"✅ Removed {removed_count} symbols from watchlist!")
+                st.session_state.show_watchlist_editor = False
+                st.rerun()
+        else:
+            st.info("📭 Watchlist is empty. Add stocks from the Analysis Dashboard!")
+    
+    # Display current watchlist symbols
+    if len(watchlist) > 0:
+        with st.expander("📊 Current Watchlist Symbols", expanded=True):
+            # Display in columns for better readability
+            cols_per_row = 8
+            rows = [watchlist[i:i+cols_per_row] for i in range(0, len(watchlist), cols_per_row)]
+            
+            for row in rows:
+                cols = st.columns(cols_per_row)
+                for idx, symbol in enumerate(row):
+                    with cols[idx]:
+                        st.markdown(f"**{symbol}**")
+    else:
+        st.warning("⚠️ Watchlist is empty. Add stocks from the Analysis Dashboard first!")
+        st.stop()
+    
+    st.divider()
+    
+    # Quick Presets for CSP
+    st.subheader("⚡ Quick Presets")
     
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        if os.getenv("TASTYTRADE_USERNAME"):
-            st.success("✅ Tastytrade: Configured")
-        else:
-            st.error("❌ Tastytrade: Not configured")
+        if st.button("🟢 Conservative", use_container_width=True, key="csp_conservative"):
+            st.session_state.csp_min_delta = 0.10
+            st.session_state.csp_max_delta = 0.20
+            st.session_state.csp_min_volume = 50
+            st.session_state.csp_min_oi = 100
+            st.session_state.csp_min_dte = 5
+            st.session_state.csp_max_dte = 10
+            st.rerun()
     
     with col2:
-        if os.getenv("TRADIER_API_KEY") and os.getenv("TRADIER_API_KEY") != "not_configured":
-            st.success("✅ Tradier: Configured")
-        else:
-            st.warning("⚠️ Tradier: Not configured")
+        if st.button("🟡 Medium", use_container_width=True, key="csp_medium"):
+            st.session_state.csp_min_delta = 0.15
+            st.session_state.csp_max_delta = 0.25
+            st.session_state.csp_min_volume = 25
+            st.session_state.csp_min_oi = 50
+            st.session_state.csp_min_dte = 5
+            st.session_state.csp_max_dte = 14
+            st.rerun()
     
     with col3:
-        st.success("✅ Yahoo Finance: Ready")
+        if st.button("🔴 Aggressive", use_container_width=True, key="csp_aggressive"):
+            st.session_state.csp_min_delta = 0.20
+            st.session_state.csp_max_delta = 0.35
+            st.session_state.csp_min_volume = 10
+            st.session_state.csp_min_oi = 25
+            st.session_state.csp_min_dte = 5
+            st.session_state.csp_max_dte = 21
+            st.rerun()
     
-    st.write("---")
-    st.info("👈 Use the sidebar to navigate to CSP or CC Dashboard")
-
-elif page == "📊 CSP Dashboard":
-    st.write("## 📊 Cash-Secured Puts Dashboard")
-    st.info("🚧 Coming soon!")
-
-elif page == "📈 CC Dashboard":
-    st.write("## 📈 Covered Calls Dashboard")
-    st.info("🚧 Coming soon!")
-
-elif page == "⚙️ Settings":
-    st.write("## ⚙️ Settings")
-    st.write("### API Credentials Status")
+    with st.expander("📘 Preset Explanations"):
+        st.markdown("""
+        **🟢 Conservative (Lower Risk)**
+        - Delta: 0.10-0.20 (80-90% success rate)
+        - DTE: 5-10 days (1-1.5 weeks)
+        - Min Volume: 50 contracts
+        - Min Open Interest: 100 contracts
+        - **Best for:** Capital preservation with steady income
+        
+        **🟡 Medium (Balanced)**
+        - Delta: 0.15-0.25 (75-85% success rate)
+        - DTE: 5-14 days (1-2 weeks)
+        - Min Volume: 25 contracts
+        - Min Open Interest: 50 contracts
+        - **Best for:** Balanced risk/reward
+        
+        **🔴 Aggressive (Higher Premium)**
+        - Delta: 0.20-0.35 (65-80% success rate)
+        - DTE: 5-21 days (1-3 weeks)
+        - Min Volume: 10 contracts
+        - Min Open Interest: 25 contracts
+        - **Best for:** Maximum premium collection, higher assignment risk
+        
+        ---
+        
+        **Delta Interpretation:**
+        - Delta 0.10 = ~10% chance of assignment (90% success)
+        - Delta 0.20 = ~20% chance of assignment (80% success)
+        - Delta 0.30 = ~30% chance of assignment (70% success)
+        
+        **Returns are calculated and displayed, not filtered!**
+        You'll see what returns are actually available in the market.
+        """)
     
-    if os.getenv("TASTYTRADE_USERNAME"):
-        st.success(f"✅ Tastytrade: Connected as `{os.getenv('TASTYTRADE_USERNAME')}`")
-        accounts = os.getenv("TASTYTRADE_ACCOUNTS", "").split(",")
-        st.write(f"**Accounts:** {len(accounts)} configured")
+    st.divider()
+    
+    # Filters Section
+    st.subheader("🔍 Option Filters")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        min_delta = st.number_input(
+            "Min Delta", 
+            0.05, 0.50, 
+            st.session_state.get('csp_min_delta', 0.10), 
+            0.05
+        )
+    with col2:
+        max_delta = st.number_input(
+            "Max Delta", 
+            0.05, 0.50, 
+            st.session_state.get('csp_max_delta', 0.30), 
+            0.05
+        )
+    with col3:
+        min_volume = st.number_input(
+            "Min Volume", 
+            0, 10000, 
+            st.session_state.get('csp_min_volume', 0), 
+            10
+        )
+    with col4:
+        min_oi = st.number_input(
+            "Min Open Interest", 
+            0, 10000, 
+            st.session_state.get('csp_min_oi', 0), 
+            25
+        )
+    
+    col5, col6, col7 = st.columns(3)
+    
+    with col5:
+        min_dte = st.number_input(
+            "Min Days to Exp", 
+            0, 365, 
+            st.session_state.get('csp_min_dte', 5), 
+            1
+        )
+    with col6:
+        max_dte = st.number_input(
+            "Max Days to Exp", 
+            0, 365, 
+            st.session_state.get('csp_max_dte', 21), 
+            1
+        )
+    with col7:
+        fetch_technicals = st.checkbox(
+            "Fetch Technical Indicators", 
+            value=False, 
+            help="Slower but shows RSI, BB%, etc."
+        )
+    
+    # Max orders setting - Make it prominent
+    st.divider()
+    st.subheader("⚙️ Order Submission Settings")
+    
+    col8, col9 = st.columns([1, 3])
+    with col8:
+        max_orders = st.number_input(
+            "📊 Max Orders Per Submission",
+            min_value=1,
+            max_value=100,
+            value=st.session_state.get('csp_max_orders', 10),
+            step=1,
+            help="Maximum number of DIFFERENT options you can submit at once (not total contracts)"
+        )
+        st.session_state.csp_max_orders = max_orders
+    
+    with col9:
+        st.info(f"💡 **Current Limit:** You can submit up to **{max_orders} different options** per submission. Each option can have multiple contracts (adjust with Qty column). This limit is checked during validation before order submission.")
+    
+    st.divider()
+    
+    if st.button("🔄 Fetch Opportunities", type="primary", use_container_width=True):
+        # Initialize logging
+        log_lines = []
+        log_lines.append(f"=== CSP Opportunity Scan Log ===")
+        log_lines.append(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        log_lines.append(f"Watchlist Size: {len(watchlist)} symbols")
+        log_lines.append(f"")
+        log_lines.append(f"FILTER SETTINGS:")
+        log_lines.append(f"  Min Delta: {min_delta}")
+        log_lines.append(f"  Max Delta: {max_delta}")
+        log_lines.append(f"  Min Volume: {min_volume}")
+        log_lines.append(f"  Min Open Interest: {min_oi}")
+        log_lines.append(f"  DTE Range: {min_dte}-{max_dte} days")
+        log_lines.append(f"  ⚠️ NO RETURN FILTER - All options shown with calculated returns")
+        log_lines.append(f"")
+        log_lines.append(f"=" * 80)
+        log_lines.append(f"")
+        
+        # Tracking stats
+        stats = {
+            'symbols_processed': 0,
+            'symbols_with_chains': 0,
+            'symbols_no_chains': 0,
+            'total_puts_found': 0,
+            'puts_after_delta_filter': 0,
+            'puts_after_volume_filter': 0,
+            'puts_after_oi_filter': 0,
+            'rejected_bid_zero': 0,
+            'rejected_strike_zero': 0,
+            'rejected_dte_zero': 0,
+            'used_mid_price': 0,
+            'final_opportunities': 0
+        }
+        
+        with st.status(f"Fetching opportunities for {len(watchlist)} symbols...", expanded=True) as status:
+            opportunities = []
+            progress_bar = st.progress(0)
+            
+            for idx, symbol in enumerate(watchlist):
+                st.write(f"Processing {symbol}... ({idx+1}/{len(watchlist)})")
+                stats['symbols_processed'] += 1
+                
+                log_lines.append(f"--- {symbol} ---")
+                
+                chain_data = tradier.get_option_chains(symbol, min_dte=min_dte, max_dte=max_dte)
+                
+                if not chain_data:
+                    stats['symbols_no_chains'] += 1
+                    log_lines.append(f"  ❌ No chain data returned from API")
+                    log_lines.append(f"")
+                    continue
+                
+                if not chain_data.get('options'):
+                    stats['symbols_no_chains'] += 1
+                    log_lines.append(f"  ❌ Chain data exists but no options found")
+                    log_lines.append(f"  Underlying Price: ${chain_data.get('underlying_price', 'N/A')}")
+                    log_lines.append(f"")
+                    continue
+                
+                stats['symbols_with_chains'] += 1
+                underlying_price = chain_data.get('underlying_price', 0)
+                log_lines.append(f"  ✅ Chain data received")
+                log_lines.append(f"  Underlying Price: ${underlying_price}")
+                
+                puts = tradier.filter_put_options(chain_data, min_delta=min_delta, max_delta=max_delta)
+                stats['total_puts_found'] += len(puts)
+                log_lines.append(f"  Total PUT options in chain: {len(chain_data.get('options', []))}")
+                log_lines.append(f"  PUTs after delta filter ({min_delta}-{max_delta}): {len(puts)}")
+                
+                if len(puts) == 0:
+                    log_lines.append(f"  ⚠️ No puts matched delta range")
+                    log_lines.append(f"")
+                    continue
+                
+                stats['puts_after_delta_filter'] += len(puts)
+                
+                puts_passing_filters = 0
+                
+                for put in puts:
+                    volume = put.get('volume', 0)
+                    oi = put.get('open_interest', 0)
+                    bid = put.get('bid', 0)
+                    ask = put.get('ask', 0)
+                    strike = put.get('strike', 0)
+                    delta = abs(put.get('greeks', {}).get('delta', 0))
+                    expiration = put.get('expiration_date', '')
+                    
+                    # Calculate DTE from expiration date (don't trust Tradier's DTE field)
+                    try:
+                        exp_date = datetime.strptime(expiration, '%Y-%m-%d')
+                        dte = (exp_date - datetime.now()).days
+                    except:
+                        dte = 0  # Invalid expiration date
+                    
+                    # Volume filter
+                    if volume < min_volume:
+                        continue
+                    stats['puts_after_volume_filter'] += 1
+                    
+                    # OI filter
+                    if oi < min_oi:
+                        continue
+                    stats['puts_after_oi_filter'] += 1
+                    
+                    # Use mid-price if bid is 0 (market closed or low liquidity)
+                    if bid <= 0 and ask > 0:
+                        bid = ask / 2  # Use half of ask as estimate
+                        stats['used_mid_price'] += 1
+                    
+                    # Validate data (skip if still invalid)
+                    if bid <= 0:
+                        stats['rejected_bid_zero'] += 1
+                        continue
+                    if strike <= 0:
+                        stats['rejected_strike_zero'] += 1
+                        continue
+                    if dte <= 0:
+                        stats['rejected_dte_zero'] += 1
+                        continue
+                    
+                    # Calculate returns (NO FILTER, just calculate)
+                    premium_pct = (bid / strike) * 100
+                    
+                    # Weekly return (normalized to 7 days)
+                    weekly_return = (premium_pct / dte) * 7
+                    
+                    # Monthly return (normalized to 30 days)
+                    monthly_return = (premium_pct / dte) * 30
+                    
+                    # Annual return (normalized to 365 days)
+                    annual_return = (premium_pct / dte) * 365
+                    
+                    puts_passing_filters += 1
+                    
+                    opp = {
+                        'Symbol': symbol,
+                        'Strike': strike,
+                        'Current Price': underlying_price,
+                        'Expiration': expiration,
+                        'DTE': dte,
+                        'Bid': bid,
+                        'Ask': ask,
+                        'Premium %': round(premium_pct, 2),
+                        'Weekly %': round(weekly_return, 2),
+                        'Monthly %': round(monthly_return, 2),
+                        'Annual %': round(annual_return, 1),
+                        'Delta': round(delta, 2),
+                        'Theta': round(put.get('greeks', {}).get('theta', 0), 3),
+                        'Volume': volume,
+                        'Open Int': oi,
+                    }
+                    
+                    if fetch_technicals:
+                        indicators = get_technical_indicators(symbol)
+                        if indicators:
+                            opp['RSI'] = round(indicators['rsi'], 1) if indicators['rsi'] else None
+                            opp['BB %'] = round(indicators['bb_percent'], 1) if indicators['bb_percent'] else None
+                            opp['52W %'] = round(indicators['week_52_percent'], 1) if indicators['week_52_percent'] else None
+                    
+                    opportunities.append(opp)
+                
+                log_lines.append(f"  ✅ Final opportunities from {symbol}: {puts_passing_filters}")
+                log_lines.append(f"")
+                
+                progress_bar.progress((idx + 1) / len(watchlist))
+            
+            stats['final_opportunities'] = len(opportunities)
+            
+            status.update(label=f"✅ Scan complete!", state="complete")
+        
+        # Add summary to log
+        log_lines.append(f"")
+        log_lines.append(f"=" * 80)
+        log_lines.append(f"SUMMARY STATISTICS:")
+        log_lines.append(f"  Symbols Processed: {stats['symbols_processed']}")
+        log_lines.append(f"  Symbols with Chain Data: {stats['symbols_with_chains']}")
+        log_lines.append(f"  Symbols with NO Chain Data: {stats['symbols_no_chains']}")
+        log_lines.append(f"  Total PUT options found: {stats['total_puts_found']}")
+        log_lines.append(f"  After Delta filter: {stats['puts_after_delta_filter']}")
+        log_lines.append(f"  After Volume filter: {stats['puts_after_volume_filter']}")
+        log_lines.append(f"  After OI filter: {stats['puts_after_oi_filter']}")
+        log_lines.append(f"  Used mid-price (bid=0): {stats['used_mid_price']}")
+        log_lines.append(f"  Rejected (bid=0): {stats['rejected_bid_zero']}")
+        log_lines.append(f"  Rejected (strike=0): {stats['rejected_strike_zero']}")
+        log_lines.append(f"  Rejected (dte=0): {stats['rejected_dte_zero']}")
+        log_lines.append(f"  FINAL OPPORTUNITIES: {stats['final_opportunities']}")
+        log_lines.append(f"")
+        log_lines.append(f"=" * 80)
+        
+        # Store log in session state
+        st.session_state.csp_scan_log = "\n".join(log_lines)
+        
+        # Display summary stats
+        st.subheader("📊 Scan Summary")
+        
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Symbols Scanned", stats['symbols_processed'])
+        with col2:
+            st.metric("With Chain Data", stats['symbols_with_chains'])
+        with col3:
+            st.metric("Total PUTs Found", stats['total_puts_found'])
+        with col4:
+            st.metric("Final Opportunities", stats['final_opportunities'])
+        
+        if stats['used_mid_price'] > 0:
+            st.info(f"ℹ️ Used mid-price for {stats['used_mid_price']} options (bid was $0)")
+        
+        if stats['rejected_bid_zero'] > 0:
+            st.warning(f"⚠️ Rejected {stats['rejected_bid_zero']} options due to bid=$0 (even after mid-price fallback)")
+        
+        # Store scan time for validation later
+        st.session_state.csp_scan_time = datetime.now()
+        
+        # Store opportunities in session state for display
+        if opportunities:
+            df = pd.DataFrame(opportunities)
+            df.insert(0, 'Select', False)
+            df.insert(1, 'Qty', 1)  # Add quantity column with default value of 1
+            df = df.sort_values('Weekly %', ascending=False)
+            st.session_state.csp_opportunities = df
+        else:
+            # Clear opportunities if none found
+            if 'csp_opportunities' in st.session_state:
+                del st.session_state.csp_opportunities
+    # Display opportunities if they exist in session state
+    if 'csp_opportunities' in st.session_state and len(st.session_state.csp_opportunities) > 0:
+        # Get the DataFrame from session state
+        df = st.session_state.csp_opportunities
+        
+        st.success(f"✅ Found {len(df)} opportunities!")
+        
+        # Store in session state (always update with fresh scan results)
+        st.session_state.csp_opportunities_fresh = True
+        
+        # Summary stats
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            avg_weekly = df['Weekly %'].mean()
+            st.metric("Avg Weekly Return", f"{avg_weekly:.2f}%")
+        with col2:
+            max_weekly = df['Weekly %'].max()
+            st.metric("Max Weekly Return", f"{max_weekly:.2f}%")
+        with col3:
+            avg_delta = df['Delta'].mean()
+            st.metric("Avg Delta", f"{avg_delta:.2f}")
+        with col4:
+            high_return_count = (df['Weekly %'] >= 1.5).sum()
+            st.metric("≥1.5% Weekly", high_return_count)
+        
+        st.divider()
+        
+        # Selection controls
+        st.subheader("📋 Select Options to Trade")
+        
+        # Row 1: Selection and Preset buttons
+        col1, col2, col3, col4, col5, col6 = st.columns([1, 1, 1, 1, 1, 2])
+        
+        with col1:
+            if st.button("✅ Select All", use_container_width=True, key="csp_select_all"):
+                st.session_state.csp_opportunities['Select'] = True
+                st.rerun()
+        
+        with col2:
+            if st.button("❌ Clear Selection", use_container_width=True, key="csp_clear"):
+                st.session_state.csp_opportunities['Select'] = False
+                st.rerun()
+        
+        with col3:
+            if st.button("🟢 Conservative", use_container_width=True, key="csp_preset_conservative", help="Select delta 0.15-0.25, premium ≥2.5%, qty=1"):
+                # Clear all first
+                st.session_state.csp_opportunities['Select'] = False
+                st.session_state.csp_opportunities['Qty'] = 1
+                # Select conservative options
+                mask = (
+                    (st.session_state.csp_opportunities['Delta'].abs() >= 0.15) &
+                    (st.session_state.csp_opportunities['Delta'].abs() <= 0.25) &
+                    (st.session_state.csp_opportunities['Premium %'] >= 2.5)
+                )
+                st.session_state.csp_opportunities.loc[mask, 'Select'] = True
+                st.session_state.csp_opportunities.loc[mask, 'Qty'] = 1
+                st.rerun()
+        
+        with col4:
+            if st.button("🟡 Medium", use_container_width=True, key="csp_preset_medium", help="Select delta 0.25-0.35, premium ≥2.0%, qty=2"):
+                # Clear all first
+                st.session_state.csp_opportunities['Select'] = False
+                st.session_state.csp_opportunities['Qty'] = 1
+                # Select medium options
+                mask = (
+                    (st.session_state.csp_opportunities['Delta'].abs() >= 0.25) &
+                    (st.session_state.csp_opportunities['Delta'].abs() <= 0.35) &
+                    (st.session_state.csp_opportunities['Premium %'] >= 2.0)
+                )
+                st.session_state.csp_opportunities.loc[mask, 'Select'] = True
+                st.session_state.csp_opportunities.loc[mask, 'Qty'] = 2
+                st.rerun()
+        
+        with col5:
+            if st.button("🔴 Aggressive", use_container_width=True, key="csp_preset_aggressive", help="Select delta 0.35-0.50, premium ≥1.5%, qty=3"):
+                # Clear all first
+                st.session_state.csp_opportunities['Select'] = False
+                st.session_state.csp_opportunities['Qty'] = 1
+                # Select aggressive options
+                mask = (
+                    (st.session_state.csp_opportunities['Delta'].abs() >= 0.35) &
+                    (st.session_state.csp_opportunities['Delta'].abs() <= 0.50) &
+                    (st.session_state.csp_opportunities['Premium %'] >= 1.5)
+                )
+                st.session_state.csp_opportunities.loc[mask, 'Select'] = True
+                st.session_state.csp_opportunities.loc[mask, 'Qty'] = 3
+                st.rerun()
+        
+        with col6:
+            selected_count = st.session_state.csp_opportunities['Select'].sum()
+            st.metric("Selected", selected_count)
+        
+        # Row 2: Quantity adjustment buttons
+        st.write("**Adjust Quantities for Selected:**")
+        col1, col2, col3, col4, col5, col6 = st.columns([1, 1, 1, 1, 1, 2])
+        
+        with col1:
+            if st.button("➕ +1", use_container_width=True, key="csp_qty_plus1", help="Add 1 to selected quantities"):
+                mask = st.session_state.csp_opportunities['Select'] == True
+                st.session_state.csp_opportunities.loc[mask, 'Qty'] = st.session_state.csp_opportunities.loc[mask, 'Qty'] + 1
+                st.rerun()
+        
+        with col2:
+            if st.button("➕ +5", use_container_width=True, key="csp_qty_plus5", help="Add 5 to selected quantities"):
+                mask = st.session_state.csp_opportunities['Select'] == True
+                st.session_state.csp_opportunities.loc[mask, 'Qty'] = st.session_state.csp_opportunities.loc[mask, 'Qty'] + 5
+                st.rerun()
+        
+        with col3:
+            if st.button("➕ +10", use_container_width=True, key="csp_qty_plus10", help="Add 10 to selected quantities"):
+                mask = st.session_state.csp_opportunities['Select'] == True
+                st.session_state.csp_opportunities.loc[mask, 'Qty'] = st.session_state.csp_opportunities.loc[mask, 'Qty'] + 10
+                st.rerun()
+        
+        with col4:
+            if st.button("➖ -1", use_container_width=True, key="csp_qty_minus1", help="Subtract 1 from selected quantities (min 1)"):
+                mask = st.session_state.csp_opportunities['Select'] == True
+                st.session_state.csp_opportunities.loc[mask, 'Qty'] = st.session_state.csp_opportunities.loc[mask, 'Qty'].apply(lambda x: max(1, x - 1))
+                st.rerun()
+        
+        with col5:
+            if st.button("🔄 Reset", use_container_width=True, key="csp_qty_reset", help="Reset selected quantities to 1"):
+                mask = st.session_state.csp_opportunities['Select'] == True
+                st.session_state.csp_opportunities.loc[mask, 'Qty'] = 1
+                st.rerun()
+        
+        with col6:
+            # Show total contracts for selected
+            if selected_count > 0:
+                selected_qty_sum = st.session_state.csp_opportunities[st.session_state.csp_opportunities['Select'] == True]['Qty'].sum()
+                st.info(f"📊 Selected: {int(selected_qty_sum)} contracts ({selected_count} options)")
+        
+        st.write("")
+        
+        # Display editable table (but encourage using buttons instead of editing cells)
+        edited_df = st.data_editor(
+            st.session_state.csp_opportunities,
+            column_config={
+                "Select": st.column_config.CheckboxColumn(
+                    "Select",
+                    help="Select options to submit as orders",
+                    default=False,
+                ),
+                "Qty": st.column_config.NumberColumn(
+                    "Qty",
+                    help="Use buttons above to adjust quantities (editing cells may be unreliable)",
+                    min_value=1,
+                    max_value=100,
+                    step=1,
+                    default=1,
+                    format="%d"
+                ),
+            },
+            disabled=[col for col in st.session_state.csp_opportunities.columns if col not in ['Select', 'Qty']],
+            hide_index=True,
+            use_container_width=True,
+            height=600,
+            key="csp_selector"
+        )
+        
+        # Update session state
+        st.session_state.csp_opportunities = edited_df
+        
+        st.divider()
+        
+        # Order Summary Card
+        selected_rows = edited_df[edited_df['Select'] == True]
+        
+        if len(selected_rows) > 0:
+            st.subheader("💰 Order Summary")
+            
+            # Calculate totals accounting for quantities
+            total_contracts = selected_rows['Qty'].sum()
+            total_premium = (selected_rows['Bid'] * selected_rows['Qty'] * 100).sum()  # Each contract = 100 shares
+            total_collateral = (selected_rows['Strike'] * selected_rows['Qty'] * 100).sum()  # Each contract = 100 shares
+            avg_weekly_return = selected_rows['Weekly %'].mean()
+            avg_monthly_return = selected_rows['Monthly %'].mean()
+            num_different_options = len(selected_rows)
+            
+            # Display summary card
+            col1, col2, col3, col4, col5 = st.columns(5)
+            
+            with col1:
+                st.metric("Total Contracts", int(total_contracts))
+                st.caption(f"{num_different_options} different options")
+            with col2:
+                st.metric("Total Premium", f"${total_premium:,.2f}")
+            with col3:
+                st.metric("Total Collateral", f"${total_collateral:,.2f}")
+            with col4:
+                st.metric("Avg Weekly Return", f"{avg_weekly_return:.2f}%")
+            with col5:
+                st.metric("Avg Monthly Return", f"{avg_monthly_return:.2f}%")
+            
+            # Check buying power
+            balances = api.get_account_balances(selected_account)
+            if balances:
+                buying_power = float(balances.get('derivative-buying-power', 0))
+                
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    st.metric("Available Buying Power", f"${buying_power:,.2f}")
+                with col2:
+                    remaining = buying_power - total_collateral
+                    st.metric("After Orders", f"${remaining:,.2f}", 
+                             delta=f"-${total_collateral:,.2f}",
+                             delta_color="inverse")
+                with col3:
+                    utilization = (total_collateral / buying_power * 100) if buying_power > 0 else 0
+                    st.metric("BP Utilization", f"{utilization:.1f}%")
+                
+                # Warning if insufficient buying power
+                if total_collateral > buying_power:
+                    st.error(f"⚠️ **Insufficient Buying Power!** You need ${total_collateral:,.2f} but only have ${buying_power:,.2f}")
+                    can_submit = False
+                else:
+                    can_submit = True
+            else:
+                st.warning("⚠️ Could not fetch account balances")
+                can_submit = False
+            
+            st.divider()
+            
+            # AI Analysis and Order submission
+            col1, col2, col3 = st.columns([1, 1, 2])
+            
+            with col1:
+                if st.button(
+                    "🤖 AI Analysis",
+                    use_container_width=True,
+                    help="Analyze selected stocks for earnings, news, and risks"
+                ):
+                    # Get unique symbols from selected rows
+                    unique_symbols = selected_rows['Symbol'].unique().tolist()
+                    
+                    with st.spinner(f"Analyzing {len(unique_symbols)} stocks with AI..."):
+                        from utils.ai_analysis import analyze_stocks_with_ai, get_ai_analysis_summary
+                        
+                        ai_results = analyze_stocks_with_ai(unique_symbols)
+                        st.session_state.ai_analysis_results = ai_results
+            
+            with col2:
+                if st.button(
+                    f"🚀 Submit {int(total_contracts)} Contracts",
+                    type="primary",
+                    disabled=not can_submit,
+                    use_container_width=True
+                ):
+                    st.session_state.show_order_confirmation = True
+            
+            # Display AI Analysis Results if available
+            if 'ai_analysis_results' in st.session_state and st.session_state.ai_analysis_results:
+                st.divider()
+                
+                results = st.session_state.ai_analysis_results
+                
+                # Summary metrics
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    st.metric("📊 Analyzed", results['total_analyzed'])
+                with col2:
+                    st.metric("✅ Safe", len(results['safe_stocks']))
+                with col3:
+                    st.metric("⚠️ Caution", len(results['caution_stocks']))
+                with col4:
+                    st.metric("❌ Avoid", len(results['avoid_stocks']))
+                
+                # Full analysis in expander
+                with st.expander("📝 View Full AI Analysis", expanded=True):
+                    st.markdown(results['full_analysis'])
+                
+                # Download and Clear buttons
+                col1, col2, col3, col4 = st.columns([1, 1, 1, 3])
+                
+                with col1:
+                    # Download as DOCX
+                    try:
+                        from utils.export_functions import generate_ai_analysis_docx
+                        docx_data = generate_ai_analysis_docx(results)
+                        st.download_button(
+                            label="📄 Download DOCX",
+                            data=docx_data,
+                            file_name=f"AI_Analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx",
+                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                            use_container_width=True
+                        )
+                    except Exception as e:
+                        st.error(f"DOCX export error: {str(e)}")
+                
+                with col2:
+                    # Download as PDF
+                    try:
+                        from utils.export_functions import generate_ai_analysis_pdf
+                        pdf_data = generate_ai_analysis_pdf(results)
+                        st.download_button(
+                            label="📕 Download PDF",
+                            data=pdf_data,
+                            file_name=f"AI_Analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                            mime="application/pdf",
+                            use_container_width=True
+                        )
+                    except Exception as e:
+                        st.error(f"PDF export error: {str(e)}")
+                
+                with col3:
+                    # Clear button
+                    if st.button("🗑️ Clear Analysis", use_container_width=True):
+                        del st.session_state.ai_analysis_results
+                        st.rerun()
+            
+            # Order confirmation dialog
+
+            # Order confirmation dialog with AUTOMATED VALIDATION
+            if st.session_state.get('show_order_confirmation', False):
+                
+                # Initialize dry run mode in session state
+                if 'dry_run_mode' not in st.session_state:
+                    st.session_state.dry_run_mode = True  # Default to DRY RUN for safety
+                
+                # Initialize scan time if not set
+                if 'csp_scan_time' not in st.session_state:
+                    st.session_state.csp_scan_time = datetime.now()
+                
+                # DRY RUN TOGGLE at the top
+                st.divider()
+                col1, col2 = st.columns([1, 3])
+                with col1:
+                    dry_run = st.toggle(
+                        "🧪 Dry Run Mode (Test Only)",
+                        value=st.session_state.dry_run_mode,
+                        help="When enabled, simulates orders without actually submitting them",
+                        key="dry_run_toggle"
+                    )
+                    st.session_state.dry_run_mode = dry_run
+                
+                with col2:
+                    if dry_run:
+                        st.info("🧪 **DRY RUN MODE** - Orders will be simulated, not submitted")
+                    else:
+                        st.error("⚠️ **LIVE MODE** - Real orders will be submitted to your account!")
+                
+                st.divider()
+                
+                st.warning("⚠️ **Automated Pre-Flight Validation**")
+                
+                # Run automated validations
+                validation_results = []
+                all_passed = True
+                
+                # Get current time for freshness check
+                scan_time = st.session_state.get('csp_scan_time', datetime.now())
+                time_since_scan = (datetime.now() - scan_time).total_seconds() / 60  # minutes
+                
+                # VALIDATION 1: Strike & Expiration Validation
+                st.subheader("1️⃣ Strike & Expiration Validation")
+                
+                strike_issues = []
+                exp_issues = []
+                
+                for idx, row in selected_rows.iterrows():
+                    strike = row['Strike']
+                    current_price = row['Current Price']
+                    expiration = row['Expiration']
+                    dte = row['DTE']
+                    
+                    # Check strike is reasonable (within 50% of current price)
+                    if strike > current_price * 1.5 or strike < current_price * 0.3:
+                        strike_issues.append(f"{row['Symbol']}: Strike ${strike} is {abs((strike/current_price - 1) * 100):.0f}% away from current price ${current_price}")
+                    
+                    # Check expiration is in the future
+                    exp_date = datetime.strptime(expiration, '%Y-%m-%d')
+                    if exp_date <= datetime.now():
+                        exp_issues.append(f"{row['Symbol']}: Expiration {expiration} is in the past!")
+                    
+                    # Check DTE is reasonable
+                    if dte <= 0:
+                        exp_issues.append(f"{row['Symbol']}: DTE is {dte} (expired or invalid)")
+                    elif dte > 90:
+                        exp_issues.append(f"{row['Symbol']}: DTE is {dte} days (very long term)")
+                
+                if len(strike_issues) == 0 and len(exp_issues) == 0:
+                    st.success(f"✅ All {len(selected_rows)} strikes and expirations validated")
+                    validation_results.append(("Strike & Expiration", True, "All valid"))
+                else:
+                    st.error("❌ Issues found:")
+                    for issue in strike_issues + exp_issues:
+                        st.write(f"  - {issue}")
+                    validation_results.append(("Strike & Expiration", False, f"{len(strike_issues + exp_issues)} issues"))
+                    all_passed = False
+                
+                st.divider()
+                
+                # VALIDATION 2: Buying Power
+                st.subheader("2️⃣ Buying Power Validation")
+                
+                balances = api.get_account_balances(selected_account)
+                if balances:
+                    buying_power = float(balances.get('derivative-buying-power', 0))
+                    
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("Available BP", f"${buying_power:,.2f}")
+                    with col2:
+                        st.metric("Required Collateral", f"${total_collateral:,.2f}")
+                    with col3:
+                        buffer = buying_power - total_collateral
+                        st.metric("Buffer After Orders", f"${buffer:,.2f}")
+                    
+                    if total_collateral <= buying_power:
+                        buffer_pct = (buffer / buying_power * 100) if buying_power > 0 else 0
+                        st.success(f"✅ Sufficient buying power ({buffer_pct:.1f}% buffer remaining)")
+                        validation_results.append(("Buying Power", True, f"${buffer:,.2f} buffer"))
+                    else:
+                        shortage = total_collateral - buying_power
+                        st.error(f"❌ Insufficient buying power! Short by ${shortage:,.2f}")
+                        validation_results.append(("Buying Power", False, f"Short ${shortage:,.2f}"))
+                        all_passed = False
+                else:
+                    st.error("❌ Could not fetch account balances")
+                    validation_results.append(("Buying Power", False, "API error"))
+                    all_passed = False
+                
+                st.divider()
+                
+                # VALIDATION 3: Price Freshness
+                st.subheader("3️⃣ Price Freshness Validation")
+                
+                if time_since_scan < 5:
+                    st.success(f"✅ Data is fresh ({time_since_scan:.1f} minutes old)")
+                    validation_results.append(("Price Freshness", True, f"{time_since_scan:.1f}min old"))
+                elif time_since_scan < 15:
+                    st.warning(f"⚠️ Data is {time_since_scan:.1f} minutes old - consider re-scanning")
+                    validation_results.append(("Price Freshness", True, f"{time_since_scan:.1f}min old (acceptable)"))
+                else:
+                    st.error(f"❌ Data is stale ({time_since_scan:.1f} minutes old) - please re-scan!")
+                    validation_results.append(("Price Freshness", False, f"{time_since_scan:.1f}min old (stale)"))
+                    all_passed = False
+                
+                st.divider()
+                
+                # VALIDATION 4: Risk Assessment
+                st.subheader("4️⃣ Risk Assessment")
+                
+                # Calculate weighted delta (accounting for quantities)
+                total_delta = (selected_rows['Delta'] * selected_rows['Qty']).sum()
+                avg_delta = selected_rows['Delta'].mean()  # Average delta per option (not weighted)
+                expected_assignments = total_delta  # Delta approximates assignment probability
+                expected_win_rate = (1 - avg_delta) * 100
+                max_loss = total_collateral - total_premium  # If all assigned
+                
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("Total Delta Exposure", f"{total_delta:.2f}")
+                with col2:
+                    st.metric("Avg Delta", f"{avg_delta:.2f}")
+                with col3:
+                    st.metric("Expected Win Rate", f"{expected_win_rate:.1f}%")
+                with col4:
+                    st.metric("Max Loss (if all assigned)", f"${max_loss:,.2f}")
+                
+                # Risk level assessment
+                if avg_delta <= 0.20:
+                    risk_level = "🟢 LOW RISK"
+                    risk_color = "success"
+                elif avg_delta <= 0.30:
+                    risk_level = "🟡 MEDIUM RISK"
+                    risk_color = "warning"
+                else:
+                    risk_level = "🔴 HIGH RISK"
+                    risk_color = "error"
+                
+                if risk_color == "success":
+                    st.success(f"✅ {risk_level} - Conservative delta range")
+                elif risk_color == "warning":
+                    st.warning(f"⚠️ {risk_level} - Moderate assignment probability")
+                else:
+                    st.error(f"⚠️ {risk_level} - High assignment probability")
+                
+                validation_results.append(("Risk Assessment", True, risk_level))
+                
+                st.divider()
+                
+                # VALIDATION 5: Order Limit Safety
+                st.subheader("5️⃣ Order Limit Validation")
+                
+                max_orders = st.session_state.get('csp_max_orders', 10)  # Get from settings
+                if num_different_options <= max_orders:
+                    st.success(f"✅ Order count ({num_different_options} different options) within limit ({max_orders})")
+                    validation_results.append(("Order Limit", True, f"{num_different_options}/{max_orders}"))
+                else:
+                    st.error(f"❌ Too many orders! {num_different_options} different options selected, max {max_orders} allowed")
+                    st.info("💡 Reduce selection or increase 'Max Orders Per Submission' in filter settings")
+                    validation_results.append(("Order Limit", False, f"{num_different_options} > {max_orders}"))
+                    all_passed = False
+                
+                st.divider()
+                
+                # VALIDATION SUMMARY
+                st.subheader("📋 Validation Summary")
+                
+                summary_df = pd.DataFrame(validation_results, columns=['Check', 'Passed', 'Details'])
+                
+                # Color code the results
+                def color_result(val):
+                    if val == True:
+                        return '✅'
+                    else:
+                        return '❌'
+                
+                summary_df['Status'] = summary_df['Passed'].apply(color_result)
+                display_df = summary_df[['Check', 'Status', 'Details']]
+                
+                st.dataframe(display_df, use_container_width=True, hide_index=True)
+                
+                if all_passed:
+                    st.success("🎉 **ALL VALIDATIONS PASSED** - Ready to proceed!")
+                else:
+                    st.error("❌ **VALIDATION FAILED** - Please resolve issues before submitting")
+                
+                st.divider()
+                
+                # Show order details
+                st.write("**Order Details:**")
+                order_details = selected_rows[['Symbol', 'Qty', 'Strike', 'Expiration', 'DTE', 'Bid', 'Premium %', 'Weekly %', 'Delta']]
+                st.dataframe(order_details, use_container_width=True)
+                
+                st.write(f"**Total Premium to Collect:** ${total_premium:,.2f}")
+                st.write(f"**Total Collateral Required:** ${total_collateral:,.2f}")
+                
+                st.divider()
+                
+                # SUBMIT BUTTONS
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    if dry_run:
+                        button_label = "🧪 Run Dry Run Test"
+                        button_type = "primary"
+                        button_disabled = not all_passed
+                    else:
+                        button_label = "🚀 Submit REAL Orders"
+                        button_type = "primary"
+                        button_disabled = not all_passed
+                    
+                    if st.button(button_label, type=button_type, use_container_width=True, disabled=button_disabled, key="submit_orders_btn"):
+                        # Submit orders (or simulate)
+                        with st.spinner("Processing orders..." if not dry_run else "Simulating orders..."):
+                            success_count = 0
+                            failed_orders = []
+                            
+                            for idx, row in selected_rows.iterrows():
+                                try:
+                                    # Build option symbol (OCC format)
+                                    exp_date = datetime.strptime(row['Expiration'], '%Y-%m-%d')
+                                    option_symbol = f"{row['Symbol']}{exp_date.strftime('%y%m%d')}P{int(row['Strike']*1000):08d}"
+                                    qty = int(row['Qty'])  # Get quantity from row
+                                    
+                                    if dry_run:
+                                        # DRY RUN - Just simulate
+                                        st.write(f"🧪 [DRY RUN] Would submit: {qty}x {option_symbol} @ ${row['Bid']:.2f}")
+                                        success_count += 1
+                                    else:
+                                        # LIVE - Actually submit
+                                        result = api.submit_csp_order(
+                                            account_number=selected_account,
+                                            symbol=option_symbol,
+                                            quantity=qty,  # Use quantity from row
+                                            price=row['Bid']
+                                        )
+                                        
+                                        if result:
+                                            success_count += 1
+                                        else:
+                                            failed_orders.append(f"{qty}x {row['Symbol']} ${row['Strike']}")
+                                
+                                except Exception as e:
+                                    failed_orders.append(f"{int(row['Qty'])}x {row['Symbol']} ${row['Strike']} - {str(e)}")
+                            
+                            # Show results
+                            if dry_run:
+                                st.success(f"🧪 **DRY RUN COMPLETE!** {success_count} orders simulated successfully")
+                                st.info("💡 Toggle off 'Dry Run Mode' to submit real orders")
+                            else:
+                                if success_count == len(selected_rows):
+                                    st.success(f"🎉 **All {success_count} orders submitted successfully!**")
+                                    st.balloons()
+                                    
+                                    # Clear selections
+                                    st.session_state.csp_opportunities['Select'] = False
+                                    st.session_state.show_order_confirmation = False
+                                    st.rerun()
+                                
+                                elif success_count > 0:
+                                    st.warning(f"⚠️ **Partial Success:** {success_count}/{len(selected_rows)} orders submitted")
+                                    if failed_orders:
+                                        st.error("**Failed orders:**")
+                                        for order in failed_orders:
+                                            st.write(f"- {order}")
+                                else:
+                                    st.error("❌ **All orders failed!**")
+                                    if failed_orders:
+                                        for order in failed_orders:
+                                            st.write(f"- {order}")
+                
+                with col2:
+                    if st.button("❌ Cancel", use_container_width=True, key="cancel_orders_btn"):
+                        st.session_state.show_order_confirmation = False
+                        st.rerun()
+                
+                with col3:
+                    if st.button("🔄 Re-scan Prices", use_container_width=True, key="rescan_btn"):
+                        st.session_state.show_order_confirmation = False
+                        st.info("Please click 'Fetch Opportunities' again to refresh prices")
+
+        # Download buttons
+        st.divider()
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            csv = df.drop(columns=['Select']).to_csv(index=False)
+            st.download_button(
+                label="📥 Download Opportunities CSV",
+                data=csv,
+                file_name=f"csp_opportunities_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
+        
+        with col2:
+            if 'csp_scan_log' in st.session_state:
+                st.download_button(
+                    label="📄 Download Scan Log",
+                    data=st.session_state.csp_scan_log,
+                    file_name=f"csp_scan_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                    mime="text/plain",
+                    use_container_width=True
+                )
+            else:
+                st.info("ℹ️ Scan log will be available after first scan")
     else:
-        st.error("❌ Tastytrade: Not configured")
+        st.warning("⚠️ No opportunities found matching your criteria")
+        st.info("💡 Try lowering the delta, volume, or OI thresholds")
+        
+        # Show detailed log
+        if 'csp_scan_log' in st.session_state:
+            with st.expander("🔍 View Detailed Scan Log", expanded=True):
+                st.text(st.session_state.csp_scan_log)
+            
+            st.download_button(
+                label="📄 Download Scan Log for Analysis",
+                data=st.session_state.csp_scan_log,
+                file_name=f"csp_scan_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                mime="text/plain",
+                use_container_width=True
+            )
 
-# Footer
+# This is the complete refactored CC Dashboard section
+# Replace lines 1912-end of CC Dashboard in app.py with this code
+
+elif page == "CC Dashboard":
+    st.title("📞 Covered Calls Dashboard")
+    
+    # Use the account selected in the sidebar
+    if not selected_account:
+        st.error("❌ No account selected. Please select an account from the sidebar.")
+        st.stop()
+    
+    st.subheader(f"Account: {selected_display}")
+    
+    # Initialize session state for selected stocks
+    if 'cc_selected_stocks' not in st.session_state:
+        st.session_state.cc_selected_stocks = []
+    if 'cc_eligible_holdings' not in st.session_state:
+        st.session_state.cc_eligible_holdings = []
+    if 'cc_breakdown' not in st.session_state:
+        st.session_state.cc_breakdown = {}
+    
+    # Step 1: Fetch Positions Button
+    st.write("")
+    if st.button("🔍 Fetch Portfolio Positions", type="primary", use_container_width=True):
+        try:
+            from utils.covered_calls import get_eligible_stock_positions
+            
+            with st.status("Fetching positions...", expanded=True) as status:
+                st.write("📊 Fetching all positions...")
+                
+                # Use the global API instance from sidebar
+                # api is already initialized at the top of the file
+                
+                holdings, breakdown = get_eligible_stock_positions(api, selected_account)
+                
+                # Store in session state
+                st.session_state.cc_eligible_holdings = holdings
+                st.session_state.cc_breakdown = breakdown
+                
+                status.update(label="✅ Positions fetched!", state="complete")
+                st.rerun()
+                
+        except Exception as e:
+            st.error(f"Error fetching positions: {str(e)}")
+            import traceback
+            st.error(traceback.format_exc())
+    
+    # Display results if we have data
+    if st.session_state.cc_breakdown:
+        breakdown = st.session_state.cc_breakdown
+        holdings = st.session_state.cc_eligible_holdings
+        
+        st.write("")
+        st.write("---")
+        
+        # Position Breakdown Metrics
+        st.write("### 📊 Position Summary")
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Total Positions", breakdown.get('total_positions', 0))
+        with col2:
+            st.metric("Stock Positions", breakdown.get('stock_positions', 0))
+        with col3:
+            st.metric("Existing Calls", breakdown.get('existing_calls', 0))
+        with col4:
+            st.metric("Eligible for CC", breakdown.get('eligible_positions', 0))
+        
+        st.write("")
+        
+        # DEBUG: Show what's in breakdown
+        with st.expander("🔍 Debug: Breakdown Data", expanded=False):
+            st.json(breakdown)
+        
+        # TABLE 1: Existing Covered Calls
+        if breakdown.get('short_call_details'):
+            st.write("### 📋 Table 1: Existing Covered Call Positions")
+            st.write("Track your current covered calls and their performance")
+            
+            import pandas as pd
+            calls_df = pd.DataFrame(breakdown['short_call_details'])
+            
+            # Format the dataframe
+            display_df = pd.DataFrame({
+                'Symbol': calls_df['symbol'],
+                'Shares': calls_df['shares'],
+                'Contracts': calls_df['contracts'],
+                'Strike': calls_df['strike'].apply(lambda x: f"${x:.2f}"),
+                'Expiration': calls_df['expiration'],
+                'DTE': calls_df['dte'],
+                'Premium': calls_df['premium_collected'].apply(lambda x: f"${x:.2f}"),
+                'Current Value': calls_df['current_value'].apply(lambda x: f"${x:.2f}"),
+                'P/L': calls_df['pl'].apply(lambda x: f"${x:.2f}"),
+                '% Recognized': calls_df['pct_recognized'].apply(lambda x: f"{x:.1f}%")
+            })
+            
+            st.dataframe(
+                display_df,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "P/L": st.column_config.TextColumn(
+                        help="Profit/Loss = Premium Collected - Current Value"
+                    ),
+                    "% Recognized": st.column_config.TextColumn(
+                        help="Percentage of premium that has been realized"
+                    )
+                }
+            )
+            
+            st.info("💡 **Tip:** High % Recognized means the call has lost most of its value - good candidate for early close!")
+            st.write("")
+        
+        # TABLE 2: Eligible Positions (Selectable)
+        if holdings:
+            st.write("### ✅ Table 2: Eligible Positions for New Covered Calls")
+            st.write("Select stocks to scan for covered call opportunities")
+            
+            # Create dataframe
+            import pandas as pd
+            eligible_df = pd.DataFrame(holdings)
+            
+            # Add selection column
+            eligible_df['Select'] = eligible_df['symbol'].isin(st.session_state.cc_selected_stocks)
+            
+            # Reorder columns
+            display_cols = ['Select', 'symbol', 'quantity', 'current_price', 'market_value', 'max_contracts']
+            eligible_display = eligible_df[display_cols].copy()
+            eligible_display.columns = ['Select', 'Symbol', 'Shares', 'Price', 'Market Value', 'Max Contracts']
+            
+            # Format numbers
+            eligible_display['Price'] = eligible_display['Price'].apply(lambda x: f"${x:.2f}")
+            eligible_display['Market Value'] = eligible_display['Market Value'].apply(lambda x: f"${x:,.2f}")
+            
+            # Selection buttons
+            col1, col2, col3 = st.columns([1, 1, 4])
+            with col1:
+                if st.button("🔘 Select All"):
+                    st.session_state.cc_selected_stocks = eligible_df['symbol'].tolist()
+                    st.rerun()
+            with col2:
+                if st.button("⭕ Clear All"):
+                    st.session_state.cc_selected_stocks = []
+                    st.rerun()
+            
+            # Display table with checkboxes
+            edited_df = st.data_editor(
+                eligible_display,
+                use_container_width=True,
+                hide_index=True,
+                disabled=['Symbol', 'Shares', 'Price', 'Market Value', 'Max Contracts'],
+                column_config={
+                    "Select": st.column_config.CheckboxColumn(
+                        "Select",
+                        help="Select stocks to scan for covered calls",
+                        default=False,
+                    )
+                },
+                key="cc_eligible_table"
+            )
+            
+            # Update selected stocks based on checkboxes
+            selected_symbols = eligible_df[edited_df['Select']]['symbol'].tolist()
+            st.session_state.cc_selected_stocks = selected_symbols
+            
+            st.write(f"**Selected:** {len(selected_symbols)} stocks")
+            if selected_symbols:
+                st.write(f"**Symbols:** {', '.join(selected_symbols)}")
+            
+            st.write("")
+            st.write("---")
+            
+            # Pre-Scan Settings (collapsible)
+            with st.expander("🔧 Pre-Scan Settings", expanded=False):
+                st.write("Configure the delta and DTE range for option chain pre-scan")
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.write("**Delta Range**")
+                    min_prescan_delta = st.number_input(
+                        "Min Pre-Scan Delta",
+                        min_value=0.01,
+                        max_value=1.0,
+                        value=0.10,
+                        step=0.05,
+                        key="cc_min_prescan_delta"
+                    )
+                    max_prescan_delta = st.number_input(
+                        "Max Pre-Scan Delta",
+                        min_value=0.01,
+                        max_value=1.0,
+                        value=0.50,
+                        step=0.05,
+                        key="cc_max_prescan_delta"
+                    )
+                
+                with col2:
+                    st.write("**DTE Range**")
+                    prescan_min_dte = st.number_input(
+                        "Min DTE",
+                        min_value=1,
+                        max_value=365,
+                        value=7,
+                        step=1,
+                        key="cc_prescan_min_dte"
+                    )
+                    prescan_max_dte = st.number_input(
+                        "Max DTE",
+                        min_value=1,
+                        max_value=365,
+                        value=14,
+                        step=1,
+                        key="cc_prescan_max_dte"
+                    )
+            
+            # Removed redundant Filter Results section - pre-scan settings are sufficient
+            
+            # Scan Selected Stocks Button
+            if not selected_symbols:
+                st.warning("⚠️ Please select at least one stock to scan")
+            else:
+                if st.button(f"🔍 Scan {len(selected_symbols)} Selected Stocks for Covered Calls", type="primary", use_container_width=True):
+                    try:
+                        from utils.covered_calls import pre_scan_covered_calls
+                        
+                        with st.status(f"Scanning {len(selected_symbols)} stocks...", expanded=True) as status:
+                            # Filter holdings to only selected stocks
+                            selected_holdings = [h for h in holdings if h['symbol'] in selected_symbols]
+                            
+                            st.write(f"🔍 Pre-scanning option chains for {len(selected_holdings)} stocks...")
+                            st.write(f"Pre-scan range: Delta {min_prescan_delta}-{max_prescan_delta}, DTE {prescan_min_dte}-{prescan_max_dte}")
+                            
+                            # Pre-scan
+                            all_opportunities = pre_scan_covered_calls(
+                                api,
+                                selected_holdings,
+                                min_prescan_delta=min_prescan_delta,
+                                max_prescan_delta=max_prescan_delta,
+                                min_dte=prescan_min_dte,
+                                max_dte=prescan_max_dte
+                            )
+                            
+                            if not all_opportunities:
+                                st.warning("⚠️ No opportunities found in pre-scan range")
+                                st.info("💡 Try widening the pre-scan delta or DTE range")
+                                status.update(label="⚠️ No opportunities found", state="complete")
+                                st.stop()
+                            
+                            st.success(f"✅ Found {len(all_opportunities)} opportunities!")
+                            status.update(label=f"✅ Found {len(all_opportunities)} opportunities", state="complete")
+                            
+                            # Store in session state
+                            st.session_state.cc_opportunities = all_opportunities
+                            st.rerun()
+                        
+                    except Exception as e:
+                        st.error(f"Error scanning: {str(e)}")
+                        import traceback
+                        st.error(traceback.format_exc())
+        
+        # Display opportunities if we have them
+        if 'cc_opportunities' in st.session_state and st.session_state.cc_opportunities:
+            st.write("")
+            st.write("---")
+            st.write("### 🎯 Covered Call Opportunities")
+            
+            opportunities = st.session_state.cc_opportunities
+            
+            import pandas as pd
+            opp_df = pd.DataFrame(opportunities)
+            
+            # Add selection column
+            if 'cc_selected_opportunities' not in st.session_state:
+                st.session_state.cc_selected_opportunities = []
+            
+            opp_df['Select'] = False  # Default
+            
+            # Display dataframe
+            display_opp = opp_df[['Select', 'symbol', 'strike', 'expiration', 'dte', 'delta', 'premium', 'weekly_return_pct', 'oi', 'volume']].copy()
+            display_opp.columns = ['Select', 'Symbol', 'Strike', 'Expiration', 'DTE', 'Delta', 'Premium', 'Weekly %', 'OI', 'Volume']
+            
+            # Format
+            display_opp['Strike'] = display_opp['Strike'].apply(lambda x: f"${x:.2f}")
+            display_opp['Delta'] = display_opp['Delta'].apply(lambda x: f"{x:.3f}")
+            display_opp['Premium'] = display_opp['Premium'].apply(lambda x: f"${x:.2f}")
+            display_opp['Weekly %'] = display_opp['Weekly %'].apply(lambda x: f"{x:.2f}%")
+            
+            edited_opp = st.data_editor(
+                display_opp,
+                use_container_width=True,
+                hide_index=True,
+                disabled=['Symbol', 'Strike', 'Expiration', 'DTE', 'Delta', 'Premium', 'Weekly %', 'OI', 'Volume'],
+                column_config={
+                    "Select": st.column_config.CheckboxColumn("Select", default=False)
+                }
+            )
+            
+            st.write(f"**Selected:** {edited_opp['Select'].sum()} opportunities")
+            
+            # TODO: Add order submission logic here
+            st.info("🚧 Order submission coming soon!")
+    
+    else:
+        st.info("👆 Click 'Fetch Portfolio Positions' to get started")
+elif page == "Settings":
+    st.title("⚙️ Settings")
+    
+    st.subheader("🔐 API Status")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.write("**Tastytrade**")
+        if os.getenv('TASTYTRADE_USERNAME'):
+            st.success(f"✅ Username: {os.getenv('TASTYTRADE_USERNAME')}")
+        else:
+            st.error("❌ Not configured")
+        
+        st.write(f"**Accounts:** {len(api.get_accounts())} configured")
+    
+    with col2:
+        st.write("**Tradier**")
+        tradier_key = os.getenv("TRADIER_API_KEY", "")
+        if tradier_key and tradier_key != "not_configured":
+            st.success("✅ Configured ✅ Using PRODUCTION")
+        else:
+            st.warning("⚠️ Not configured (optional)")
+
 st.write("---")
 st.caption("Built with ❤️ using Streamlit | Options Trading Dashboard v1.0")

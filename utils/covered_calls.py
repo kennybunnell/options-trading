@@ -1,0 +1,450 @@
+# Covered Calls utility functions - Refactored for flexible workflow
+
+from datetime import datetime, timedelta
+import streamlit as st
+
+def get_eligible_stock_positions(api, account_number):
+    """
+    Fetch stock positions that are eligible for covered calls
+    
+    Filters out:
+    - Stocks with existing short call positions (already have covered calls)
+    - Short positions (negative quantity)
+    - Non-equity positions
+    
+    Returns:
+        Tuple: (holdings, breakdown_info)
+        - holdings: List of dict with symbol, quantity, avg_cost, current_price, etc.
+        - breakdown_info: Dict with position counts at each filtering step
+    """
+    try:
+        # Get all positions
+        all_positions = api.get_positions(account_number)
+        
+        if not all_positions:
+            return []
+        
+        # Find all stock positions (long only)
+        stock_positions = []
+        for position in all_positions:
+            if position.get('instrument-type') == 'Equity':
+                quantity = int(position.get('quantity', 0))
+                if quantity > 0:  # Long positions only
+                    stock_positions.append(position)
+        
+        # Find existing short call positions
+        short_calls = []
+        short_call_details = []  # For display purposes
+        for position in all_positions:
+            if position.get('instrument-type') == 'Equity Option':
+                quantity = int(position.get('quantity', 0))
+                if quantity < 0:  # Short positions
+                    option_type = position.get('option-type', '').lower()
+                    if option_type == 'call':
+                        underlying = position.get('underlying-symbol')
+                        short_calls.append(underlying)
+                        
+                        # Collect details for display
+                        expiration_date = position.get('expiration-date', 'Unknown')
+                        
+                        # Calculate days to expiration
+                        try:
+                            exp_dt = datetime.strptime(expiration_date, '%Y-%m-%d')
+                            dte = (exp_dt - datetime.now()).days
+                        except:
+                            dte = 0
+                        
+                        # Get premium collected (cost basis)
+                        try:
+                            cost_effect = float(position.get('cost-effect', 0))
+                            premium_collected = abs(cost_effect) * abs(quantity) * 100  # Per contract
+                        except:
+                            premium_collected = 0
+                        
+                        # Get current option price to calculate P/L
+                        try:
+                            option_symbol = position.get('symbol', '')
+                            option_quote = api.get_quote(option_symbol) if option_symbol else None
+                            current_value = float(option_quote.get('last', 0)) if option_quote else 0
+                            current_value_total = current_value * abs(quantity) * 100
+                        except:
+                            current_value = 0
+                            current_value_total = 0
+                        
+                        # Calculate P/L and % recognized
+                        pl = premium_collected - current_value_total
+                        pct_recognized = (pl / premium_collected * 100) if premium_collected > 0 else 0
+                        
+                        # Find shares owned for this stock
+                        shares_owned = 0
+                        for sp in stock_positions:
+                            if sp.get('symbol') == underlying:
+                                shares_owned = int(sp.get('quantity', 0))
+                                break
+                        
+                        short_call_details.append({
+                            'symbol': underlying,
+                            'shares': shares_owned,
+                            'contracts': abs(quantity),
+                            'strike': float(position.get('strike-price', 0)),
+                            'expiration': expiration_date,
+                            'dte': dte,
+                            'premium_collected': premium_collected,
+                            'current_value': current_value_total,
+                            'pl': pl,
+                            'pct_recognized': pct_recognized,
+                            'option_symbol': position.get('symbol', '')
+                        })
+        
+        # Filter out stocks that already have covered calls
+        covered_symbols = set(short_calls)
+        eligible_positions = [p for p in stock_positions if p.get('symbol') not in covered_symbols]
+        
+        # Format holdings
+        holdings = []
+        for position in eligible_positions:
+            symbol = position.get('symbol')
+            quantity = int(position.get('quantity', 0))
+            
+            # Safely parse numeric values
+            try:
+                cost_basis = float(position.get('cost-effect', 0))
+            except (ValueError, TypeError):
+                cost_basis = 0
+            
+            try:
+                average_open_price = float(position.get('average-open-price', 0))
+            except (ValueError, TypeError):
+                average_open_price = 0
+            
+            # Get current price (optional - will fetch during option chain scan if needed)
+            try:
+                quote = api.get_quote(symbol)
+                current_price = float(quote.get('last', 0)) if quote else 0
+            except:
+                current_price = 0
+            
+            # Add to holdings even if current_price is 0 (will fetch later)
+            holdings.append({
+                'symbol': symbol,
+                'quantity': quantity,
+                'avg_cost': average_open_price,
+                'current_price': current_price if current_price > 0 else average_open_price,  # Use avg_cost as fallback
+                'market_value': (current_price if current_price > 0 else average_open_price) * quantity,
+                'unrealized_pl': (current_price - average_open_price) * quantity if current_price > 0 else 0,
+                'unrealized_pl_pct': ((current_price - average_open_price) / average_open_price * 100) if (average_open_price > 0 and current_price > 0) else 0,
+                'max_contracts': quantity // 100
+            })
+        
+        # Create breakdown info
+        breakdown = {
+            'total_positions': len(all_positions),
+            'stock_positions': len(stock_positions),
+            'stock_symbols': [p.get('symbol') for p in stock_positions],
+            'existing_calls': len(covered_symbols),
+            'covered_symbols': list(covered_symbols),
+            'short_call_details': short_call_details,  # Full details with expiration
+            'eligible_positions': len(holdings),
+            'eligible_symbols': [h['symbol'] for h in holdings]
+        }
+        
+        return holdings, breakdown
+        
+    except Exception as e:
+        st.error(f"Error fetching eligible positions: {str(e)}")
+        import traceback
+        st.error(traceback.format_exc())
+        return [], {}
+
+
+def pre_scan_covered_calls(api, holdings, min_prescan_delta=0.10, max_prescan_delta=0.50, min_dte=7, max_dte=14):
+    """
+    Pre-scan for covered call opportunities with wide filters
+    
+    This fetches ALL opportunities within the pre-scan range.
+    User can then filter the results client-side without re-scanning.
+    
+    Args:
+        api: API instance
+        holdings: List of eligible stock holdings
+        min_prescan_delta: Minimum delta for pre-scan (default 0.10)
+        max_prescan_delta: Maximum delta for pre-scan (default 0.50)
+        min_dte: Minimum days to expiration
+        max_dte: Maximum days to expiration
+    
+    Returns:
+        List of ALL covered call opportunities within pre-scan range
+    """
+
+# ... (keep all existing functions until pre_scan_covered_calls)
+
+def pre_scan_covered_calls(api, holdings, min_prescan_delta=0.10, max_prescan_delta=0.50, min_dte=7, max_dte=14):
+    """
+    Pre-scan option chains for covered call opportunities WITH DETAILED LOGGING
+    """
+    opportunities = []
+    
+    st.write(f"📊 **Starting scan of {len(holdings)} stocks...**")
+    st.write(f"🎯 Pre-scan filters: Delta {min_prescan_delta:.2f}-{max_prescan_delta:.2f}, DTE {min_dte}-{max_dte}")
+    st.write("")
+    
+    for idx, holding in enumerate(holdings, 1):
+        symbol = holding['symbol']
+        quantity = holding['quantity']
+        current_price = holding['current_price']
+        
+        st.write(f"**[{idx}/{len(holdings)}] {symbol}** - ${current_price:.2f}, {quantity} shares")
+        
+        if current_price <= 0:
+            st.warning(f"  ⚠️ Skipping {symbol}: Invalid price ${current_price}")
+            continue
+        
+        try:
+            # Get option chain
+            st.write(f"  🔍 Fetching option chain...")
+            chain_data = api.get_option_chain(symbol)
+            
+            if not chain_data:
+                st.warning(f"  ⚠️ No option chain data returned for {symbol}")
+                continue
+            
+            st.write(f"  ✅ Got option chain data")
+            
+            # Parse chain data
+            expirations = chain_data.get('expirations', [])
+            
+            if not expirations:
+                st.warning(f"  ⚠️ No expirations found for {symbol}")
+                continue
+            
+            st.write(f"  📅 Found {len(expirations)} expiration dates")
+            
+            # Filter expirations by DTE
+            today = datetime.now().date()
+            valid_expirations = 0
+            total_strikes_checked = 0
+            opportunities_found = 0
+            
+            for exp_data in expirations:
+                exp_date_str = exp_data.get('expiration-date')
+                
+                if not exp_date_str:
+                    continue
+                
+                try:
+                    exp_date = datetime.strptime(exp_date_str, '%Y-%m-%d').date()
+                    dte = (exp_date - today).days
+                    
+                    # Filter by DTE range
+                    if not (min_dte <= dte <= max_dte):
+                        continue
+                    
+                    valid_expirations += 1
+                    
+                    # Get call strikes
+                    strikes = exp_data.get('strikes', [])
+                    
+                    if not strikes:
+                        continue
+                    
+                    st.write(f"    📊 {exp_date_str} (DTE {dte}): {len(strikes)} strikes")
+                    
+                    for strike_data in strikes:
+                        strike = float(strike_data.get('strike-price', 0))
+                        total_strikes_checked += 1
+                        
+                        # Only OTM calls (strike > current price)
+                        if strike <= current_price:
+                            continue
+                        
+                        # Get call option data
+                        call_data = strike_data.get('call')
+                        
+                        if not call_data:
+                            continue
+                        
+                        # Extract option data
+                        delta = abs(float(call_data.get('delta', 0)))
+                        bid = float(call_data.get('bid', 0))
+                        ask = float(call_data.get('ask', 0))
+                        mid = (bid + ask) / 2
+                        volume = int(call_data.get('volume', 0))
+                        open_interest = int(call_data.get('open-interest', 0))
+                        
+                        # Filter by pre-scan delta range
+                        if not (min_prescan_delta <= delta <= max_prescan_delta):
+                            continue
+                        
+                        # Skip if no bid
+                        if bid <= 0:
+                            continue
+                        
+                        # Calculate metrics
+                        premium_per_share = bid  # Conservative (use bid)
+                        return_pct = (premium_per_share / current_price) * 100
+                        weekly_return = (return_pct / dte) * 7 if dte > 0 else 0
+                        
+                        # Calculate max contracts
+                        max_contracts = quantity // 100
+                        
+                        if max_contracts <= 0:
+                            continue
+                        
+                        # Calculate bid-ask spread
+                        spread_pct = ((ask - bid) / bid * 100) if bid > 0 else 999
+                        
+                        # Distance OTM
+                        distance_otm_pct = ((strike - current_price) / current_price) * 100
+                        
+                        opportunities.append({
+                            'symbol': symbol,
+                            'current_price': current_price,
+                            'strike': strike,
+                            'expiration': exp_date_str,
+                            'dte': dte,
+                            'delta': delta,
+                            'bid': bid,
+                            'ask': ask,
+                            'mid': mid,
+                            'premium': bid * 100,  # Per contract
+                            'return_pct': return_pct,
+                            'weekly_return': weekly_return,
+                            'weekly_return_pct': weekly_return,  # Add this for display
+                            'volume': volume,
+                            'open_interest': open_interest,
+                            'spread_pct': spread_pct,
+                            'shares_owned': quantity,
+                            'max_contracts': max_contracts,
+                            'distance_otm': distance_otm_pct
+                        })
+                        
+                        opportunities_found += 1
+                        st.write(f"      ✅ ${strike:.2f} Δ{delta:.3f} bid ${bid:.2f} ({weekly_return:.2f}% weekly)")
+                
+                except Exception as e:
+                    st.warning(f"    ⚠️ Error parsing expiration {exp_date_str}: {str(e)}")
+                    continue
+            
+            st.write(f"  📈 {symbol} summary: {valid_expirations} valid expirations, {total_strikes_checked} strikes checked, {opportunities_found} opportunities found")
+            st.write("")
+        
+        except Exception as e:
+            st.error(f"  ❌ Error scanning {symbol}: {str(e)}")
+            import traceback
+            st.code(traceback.format_exc())
+            continue
+    
+    st.write("---")
+    st.write(f"🎯 **TOTAL OPPORTUNITIES FOUND: {len(opportunities)}**")
+    st.write("")
+    
+    return opportunities
+
+
+def filter_opportunities(opportunities, min_return_pct=0.0, max_delta=1.0):
+    """
+    Filter opportunities client-side (no API calls)
+    
+    Args:
+        opportunities: List of opportunities from pre_scan
+        min_return_pct: Minimum weekly return %
+        max_delta: Maximum delta
+    
+    Returns:
+        Filtered list of opportunities
+    """
+    filtered = []
+    
+    for opp in opportunities:
+        # Apply filters
+        if opp['weekly_return'] < min_return_pct:
+            continue
+        
+        if opp['delta'] > max_delta:
+            continue
+        
+        filtered.append(opp)
+    
+    return filtered
+
+
+def calculate_covered_call_metrics(opportunity, contracts=1):
+    """
+    Calculate metrics for a covered call trade
+    
+    Args:
+        opportunity: Opportunity dict
+        contracts: Number of contracts to sell
+    
+    Returns:
+        Dict with calculated metrics
+    """
+    premium_total = opportunity['premium'] * contracts
+    shares_required = contracts * 100
+    stock_value = opportunity['current_price'] * shares_required
+    
+    # Return on stock value
+    return_on_stock = (premium_total / stock_value) * 100
+    
+    # Annualized return
+    dte = opportunity['dte']
+    annualized_return = (return_on_stock / dte) * 365 if dte > 0 else 0
+    
+    # Break-even (stock can drop this much and still profit)
+    breakeven_drop = (opportunity['premium'] / opportunity['current_price']) * 100
+    
+    # Max profit (if assigned)
+    intrinsic_gain = (opportunity['strike'] - opportunity['current_price']) * shares_required
+    max_profit = premium_total + intrinsic_gain
+    max_profit_pct = (max_profit / stock_value) * 100
+    
+    return {
+        'premium_total': premium_total,
+        'shares_required': shares_required,
+        'stock_value': stock_value,
+        'return_on_stock': return_on_stock,
+        'annualized_return': annualized_return,
+        'breakeven_drop': breakeven_drop,
+        'max_profit': max_profit,
+        'max_profit_pct': max_profit_pct
+    }
+
+
+def format_covered_call_order(opportunity, contracts, account_number):
+    """
+    Format covered call order for submission
+    
+    Args:
+        opportunity: Opportunity dict
+        contracts: Number of contracts to sell
+        account_number: Account number
+    
+    Returns:
+        Order dict for API submission
+    """
+    symbol = opportunity['symbol']
+    strike = opportunity['strike']
+    expiration = opportunity['expiration']
+    price = opportunity['bid']  # Use bid price
+    
+    # Format option symbol (OCC format)
+    # Example: AAPL260110C00180000 (AAPL, 2026-01-10, Call, $180 strike)
+    exp_formatted = expiration.replace('-', '')[2:]  # YYMMDD
+    strike_formatted = f"{int(strike * 1000):08d}"  # 8 digits, 3 decimals
+    option_symbol = f"{symbol}{exp_formatted}C{strike_formatted}"
+    
+    order = {
+        'account_number': account_number,
+        'symbol': option_symbol,
+        'underlying_symbol': symbol,
+        'quantity': contracts,
+        'side': 'sell_to_open',
+        'order_type': 'limit',
+        'price': price,
+        'duration': 'day',
+        'option_type': 'call',
+        'strike': strike,
+        'expiration': expiration
+    }
+    
+    return order
