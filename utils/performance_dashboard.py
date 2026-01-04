@@ -413,10 +413,10 @@ def render_performance_overview():
     
     # Load premium data for actual values
     premium_data = load_premium_data()
-    total_cc = premium_data.get('total_cc', 0)
-    total_csp = premium_data.get('total_csp', 0)
-    total_gross = premium_data.get('total_gross', 0)
-    total_buyback = premium_data.get('total_buyback', 0)
+    total_cc = premium_data.get('cc_net', 0)
+    total_csp = premium_data.get('csp_net', 0)
+    total_credits = premium_data.get('total_credits', 0)
+    total_debits = premium_data.get('total_debits', 0)
     total_net = premium_data.get('total_net', 0)
     
     # Use net as the primary premium value
@@ -428,8 +428,8 @@ def render_performance_overview():
         total_premium = 223650  # Use the API-calculated value
         total_cc = 11626
         total_csp = 212024
-        total_gross = 660657
-        total_buyback = 437007
+        total_credits = 379084
+        total_debits = 155434
         total_net = 223650
     
     # Calculate time-based metrics
@@ -441,16 +441,16 @@ def render_performance_overview():
     
     with col1:
         st.metric(
-            label="💰 Gross Premium",
-            value=f"${total_gross:,.0f}",
-            delta=f"{500} STO trades"
+            label="💰 Total Credits",
+            value=f"${total_credits:,.0f}",
+            delta="Orders with positive NET"
         )
     
     with col2:
         st.metric(
-            label="💸 Buyback Costs",
-            value=f"${total_buyback:,.0f}",
-            delta=f"{362} BTC trades",
+            label="💸 Total Debits",
+            value=f"${total_debits:,.0f}",
+            delta="Orders with negative NET",
             delta_color="inverse"
         )
     
