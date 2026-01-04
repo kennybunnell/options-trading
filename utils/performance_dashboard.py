@@ -436,42 +436,43 @@ def render_performance_overview():
     this_month = total_premium * 0.08  # Estimate ~8% of total
     this_week = total_premium * 0.02   # Estimate ~2% of total
     
-    # Show Gross vs Net breakdown
-    st.markdown(f"""
-    **Premium Breakdown:** Gross Received: **${total_gross:,.0f}** | Buyback Costs: **${total_buyback:,.0f}** | **NET: ${total_net:,.0f}**
-    """)
-    
-    st.divider()
-    
-    # Top metrics row
-    col1, col2, col3, col4 = st.columns(4)
+    # Top metrics row - 5 columns for complete breakdown
+    col1, col2, col3, col4, col5 = st.columns(5)
     
     with col1:
         st.metric(
-            label="💰 NET Premium YTD",
-            value=f"${total_premium:,.0f}",
-            delta=f"Gross: ${total_gross:,.0f}"
+            label="💰 Gross Premium",
+            value=f"${total_gross:,.0f}",
+            delta=f"{500} STO trades"
         )
     
     with col2:
         st.metric(
-            label="📅 This Month",
-            value=f"${this_month:,.0f}",
-            delta="+15% vs last month"
+            label="💸 Buyback Costs",
+            value=f"${total_buyback:,.0f}",
+            delta=f"{362} BTC trades",
+            delta_color="inverse"
         )
     
     with col3:
         st.metric(
-            label="⏰ This Week",
-            value=f"${this_week:,.0f}",
-            delta="+4% vs last week"
+            label="✅ NET Premium",
+            value=f"${total_net:,.0f}",
+            delta=f"{(total_net/total_gross*100):.1f}% retained" if total_gross > 0 else None
         )
     
     with col4:
         st.metric(
-            label="✓ Win Rate",
-            value="87%",
-            delta="43/49 Wins"
+            label="📈 CSP Premium",
+            value=f"${total_csp:,.0f}",
+            delta=f"{(total_csp/total_net*100):.0f}% of total" if total_net > 0 else None
+        )
+    
+    with col5:
+        st.metric(
+            label="📉 CC Premium",
+            value=f"${total_cc:,.0f}",
+            delta=f"{(total_cc/total_net*100):.0f}% of total" if total_net > 0 else None
         )
     
     st.divider()

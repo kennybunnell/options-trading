@@ -66,15 +66,26 @@
   },
   "cc_gross": 60646.0,
   "cc_buyback": 49020.0,
-  "csp_gross": 600011.0,
-  "csp_buyback": 387987.0,
+  "csp_gross": 611343.0,
+  "csp_buyback": 399319.0,
   "total_cc": 11626.0,
   "total_csp": 212024.0,
-  "total_gross": 660657.0,
-  "total_buyback": 437007.0,
+  "total_gross": 671989.0,
+  "total_buyback": 448339.0,
   "total_net": 223650.0,
-  "source": "Tastytrade API (corrected)",
-  "fetched_at": "2026-01-03T19:03:40.826192",
+  "source": "Tastytrade API (verified)",
+  "fetched_at": "2026-01-03T19:10:00",
   "transaction_count": 1088,
-  "option_trade_count": 857
+  "option_trade_count": 979,
+  "breakdown": {
+    "sell_to_open_count": 500,
+    "sell_to_open_credits": 668259.0,
+    "sell_to_close_count": 2,
+    "sell_to_close_credits": 3730.0,
+    "buy_to_close_count": 362,
+    "buy_to_close_debits": 440449.0,
+    "buy_to_open_count": 1,
+    "buy_to_open_debits": 7890.0,
+    "expired_worthless_count": 56
+  }
 }
