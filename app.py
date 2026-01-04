@@ -8,6 +8,7 @@ from datetime import datetime
 load_dotenv()
 
 from utils.tastytrade_api import TastytradeAPI
+from utils.csp_ladder_manager import render_csp_ladder_manager
 
 # Page config
 st.set_page_config(
@@ -59,7 +60,7 @@ with st.sidebar:
     st.subheader("📍 Navigation")
     page = st.radio(
         "Go to",
-        ["Home", "Analysis Dashboard", "CSP Dashboard", "CC Dashboard", "Settings"],
+        ["Home", "Analysis Dashboard", "CSP Dashboard", "CC Dashboard", "Performance", "Settings"],
         label_visibility="collapsed"
     )
 
@@ -86,6 +87,11 @@ if page == "Home":
                 st.metric("Cash Balance", f"${cash:,.2f}")
             with col3:
                 st.metric("Buying Power", f"${buying_power:,.2f}")
+        
+        st.divider()
+        
+        # CSP Ladder Manager
+        render_csp_ladder_manager(api, selected_account)
         
         st.divider()
         
@@ -2212,6 +2218,28 @@ elif page == "CC Dashboard":
     
     else:
         st.info("👆 Click 'Fetch Portfolio Positions' to get started")
+
+elif page == "Performance":
+    st.title("📊 Performance Dashboard")
+    
+    from utils.performance_dashboard import (
+        render_active_positions,
+        render_stock_basis,
+        render_performance_overview
+    )
+    
+    # Create tabs
+    tab1, tab2, tab3 = st.tabs(["Active Positions", "Stock Basis & Returns", "Performance Overview"])
+    
+    with tab1:
+        render_active_positions(api)
+    
+    with tab2:
+        render_stock_basis(api)
+    
+    with tab3:
+        render_performance_overview()
+
 elif page == "Settings":
     st.title("⚙️ Settings")
     

@@ -656,6 +656,8 @@ def render_performance_overview():
 def render_stock_basis(api=None):
     """Render the Stock Basis & Returns"""
     
+    from utils.recovery_tracker import render_recovery_tracker
+    
     st.header("STOCK BASIS & RETURNS")
     
     # Get API from session state if not provided
@@ -833,6 +835,13 @@ def render_stock_basis(api=None):
     )
     
     st.plotly_chart(fig, use_container_width=True)
+    
+    st.divider()
+    
+    # Recovery Tracker for underwater positions
+    render_recovery_tracker(stock_positions, cc_premiums)
+    
+    st.divider()
     
     # Last updated and export
     col1, col2 = st.columns([3, 1])
