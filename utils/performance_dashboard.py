@@ -458,7 +458,7 @@ def render_performance_overview():
         st.metric(
             label="✅ NET Premium",
             value=f"${total_net:,.0f}",
-            delta=f"{(total_net/total_gross*100):.1f}% retained" if total_gross > 0 else None
+            delta=f"{(total_net/total_credits*100):.1f}% retained" if total_credits > 0 else None
         )
     
     with col4:
