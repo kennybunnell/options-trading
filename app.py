@@ -2302,13 +2302,66 @@ elif page == "CC Dashboard":
                 disabled=['Symbol', 'Strike', 'Expiration', 'DTE', 'Delta', 'Premium', 'Weekly %', 'OI', 'Volume'],
                 column_config={
                     "Select": st.column_config.CheckboxColumn("Select", default=False)
-                }
+                },
+                key="cc_selector"
             )
             
-            st.write(f"**Selected:** {edited_opp['Select'].sum()} opportunities")
+            # Update session state with selections
+            if 'Select' in edited_opp.columns:
+                opp_df['Select'] = edited_opp['Select']
+                st.session_state.cc_opportunities_df = opp_df.copy()
             
-            # TODO: Add order submission logic here
-            st.info("🚧 Order submission coming soon!")
+            st.divider()
+            
+            # Order Summary Card
+            selected_rows = opp_df[opp_df['Select'] == True]
+            
+            if len(selected_rows) > 0:
+                st.subheader("💰 Order Summary")
+                
+                # Calculate totals
+                total_contracts = len(selected_rows)  # Each row = 1 contract
+                total_premium = selected_rows['premium'].sum()  # Premium per contract
+                total_shares_covered = total_contracts * 100  # Each contract covers 100 shares
+                avg_weekly_return = selected_rows['weekly_return_pct'].mean()
+                avg_delta = selected_rows['delta'].mean()
+                avg_dte = selected_rows['dte'].mean()
+                
+                # Display summary metrics
+                col1, col2, col3, col4, col5 = st.columns(5)
+                
+                with col1:
+                    st.metric("Total Contracts", int(total_contracts))
+                    st.caption(f"{total_shares_covered:,} shares covered")
+                with col2:
+                    st.metric("Total Premium", f"${total_premium:,.2f}")
+                    st.caption("Income collected")
+                with col3:
+                    st.metric("Avg Weekly Return", f"{avg_weekly_return:.2f}%")
+                    monthly = avg_weekly_return * 4.33
+                    st.caption(f"~{monthly:.2f}% monthly")
+                with col4:
+                    st.metric("Avg Delta", f"{avg_delta:.3f}")
+                    assignment_prob = avg_delta * 100
+                    st.caption(f"~{assignment_prob:.0f}% assignment risk")
+                with col5:
+                    st.metric("Avg DTE", f"{int(avg_dte)} days")
+                    st.caption(f"Time to expiration")
+                
+                st.write("")
+                
+                # Show selected opportunities grouped by symbol
+                st.write("**Selected Opportunities:**")
+                for symbol in selected_rows['symbol'].unique():
+                    symbol_rows = selected_rows[selected_rows['symbol'] == symbol]
+                    symbol_premium = symbol_rows['premium'].sum()
+                    symbol_contracts = len(symbol_rows)
+                    st.write(f"- **{symbol}**: {symbol_contracts} contract(s) = ${symbol_premium:.2f} premium")
+                
+                st.write("")
+                st.info("🚧 Order submission coming soon!")
+            else:
+                st.info("👆 Select opportunities using the checkboxes or preset filters above")
     
     else:
         st.info("👆 Click 'Fetch Portfolio Positions' to get started")
