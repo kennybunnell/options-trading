@@ -2090,50 +2090,11 @@ elif page == "CC Dashboard":
             st.write("")
             st.write("---")
             
-            # Pre-Scan Settings (collapsible)
-            with st.expander("🔧 Pre-Scan Settings", expanded=False):
-                st.write("Configure the delta and DTE range for option chain pre-scan")
-                
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.write("**Delta Range**")
-                    min_prescan_delta = st.number_input(
-                        "Min Pre-Scan Delta",
-                        min_value=0.01,
-                        max_value=1.0,
-                        value=0.10,
-                        step=0.05,
-                        key="cc_min_prescan_delta"
-                    )
-                    max_prescan_delta = st.number_input(
-                        "Max Pre-Scan Delta",
-                        min_value=0.01,
-                        max_value=1.0,
-                        value=0.50,
-                        step=0.05,
-                        key="cc_max_prescan_delta"
-                    )
-                
-                with col2:
-                    st.write("**DTE Range**")
-                    prescan_min_dte = st.number_input(
-                        "Min DTE",
-                        min_value=1,
-                        max_value=365,
-                        value=7,
-                        step=1,
-                        key="cc_prescan_min_dte"
-                    )
-                    prescan_max_dte = st.number_input(
-                        "Max DTE",
-                        min_value=1,
-                        max_value=365,
-                        value=14,
-                        step=1,
-                        key="cc_prescan_max_dte"
-                    )
-            
-            # Removed redundant Filter Results section - pre-scan settings are sufficient
+            # Use default pre-scan settings (wide range to catch all opportunities)
+            min_prescan_delta = 0.05
+            max_prescan_delta = 0.99
+            prescan_min_dte = 1
+            prescan_max_dte = 90
             
             # Scan Selected Stocks Button
             if not selected_symbols:
