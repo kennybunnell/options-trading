@@ -2535,14 +2535,32 @@ elif page == "CC Dashboard":
             st.write("---")
             
             # Display dataframe
-            display_opp = opp_df[['Select', 'Qty', 'symbol', 'strike', 'expiration', 'dte', 'delta', 'premium', 'weekly_return_pct', 'open_interest', 'volume']].copy()
-            display_opp.columns = ['Select', 'Qty', 'Symbol', 'Strike', 'Expiration', 'DTE', 'Delta', 'Premium', 'Weekly %', 'OI', 'Volume']
+            display_opp = opp_df[['Select', 'Qty', 'symbol', 'strike', 'expiration', 'dte', 'delta', 'premium', 'weekly_return_pct', 'open_interest', 'volume', 'max_contracts']].copy()
+            
+            # Calculate Available column (remaining contracts)
+            display_opp['Available'] = display_opp['max_contracts'] - display_opp['Qty']
+            
+            # Add visual indicator to Available column
+            def format_available(val):
+                if val > 0:
+                    return f"🟢 {int(val)}"  # Green circle for available
+                else:
+                    return f"⚫ {int(val)}"  # Black circle for none available
+            
+            display_opp['Available_Display'] = display_opp['Available'].apply(format_available)
+            
+            # Rename columns
+            display_opp.columns = ['Select', 'Qty', 'Symbol', 'Strike', 'Expiration', 'DTE', 'Delta', 'Premium', 'Weekly %', 'OI', 'Volume', 'max_contracts', 'Available', 'Available_Display']
             
             # Format
             display_opp['Strike'] = display_opp['Strike'].apply(lambda x: f"${x:.2f}")
             display_opp['Delta'] = display_opp['Delta'].apply(lambda x: f"{x:.3f}")
             display_opp['Premium'] = display_opp['Premium'].apply(lambda x: f"${x:.2f}")
             display_opp['Weekly %'] = display_opp['Weekly %'].apply(lambda x: f"{x:.2f}%")
+            
+            # Reorder columns to put Available after Qty (use display version with emoji)
+            display_opp = display_opp[['Select', 'Qty', 'Available_Display', 'Symbol', 'Strike', 'Expiration', 'DTE', 'Delta', 'Premium', 'Weekly %', 'OI', 'Volume']]
+            
             edited_opp = st.data_editor(
                 display_opp,
                 use_container_width=True,
@@ -2555,12 +2573,17 @@ elif page == "CC Dashboard":
                     ),
                     "Qty": st.column_config.NumberColumn(
                         "Qty",
-                        help="Use buttons above to adjust quantities (editing cells may be unreliable)",
+                        help="Number of contracts to trade",
                         min_value=1,
                         max_value=100,
                         step=1,
                         default=1,
                         format="%d"
+                    ),
+                    "Available_Display": st.column_config.TextColumn(
+                        "Available",
+                        help="Remaining contracts available for this stock (🟢 = available, ⚫ = none)",
+                        disabled=True
                     )
                 },
                 key="cc_selector"
