@@ -1976,7 +1976,11 @@ elif page == "CC Dashboard":
         
         # Position Breakdown Metrics
         st.write("### 📊 Position Summary")
-        col1, col2, col3, col4 = st.columns(4)
+        
+        # Calculate total eligible contracts (shares / 100)
+        total_eligible_contracts = sum([h.get('max_contracts', 0) for h in holdings])
+        
+        col1, col2, col3, col4, col5 = st.columns(5)
         with col1:
             st.metric("Total Positions", breakdown.get('total_positions', 0))
         with col2:
@@ -1985,12 +1989,10 @@ elif page == "CC Dashboard":
             st.metric("Existing Calls", breakdown.get('existing_calls', 0))
         with col4:
             st.metric("Eligible for CC", breakdown.get('eligible_positions', 0))
+        with col5:
+            st.metric("💼 Eligible Contracts", total_eligible_contracts)
         
         st.write("")
-        
-        # DEBUG: Show what's in breakdown
-        with st.expander("🔍 Debug: Breakdown Data", expanded=False):
-            st.json(breakdown)
         
         # TABLE 1: Existing Covered Calls
         if breakdown.get('short_call_details'):
