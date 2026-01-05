@@ -2235,6 +2235,8 @@ elif page == "CC Dashboard":
                         (opp_df['open_interest'] >= 100) &
                         (opp_df['weekly_return_pct'] >= 0.5)
                     )
+                    matched = mask.sum()
+                    st.write(f"DEBUG: Conservative matched {matched} opportunities")
                     opp_df.loc[mask, 'Select'] = True
                     st.session_state.cc_opportunities_df = opp_df.copy()
                     st.rerun()
@@ -2253,6 +2255,8 @@ elif page == "CC Dashboard":
                         (opp_df['open_interest'] >= 50) &
                         (opp_df['weekly_return_pct'] >= 0.75)
                     )
+                    matched = mask.sum()
+                    st.write(f"DEBUG: Medium matched {matched} opportunities")
                     opp_df.loc[mask, 'Select'] = True
                     st.session_state.cc_opportunities_df = opp_df.copy()
                     st.rerun()
@@ -2271,6 +2275,8 @@ elif page == "CC Dashboard":
                         (opp_df['open_interest'] >= 25) &
                         (opp_df['weekly_return_pct'] >= 1.0)
                     )
+                    matched = mask.sum()
+                    st.write(f"DEBUG: Aggressive matched {matched} opportunities")
                     opp_df.loc[mask, 'Select'] = True
                     st.session_state.cc_opportunities_df = opp_df.copy()
                     st.rerun()
