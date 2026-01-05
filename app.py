@@ -2189,6 +2189,31 @@ elif page == "CC Dashboard":
             st.write("---")
             st.write("### 🎯 Covered Call Opportunities")
             
+            # Initialize preset criteria in session state (defaults)
+            if 'cc_conservative_delta_min' not in st.session_state:
+                st.session_state.cc_conservative_delta_min = 0.10
+                st.session_state.cc_conservative_delta_max = 0.20
+                st.session_state.cc_conservative_dte_min = 14
+                st.session_state.cc_conservative_dte_max = 30
+                st.session_state.cc_conservative_oi_min = 100
+                st.session_state.cc_conservative_weekly_min = 0.5
+            
+            if 'cc_medium_delta_min' not in st.session_state:
+                st.session_state.cc_medium_delta_min = 0.20
+                st.session_state.cc_medium_delta_max = 0.35
+                st.session_state.cc_medium_dte_min = 7
+                st.session_state.cc_medium_dte_max = 21
+                st.session_state.cc_medium_oi_min = 50
+                st.session_state.cc_medium_weekly_min = 0.75
+            
+            if 'cc_aggressive_delta_min' not in st.session_state:
+                st.session_state.cc_aggressive_delta_min = 0.35
+                st.session_state.cc_aggressive_delta_max = 0.50
+                st.session_state.cc_aggressive_dte_min = 7
+                st.session_state.cc_aggressive_dte_max = 14
+                st.session_state.cc_aggressive_oi_min = 25
+                st.session_state.cc_aggressive_weekly_min = 1.0
+            
             # Get DataFrame from session state (already has Select column)
             opp_df = st.session_state.cc_opportunities
             
@@ -2207,14 +2232,14 @@ elif page == "CC Dashboard":
                     # Clear all first
                     st.session_state.cc_opportunities['Select'] = False
                     st.session_state.cc_opportunities['Qty'] = 1  # Reset all to 1
-                    # Select conservative options
+                    # Select conservative options using session state criteria
                     mask = (
-                        (st.session_state.cc_opportunities['delta'] >= 0.10) &
-                        (st.session_state.cc_opportunities['delta'] <= 0.20) &
-                        (st.session_state.cc_opportunities['dte'] >= 14) &
-                        (st.session_state.cc_opportunities['dte'] <= 30) &
-                        (st.session_state.cc_opportunities['open_interest'] >= 100) &
-                        (st.session_state.cc_opportunities['weekly_return_pct'] >= 0.5)
+                        (st.session_state.cc_opportunities['delta'] >= st.session_state.cc_conservative_delta_min) &
+                        (st.session_state.cc_opportunities['delta'] <= st.session_state.cc_conservative_delta_max) &
+                        (st.session_state.cc_opportunities['dte'] >= st.session_state.cc_conservative_dte_min) &
+                        (st.session_state.cc_opportunities['dte'] <= st.session_state.cc_conservative_dte_max) &
+                        (st.session_state.cc_opportunities['open_interest'] >= st.session_state.cc_conservative_oi_min) &
+                        (st.session_state.cc_opportunities['weekly_return_pct'] >= st.session_state.cc_conservative_weekly_min)
                     )
                     st.session_state.cc_opportunities.loc[mask, 'Select'] = True
                     # Conservative: Set Qty = 1 (already done above)
@@ -2226,14 +2251,14 @@ elif page == "CC Dashboard":
                     # Clear all first
                     st.session_state.cc_opportunities['Select'] = False
                     st.session_state.cc_opportunities['Qty'] = 1  # Reset all to 1
-                    # Select medium options
+                    # Select medium options using session state criteria
                     mask = (
-                        (st.session_state.cc_opportunities['delta'] >= 0.20) &
-                        (st.session_state.cc_opportunities['delta'] <= 0.35) &
-                        (st.session_state.cc_opportunities['dte'] >= 7) &
-                        (st.session_state.cc_opportunities['dte'] <= 21) &
-                        (st.session_state.cc_opportunities['open_interest'] >= 50) &
-                        (st.session_state.cc_opportunities['weekly_return_pct'] >= 0.75)
+                        (st.session_state.cc_opportunities['delta'] >= st.session_state.cc_medium_delta_min) &
+                        (st.session_state.cc_opportunities['delta'] <= st.session_state.cc_medium_delta_max) &
+                        (st.session_state.cc_opportunities['dte'] >= st.session_state.cc_medium_dte_min) &
+                        (st.session_state.cc_opportunities['dte'] <= st.session_state.cc_medium_dte_max) &
+                        (st.session_state.cc_opportunities['open_interest'] >= st.session_state.cc_medium_oi_min) &
+                        (st.session_state.cc_opportunities['weekly_return_pct'] >= st.session_state.cc_medium_weekly_min)
                     )
                     st.session_state.cc_opportunities.loc[mask, 'Select'] = True
                     # Medium: Set Qty = 50% of max_contracts (rounded up, min 1)
@@ -2247,14 +2272,14 @@ elif page == "CC Dashboard":
                     # Clear all first
                     st.session_state.cc_opportunities['Select'] = False
                     st.session_state.cc_opportunities['Qty'] = 1  # Reset all to 1
-                    # Select aggressive options
+                    # Select aggressive options using session state criteria
                     mask = (
-                        (st.session_state.cc_opportunities['delta'] >= 0.35) &
-                        (st.session_state.cc_opportunities['delta'] <= 0.50) &
-                        (st.session_state.cc_opportunities['dte'] >= 7) &
-                        (st.session_state.cc_opportunities['dte'] <= 14) &
-                        (st.session_state.cc_opportunities['open_interest'] >= 25) &
-                        (st.session_state.cc_opportunities['weekly_return_pct'] >= 1.0)
+                        (st.session_state.cc_opportunities['delta'] >= st.session_state.cc_aggressive_delta_min) &
+                        (st.session_state.cc_opportunities['delta'] <= st.session_state.cc_aggressive_delta_max) &
+                        (st.session_state.cc_opportunities['dte'] >= st.session_state.cc_aggressive_dte_min) &
+                        (st.session_state.cc_opportunities['dte'] <= st.session_state.cc_aggressive_dte_max) &
+                        (st.session_state.cc_opportunities['open_interest'] >= st.session_state.cc_aggressive_oi_min) &
+                        (st.session_state.cc_opportunities['weekly_return_pct'] >= st.session_state.cc_aggressive_weekly_min)
                     )
                     st.session_state.cc_opportunities.loc[mask, 'Select'] = True
                     # Aggressive: Set Qty = 100% of max_contracts (all available shares)
@@ -2313,6 +2338,115 @@ elif page == "CC Dashboard":
                     st.info(f"📊 Selected: {int(selected_qty_sum)} contracts ({int(selected_count)} options)")
             
             st.write("")
+            
+            # ===== PRESET CONFIGURATION EXPANDERS =====
+            st.write("### ⚙️ Configure Preset Filters")
+            st.write("Adjust criteria for each preset, then click **Commit** to save. Click the preset button above to apply.")
+            
+            # Conservative Expander
+            with st.expander("🟢 Conservative Filter Configuration", expanded=False):
+                col1, col2 = st.columns(2)
+                with col1:
+                    cons_delta_min = st.number_input("Min Delta", value=st.session_state.cc_conservative_delta_min, min_value=0.0, max_value=1.0, step=0.01, key="cons_delta_min_input")
+                    cons_delta_max = st.number_input("Max Delta", value=st.session_state.cc_conservative_delta_max, min_value=0.0, max_value=1.0, step=0.01, key="cons_delta_max_input")
+                    cons_dte_min = st.number_input("Min DTE", value=st.session_state.cc_conservative_dte_min, min_value=0, max_value=365, step=1, key="cons_dte_min_input")
+                with col2:
+                    cons_dte_max = st.number_input("Max DTE", value=st.session_state.cc_conservative_dte_max, min_value=0, max_value=365, step=1, key="cons_dte_max_input")
+                    cons_oi_min = st.number_input("Min Open Interest", value=st.session_state.cc_conservative_oi_min, min_value=0, step=10, key="cons_oi_min_input")
+                    cons_weekly_min = st.number_input("Min Weekly Return %", value=st.session_state.cc_conservative_weekly_min, min_value=0.0, step=0.1, key="cons_weekly_min_input")
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button("💾 Commit Conservative", use_container_width=True, key="commit_conservative"):
+                        st.session_state.cc_conservative_delta_min = cons_delta_min
+                        st.session_state.cc_conservative_delta_max = cons_delta_max
+                        st.session_state.cc_conservative_dte_min = cons_dte_min
+                        st.session_state.cc_conservative_dte_max = cons_dte_max
+                        st.session_state.cc_conservative_oi_min = cons_oi_min
+                        st.session_state.cc_conservative_weekly_min = cons_weekly_min
+                        st.success("✅ Conservative criteria committed!")
+                        st.rerun()
+                with col2:
+                    if st.button("🔄 Reset Conservative", use_container_width=True, key="reset_conservative"):
+                        st.session_state.cc_conservative_delta_min = 0.10
+                        st.session_state.cc_conservative_delta_max = 0.20
+                        st.session_state.cc_conservative_dte_min = 14
+                        st.session_state.cc_conservative_dte_max = 30
+                        st.session_state.cc_conservative_oi_min = 100
+                        st.session_state.cc_conservative_weekly_min = 0.5
+                        st.success("✅ Conservative reset to defaults!")
+                        st.rerun()
+            
+            # Medium Expander
+            with st.expander("🟡 Medium Filter Configuration", expanded=False):
+                col1, col2 = st.columns(2)
+                with col1:
+                    med_delta_min = st.number_input("Min Delta", value=st.session_state.cc_medium_delta_min, min_value=0.0, max_value=1.0, step=0.01, key="med_delta_min_input")
+                    med_delta_max = st.number_input("Max Delta", value=st.session_state.cc_medium_delta_max, min_value=0.0, max_value=1.0, step=0.01, key="med_delta_max_input")
+                    med_dte_min = st.number_input("Min DTE", value=st.session_state.cc_medium_dte_min, min_value=0, max_value=365, step=1, key="med_dte_min_input")
+                with col2:
+                    med_dte_max = st.number_input("Max DTE", value=st.session_state.cc_medium_dte_max, min_value=0, max_value=365, step=1, key="med_dte_max_input")
+                    med_oi_min = st.number_input("Min Open Interest", value=st.session_state.cc_medium_oi_min, min_value=0, step=10, key="med_oi_min_input")
+                    med_weekly_min = st.number_input("Min Weekly Return %", value=st.session_state.cc_medium_weekly_min, min_value=0.0, step=0.1, key="med_weekly_min_input")
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button("💾 Commit Medium", use_container_width=True, key="commit_medium"):
+                        st.session_state.cc_medium_delta_min = med_delta_min
+                        st.session_state.cc_medium_delta_max = med_delta_max
+                        st.session_state.cc_medium_dte_min = med_dte_min
+                        st.session_state.cc_medium_dte_max = med_dte_max
+                        st.session_state.cc_medium_oi_min = med_oi_min
+                        st.session_state.cc_medium_weekly_min = med_weekly_min
+                        st.success("✅ Medium criteria committed!")
+                        st.rerun()
+                with col2:
+                    if st.button("🔄 Reset Medium", use_container_width=True, key="reset_medium"):
+                        st.session_state.cc_medium_delta_min = 0.20
+                        st.session_state.cc_medium_delta_max = 0.35
+                        st.session_state.cc_medium_dte_min = 7
+                        st.session_state.cc_medium_dte_max = 21
+                        st.session_state.cc_medium_oi_min = 50
+                        st.session_state.cc_medium_weekly_min = 0.75
+                        st.success("✅ Medium reset to defaults!")
+                        st.rerun()
+            
+            # Aggressive Expander
+            with st.expander("🔴 Aggressive Filter Configuration", expanded=False):
+                col1, col2 = st.columns(2)
+                with col1:
+                    agg_delta_min = st.number_input("Min Delta", value=st.session_state.cc_aggressive_delta_min, min_value=0.0, max_value=1.0, step=0.01, key="agg_delta_min_input")
+                    agg_delta_max = st.number_input("Max Delta", value=st.session_state.cc_aggressive_delta_max, min_value=0.0, max_value=1.0, step=0.01, key="agg_delta_max_input")
+                    agg_dte_min = st.number_input("Min DTE", value=st.session_state.cc_aggressive_dte_min, min_value=0, max_value=365, step=1, key="agg_dte_min_input")
+                with col2:
+                    agg_dte_max = st.number_input("Max DTE", value=st.session_state.cc_aggressive_dte_max, min_value=0, max_value=365, step=1, key="agg_dte_max_input")
+                    agg_oi_min = st.number_input("Min Open Interest", value=st.session_state.cc_aggressive_oi_min, min_value=0, step=10, key="agg_oi_min_input")
+                    agg_weekly_min = st.number_input("Min Weekly Return %", value=st.session_state.cc_aggressive_weekly_min, min_value=0.0, step=0.1, key="agg_weekly_min_input")
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button("💾 Commit Aggressive", use_container_width=True, key="commit_aggressive"):
+                        st.session_state.cc_aggressive_delta_min = agg_delta_min
+                        st.session_state.cc_aggressive_delta_max = agg_delta_max
+                        st.session_state.cc_aggressive_dte_min = agg_dte_min
+                        st.session_state.cc_aggressive_dte_max = agg_dte_max
+                        st.session_state.cc_aggressive_oi_min = agg_oi_min
+                        st.session_state.cc_aggressive_weekly_min = agg_weekly_min
+                        st.success("✅ Aggressive criteria committed!")
+                        st.rerun()
+                with col2:
+                    if st.button("🔄 Reset Aggressive", use_container_width=True, key="reset_aggressive"):
+                        st.session_state.cc_aggressive_delta_min = 0.35
+                        st.session_state.cc_aggressive_delta_max = 0.50
+                        st.session_state.cc_aggressive_dte_min = 7
+                        st.session_state.cc_aggressive_dte_max = 14
+                        st.session_state.cc_aggressive_oi_min = 25
+                        st.session_state.cc_aggressive_weekly_min = 1.0
+                        st.success("✅ Aggressive reset to defaults!")
+                        st.rerun()
+            
+            st.write("")
+            st.write("---")
             
             # Display dataframe
             display_opp = opp_df[['Select', 'Qty', 'symbol', 'strike', 'expiration', 'dte', 'delta', 'premium', 'weekly_return_pct', 'open_interest', 'volume']].copy()
