@@ -2203,9 +2203,10 @@ elif page == "CC Dashboard":
             
             with col2:
                 if st.button("🟢 Conservative", use_container_width=True, key="cc_preset_conservative", 
-                           help="Δ 0.10-0.20, DTE 14-30, OI ≥100, Weekly ≥0.5%"):
+                           help="Δ 0.10-0.20, DTE 14-30, OI ≥100, Weekly ≥0.5% | Qty=1 contract"):
                     # Clear all first
                     st.session_state.cc_opportunities['Select'] = False
+                    st.session_state.cc_opportunities['Qty'] = 1  # Reset all to 1
                     # Select conservative options
                     mask = (
                         (st.session_state.cc_opportunities['delta'] >= 0.10) &
@@ -2216,13 +2217,15 @@ elif page == "CC Dashboard":
                         (st.session_state.cc_opportunities['weekly_return_pct'] >= 0.5)
                     )
                     st.session_state.cc_opportunities.loc[mask, 'Select'] = True
+                    # Conservative: Set Qty = 1 (already done above)
                     st.rerun()
             
             with col3:
                 if st.button("🟡 Medium", use_container_width=True, key="cc_preset_medium",
-                           help="Δ 0.20-0.35, DTE 7-21, OI ≥50, Weekly ≥0.75%"):
+                           help="Δ 0.20-0.35, DTE 7-21, OI ≥50, Weekly ≥0.75% | Qty=50% of shares"):
                     # Clear all first
                     st.session_state.cc_opportunities['Select'] = False
+                    st.session_state.cc_opportunities['Qty'] = 1  # Reset all to 1
                     # Select medium options
                     mask = (
                         (st.session_state.cc_opportunities['delta'] >= 0.20) &
@@ -2233,13 +2236,17 @@ elif page == "CC Dashboard":
                         (st.session_state.cc_opportunities['weekly_return_pct'] >= 0.75)
                     )
                     st.session_state.cc_opportunities.loc[mask, 'Select'] = True
+                    # Medium: Set Qty = 50% of max_contracts (rounded up, min 1)
+                    import math
+                    st.session_state.cc_opportunities.loc[mask, 'Qty'] = st.session_state.cc_opportunities.loc[mask, 'max_contracts'].apply(lambda x: max(1, math.ceil(x * 0.5)))
                     st.rerun()
             
             with col4:
                 if st.button("🔴 Aggressive", use_container_width=True, key="cc_preset_aggressive",
-                           help="Δ 0.35-0.50, DTE 7-14, OI ≥25, Weekly ≥1.0%"):
+                           help="Δ 0.35-0.50, DTE 7-14, OI ≥25, Weekly ≥1.0% | Qty=100% of shares"):
                     # Clear all first
                     st.session_state.cc_opportunities['Select'] = False
+                    st.session_state.cc_opportunities['Qty'] = 1  # Reset all to 1
                     # Select aggressive options
                     mask = (
                         (st.session_state.cc_opportunities['delta'] >= 0.35) &
@@ -2250,6 +2257,8 @@ elif page == "CC Dashboard":
                         (st.session_state.cc_opportunities['weekly_return_pct'] >= 1.0)
                     )
                     st.session_state.cc_opportunities.loc[mask, 'Select'] = True
+                    # Aggressive: Set Qty = 100% of max_contracts (all available shares)
+                    st.session_state.cc_opportunities.loc[mask, 'Qty'] = st.session_state.cc_opportunities.loc[mask, 'max_contracts']
                     st.rerun()
             
             with col5:
