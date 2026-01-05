@@ -1946,6 +1946,19 @@ elif page == "CC Dashboard":
     
     st.subheader(f"Account: {selected_display}")
     
+    # Track current account and clear data when account changes
+    if 'cc_current_account' not in st.session_state:
+        st.session_state.cc_current_account = selected_account
+    elif st.session_state.cc_current_account != selected_account:
+        # Account changed - clear all CC data
+        st.session_state.cc_current_account = selected_account
+        st.session_state.cc_eligible_holdings = None
+        st.session_state.cc_breakdown = None
+        st.session_state.cc_selected_stocks = []
+        if 'cc_opportunities' in st.session_state:
+            del st.session_state.cc_opportunities
+        st.info("🔄 Account changed - data cleared. Please fetch positions and scan again.")
+    
     # Initialize session state for selected stocks
     if 'cc_selected_stocks' not in st.session_state:
         st.session_state.cc_selected_stocks = []
