@@ -249,10 +249,16 @@ def pre_scan_covered_calls(api, holdings, min_prescan_delta=0.10, max_prescan_de
                     
                     st.write(f"    📊 {exp_date_str} (DTE {dte}): {len(strikes)} strikes")
                     
+                    otm_count = 0
+                    dict_count = 0
+                    call_data_count = 0
+                    
                     for strike_data in strikes:
                         # Skip if strike_data is not a dict (API returned invalid data)
                         if not isinstance(strike_data, dict):
                             continue
+                        
+                        dict_count += 1
                         
                         strike = float(strike_data.get('strike-price', 0))
                         total_strikes_checked += 1
@@ -261,11 +267,17 @@ def pre_scan_covered_calls(api, holdings, min_prescan_delta=0.10, max_prescan_de
                         if strike <= current_price:
                             continue
                         
+                        otm_count += 1
+                        
                         # Get call option data
                         call_data = strike_data.get('call')
                         
                         if not call_data:
+                            if otm_count == 1:
+                                st.write(f"      ⚠️ First OTM strike ${strike:.2f} has no call data")
                             continue
+                        
+                        call_data_count += 1
                         
                         # Skip if call_data is not a dict (API returned invalid data)
                         if not isinstance(call_data, dict):
@@ -336,6 +348,9 @@ def pre_scan_covered_calls(api, holdings, min_prescan_delta=0.10, max_prescan_de
                         
                         opportunities_found += 1
                         st.write(f"      ✅ ${strike:.2f} Δ{delta:.3f} bid ${bid:.2f} ({weekly_return:.2f}% weekly)")
+                    
+                    # Debug summary for this expiration
+                    st.write(f"      🔍 Debug: {dict_count} valid dicts, {otm_count} OTM, {call_data_count} with call data, {opportunities_found} opportunities")
                 
                 except Exception as e:
                     st.warning(f"    ⚠️ Error parsing expiration {exp_date_str}: {str(e)}")
