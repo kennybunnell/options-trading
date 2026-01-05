@@ -2603,59 +2603,106 @@ elif page == "CC Dashboard":
                 
                 # Order Submission
                 st.write("---")
+                
+                # Initialize dry run mode in session state (default to True for safety)
+                if 'cc_dry_run_mode' not in st.session_state:
+                    st.session_state.cc_dry_run_mode = True
+                
+                # DRY RUN TOGGLE
+                col1, col2 = st.columns([1, 3])
+                with col1:
+                    dry_run = st.toggle(
+                        "🧪 Dry Run Mode (Test Only)",
+                        value=st.session_state.cc_dry_run_mode,
+                        help="When enabled, simulates orders without actually submitting them",
+                        key="cc_dry_run_toggle"
+                    )
+                    st.session_state.cc_dry_run_mode = dry_run
+                
+                with col2:
+                    if dry_run:
+                        st.info("🧪 **DRY RUN MODE** - Orders will be simulated, not submitted")
+                    else:
+                        st.error("⚠️ **LIVE MODE** - Real orders will be submitted to your account!")
+                
+                st.write("")
+                
+                # Submit button
                 col1, col2 = st.columns([3, 1])
                 with col1:
-                    st.write("📤 **Ready to submit orders to Tastytrade?**")
-                    st.caption(f"This will submit {int(total_contracts)} covered call order(s) as limit orders at the current bid price.")
+                    if dry_run:
+                        st.write("🧪 **Test order submission (no real orders)**")
+                        st.caption(f"This will simulate {int(total_contracts)} covered call order(s) without submitting to Tastytrade.")
+                    else:
+                        st.write("📤 **Ready to submit REAL orders to Tastytrade?**")
+                        st.caption(f"This will submit {int(total_contracts)} covered call order(s) as limit orders at the current bid price.")
                 with col2:
-                    if st.button("🚀 Submit Orders", type="primary", use_container_width=True, key="submit_cc_orders"):
-                        # Submit orders
-                        with st.spinner("📫 Submitting orders to Tastytrade..."):
+                    button_label = "🧪 Run Dry Run Test" if dry_run else "🚀 Submit REAL Orders"
+                    if st.button(button_label, type="primary", use_container_width=True, key="submit_cc_orders"):
+                        # Submit orders (or simulate)
+                        spinner_msg = "Simulating orders..." if dry_run else "📫 Submitting orders to Tastytrade..."
+                        with st.spinner(spinner_msg):
                             try:
-                                from utils.tastytrade_api import TastytradeAPI
-                                api = TastytradeAPI()
-                                
                                 # Get account number from session state
                                 account_number = st.session_state.get('selected_account')
                                 
-                                if not account_number:
+                                if not account_number and not dry_run:
                                     st.error("⚠️ No account selected. Please select an account first.")
                                 else:
-                                    # Prepare orders
-                                    orders = []
-                                    for idx, row in selected_rows.iterrows():
-                                        orders.append({
-                                            'symbol': row['symbol'],
-                                            'strike': row['strike'],
-                                            'expiration': row['expiration'],
-                                            'quantity': int(row['Qty']),
-                                            'price': row['premium']  # Use current bid as limit price
-                                        })
+                                    if dry_run:
+                                        # DRY RUN - Just simulate
+                                        st.write("")
+                                        st.write("### 🧪 Dry Run Results")
+                                        st.write("")
+                                        
+                                        for idx, row in selected_rows.iterrows():
+                                            st.write(f"🧪 [DRY RUN] Would submit: **{row['symbol']}** ${row['strike']} Call x{int(row['Qty'])} @ ${row['premium']:.2f}")
+                                        
+                                        st.success(f"🧪 **DRY RUN COMPLETE!** {len(selected_rows)} orders simulated successfully")
+                                        st.info("💡 Toggle off 'Dry Run Mode' to submit real orders")
                                     
-                                    # Submit batch
-                                    results = api.submit_covered_call_orders_batch(account_number, orders)
-                                    
-                                    # Display results
-                                    st.write("")
-                                    st.write("### 📊 Order Results")
-                                    
-                                    success_count = sum(1 for r in results if r.get('success'))
-                                    fail_count = len(results) - success_count
-                                    
-                                    if success_count > 0:
-                                        st.success(f"✅ {success_count} order(s) submitted successfully!")
-                                    if fail_count > 0:
-                                        st.error(f"❌ {fail_count} order(s) failed")
-                                    
-                                    # Show details
-                                    for result in results:
-                                        if result.get('success'):
-                                            st.write(f"✅ **{result['symbol']}** ${result['strike']} Call x{result['quantity']} - Order ID: {result.get('order_id')}")
-                                        else:
-                                            st.write(f"❌ **{result['symbol']}** ${result['strike']} Call x{result['quantity']} - {result.get('message')}")
+                                    else:
+                                        # LIVE - Actually submit
+                                        from utils.tastytrade_api import TastytradeAPI
+                                        api = TastytradeAPI()
+                                        
+                                        # Prepare orders
+                                        orders = []
+                                        for idx, row in selected_rows.iterrows():
+                                            orders.append({
+                                                'symbol': row['symbol'],
+                                                'strike': row['strike'],
+                                                'expiration': row['expiration'],
+                                                'quantity': int(row['Qty']),
+                                                'price': row['premium']  # Use current bid as limit price
+                                            })
+                                        
+                                        # Submit batch
+                                        results = api.submit_covered_call_orders_batch(account_number, orders)
+                                        
+                                        # Display results
+                                        st.write("")
+                                        st.write("### 📊 Order Results")
+                                        
+                                        success_count = sum(1 for r in results if r.get('success'))
+                                        fail_count = len(results) - success_count
+                                        
+                                        if success_count > 0:
+                                            st.success(f"✅ {success_count} order(s) submitted successfully!")
+                                            if success_count == len(results):
+                                                st.balloons()
+                                        if fail_count > 0:
+                                            st.error(f"❌ {fail_count} order(s) failed")
+                                        
+                                        # Show details
+                                        for result in results:
+                                            if result.get('success'):
+                                                st.write(f"✅ **{result['symbol']}** ${result['strike']} Call x{result['quantity']} - Order ID: {result.get('order_id')}")
+                                            else:
+                                                st.write(f"❌ **{result['symbol']}** ${result['strike']} Call x{result['quantity']} - {result.get('message')}")
                                     
                             except Exception as e:
-                                st.error(f"❌ Error submitting orders: {str(e)}")
+                                st.error(f"❌ Error: {str(e)}")
                                 import traceback
                                 st.error(traceback.format_exc())
             else:
