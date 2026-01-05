@@ -2385,7 +2385,7 @@ elif page == "CC Dashboard":
             
             # Row 2: Quantity adjustment buttons
             st.write("**Adjust Quantities for Selected:**")
-            col1, col2, col3, col4, col5, col6 = st.columns([1, 1, 1, 1, 1, 2])
+            col1, col2, col3, col4, col5, col6, col7 = st.columns([1, 1, 1, 1, 1.2, 1, 2])
             
             with col1:
                 if st.button("➥ +1", use_container_width=True, key="cc_qty_plus1", help="Add 1 to selected quantities"):
@@ -2412,12 +2412,21 @@ elif page == "CC Dashboard":
                     st.rerun()
             
             with col5:
+                if st.button("🔺 Max Out", use_container_width=True, key="cc_qty_max", help="Set selected quantities to maximum available contracts"):
+                    mask = st.session_state.cc_opportunities['Select'] == True
+                    # Set Qty to max_contracts for selected rows
+                    for idx in st.session_state.cc_opportunities[mask].index:
+                        max_contracts = st.session_state.cc_opportunities.loc[idx, 'max_contracts']
+                        st.session_state.cc_opportunities.loc[idx, 'Qty'] = max_contracts
+                    st.rerun()
+            
+            with col6:
                 if st.button("🔄 Reset", use_container_width=True, key="cc_qty_reset", help="Reset selected quantities to 1"):
                     mask = st.session_state.cc_opportunities['Select'] == True
                     st.session_state.cc_opportunities.loc[mask, 'Qty'] = 1
                     st.rerun()
             
-            with col6:
+            with col7:
                 # Show total contracts for selected
                 if selected_count > 0:
                     selected_qty_sum = st.session_state.cc_opportunities[st.session_state.cc_opportunities['Select'] == True]['Qty'].sum()
