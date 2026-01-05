@@ -22,7 +22,17 @@ def get_eligible_stock_positions(api, account_number):
         all_positions = api.get_positions(account_number)
         
         if not all_positions:
-            return []
+            # Return empty holdings and breakdown for accounts with no positions
+            return [], {
+                'total_positions': 0,
+                'stock_positions': 0,
+                'stock_symbols': [],
+                'existing_calls': 0,
+                'covered_symbols': [],
+                'short_call_details': [],
+                'eligible_positions': 0,
+                'eligible_symbols': []
+            }
         
         # Find all stock positions (long only)
         stock_positions = []

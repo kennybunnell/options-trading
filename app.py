@@ -1919,7 +1919,21 @@ elif page == "CSP Dashboard":
 # Replace lines 1912-end of CC Dashboard in app.py with this code
 
 elif page == "CC Dashboard":
-    st.title("📞 Covered Calls Dashboard")
+    # Market Status Indicator
+    from utils.market_hours import get_market_status
+    market_status = get_market_status()
+    
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.title("📞 Covered Calls Dashboard")
+    with col2:
+        if market_status['status'] == 'open':
+            st.success(f"{market_status['icon']} {market_status['message']}")
+        elif market_status['status'] == 'closing_soon':
+            st.warning(f"{market_status['icon']} {market_status['message']}")
+        else:
+            st.error(f"{market_status['icon']} {market_status['message']}")
+        st.caption(f"Current time: {market_status['current_time_et']}")
     
     # Initialize Tradier API for option chains with greeks
     from utils.tradier_api import TradierAPI
@@ -1993,6 +2007,11 @@ elif page == "CC Dashboard":
             st.metric("💼 Eligible Contracts", total_eligible_contracts)
         
         st.write("")
+        
+        # Show friendly message if account has no stock positions
+        if breakdown.get('stock_positions', 0) == 0:
+            st.info("📊 This account has no stock positions. Stock positions are required to write covered calls.")
+            st.stop()
         
         # TABLE 1: Existing Covered Calls
         if breakdown.get('short_call_details'):
