@@ -2150,6 +2150,92 @@ elif page == "CC Dashboard":
             st.write("---")
             st.write("### 🎯 Covered Call Opportunities")
             
+            # Helper function: Find best opportunity per ticker with criteria relaxation
+            def select_best_per_ticker(df, delta_min, delta_max, dte_min, dte_max, oi_min, weekly_min, qty_mode='conservative'):
+                """
+                For each ticker, find the BEST opportunity (highest weekly return) that matches criteria.
+                If no match, relax criteria to find closest match.
+                
+                Args:
+                    df: DataFrame of all opportunities
+                    delta_min, delta_max, dte_min, dte_max, oi_min, weekly_min: Filter criteria
+                    qty_mode: 'conservative' (1), 'medium' (50%), 'aggressive' (100%)
+                
+                Returns:
+                    List of (index, qty) tuples to select
+                """
+                import math
+                selections = []
+                
+                # Group by ticker
+                for symbol in df['symbol'].unique():
+                    ticker_opps = df[df['symbol'] == symbol]
+                    
+                    # Try to find match with original criteria
+                    mask = (
+                        (ticker_opps['delta'] >= delta_min) &
+                        (ticker_opps['delta'] <= delta_max) &
+                        (ticker_opps['dte'] >= dte_min) &
+                        (ticker_opps['dte'] <= dte_max) &
+                        (ticker_opps['open_interest'] >= oi_min) &
+                        (ticker_opps['weekly_return_pct'] >= weekly_min)
+                    )
+                    matches = ticker_opps[mask]
+                    
+                    # If no match, relax criteria progressively
+                    if len(matches) == 0:
+                        # Relax weekly return
+                        mask = (
+                            (ticker_opps['delta'] >= delta_min) &
+                            (ticker_opps['delta'] <= delta_max) &
+                            (ticker_opps['dte'] >= dte_min) &
+                            (ticker_opps['dte'] <= dte_max) &
+                            (ticker_opps['open_interest'] >= oi_min)
+                        )
+                        matches = ticker_opps[mask]
+                    
+                    if len(matches) == 0:
+                        # Relax open interest
+                        mask = (
+                            (ticker_opps['delta'] >= delta_min) &
+                            (ticker_opps['delta'] <= delta_max) &
+                            (ticker_opps['dte'] >= dte_min) &
+                            (ticker_opps['dte'] <= dte_max)
+                        )
+                        matches = ticker_opps[mask]
+                    
+                    if len(matches) == 0:
+                        # Relax delta range (expand by 50%)
+                        delta_range = delta_max - delta_min
+                        mask = (
+                            (ticker_opps['delta'] >= delta_min - delta_range * 0.5) &
+                            (ticker_opps['delta'] <= delta_max + delta_range * 0.5) &
+                            (ticker_opps['dte'] >= dte_min) &
+                            (ticker_opps['dte'] <= dte_max)
+                        )
+                        matches = ticker_opps[mask]
+                    
+                    if len(matches) == 0:
+                        # Final fallback: just take all opportunities for this ticker
+                        matches = ticker_opps
+                    
+                    # Find the best match (highest weekly return)
+                    if len(matches) > 0:
+                        best_idx = matches['weekly_return_pct'].idxmax()
+                        best_opp = matches.loc[best_idx]
+                        
+                        # Calculate quantity based on mode
+                        if qty_mode == 'conservative':
+                            qty = 1
+                        elif qty_mode == 'medium':
+                            qty = max(1, math.ceil(best_opp['max_contracts'] * 0.5))
+                        else:  # aggressive
+                            qty = best_opp['max_contracts']
+                        
+                        selections.append((best_idx, qty))
+                
+                return selections
+            
             # Initialize preset criteria in session state (defaults)
             if 'cc_conservative_delta_min' not in st.session_state:
                 st.session_state.cc_conservative_delta_min = 0.10
@@ -2193,17 +2279,24 @@ elif page == "CC Dashboard":
                     # Clear all first
                     st.session_state.cc_opportunities['Select'] = False
                     st.session_state.cc_opportunities['Qty'] = 1  # Reset all to 1
-                    # Select conservative options using session state criteria
-                    mask = (
-                        (st.session_state.cc_opportunities['delta'] >= st.session_state.cc_conservative_delta_min) &
-                        (st.session_state.cc_opportunities['delta'] <= st.session_state.cc_conservative_delta_max) &
-                        (st.session_state.cc_opportunities['dte'] >= st.session_state.cc_conservative_dte_min) &
-                        (st.session_state.cc_opportunities['dte'] <= st.session_state.cc_conservative_dte_max) &
-                        (st.session_state.cc_opportunities['open_interest'] >= st.session_state.cc_conservative_oi_min) &
-                        (st.session_state.cc_opportunities['weekly_return_pct'] >= st.session_state.cc_conservative_weekly_min)
+                    
+                    # Use smart per-ticker selection
+                    selections = select_best_per_ticker(
+                        st.session_state.cc_opportunities,
+                        st.session_state.cc_conservative_delta_min,
+                        st.session_state.cc_conservative_delta_max,
+                        st.session_state.cc_conservative_dte_min,
+                        st.session_state.cc_conservative_dte_max,
+                        st.session_state.cc_conservative_oi_min,
+                        st.session_state.cc_conservative_weekly_min,
+                        qty_mode='conservative'
                     )
-                    st.session_state.cc_opportunities.loc[mask, 'Select'] = True
-                    # Conservative: Set Qty = 1 (already done above)
+                    
+                    # Apply selections
+                    for idx, qty in selections:
+                        st.session_state.cc_opportunities.loc[idx, 'Select'] = True
+                        st.session_state.cc_opportunities.loc[idx, 'Qty'] = qty
+                    
                     st.rerun()
             
             with col3:
@@ -2212,19 +2305,24 @@ elif page == "CC Dashboard":
                     # Clear all first
                     st.session_state.cc_opportunities['Select'] = False
                     st.session_state.cc_opportunities['Qty'] = 1  # Reset all to 1
-                    # Select medium options using session state criteria
-                    mask = (
-                        (st.session_state.cc_opportunities['delta'] >= st.session_state.cc_medium_delta_min) &
-                        (st.session_state.cc_opportunities['delta'] <= st.session_state.cc_medium_delta_max) &
-                        (st.session_state.cc_opportunities['dte'] >= st.session_state.cc_medium_dte_min) &
-                        (st.session_state.cc_opportunities['dte'] <= st.session_state.cc_medium_dte_max) &
-                        (st.session_state.cc_opportunities['open_interest'] >= st.session_state.cc_medium_oi_min) &
-                        (st.session_state.cc_opportunities['weekly_return_pct'] >= st.session_state.cc_medium_weekly_min)
+                    
+                    # Use smart per-ticker selection
+                    selections = select_best_per_ticker(
+                        st.session_state.cc_opportunities,
+                        st.session_state.cc_medium_delta_min,
+                        st.session_state.cc_medium_delta_max,
+                        st.session_state.cc_medium_dte_min,
+                        st.session_state.cc_medium_dte_max,
+                        st.session_state.cc_medium_oi_min,
+                        st.session_state.cc_medium_weekly_min,
+                        qty_mode='medium'
                     )
-                    st.session_state.cc_opportunities.loc[mask, 'Select'] = True
-                    # Medium: Set Qty = 50% of max_contracts (rounded up, min 1)
-                    import math
-                    st.session_state.cc_opportunities.loc[mask, 'Qty'] = st.session_state.cc_opportunities.loc[mask, 'max_contracts'].apply(lambda x: max(1, math.ceil(x * 0.5)))
+                    
+                    # Apply selections
+                    for idx, qty in selections:
+                        st.session_state.cc_opportunities.loc[idx, 'Select'] = True
+                        st.session_state.cc_opportunities.loc[idx, 'Qty'] = qty
+                    
                     st.rerun()
             
             with col4:
@@ -2233,18 +2331,24 @@ elif page == "CC Dashboard":
                     # Clear all first
                     st.session_state.cc_opportunities['Select'] = False
                     st.session_state.cc_opportunities['Qty'] = 1  # Reset all to 1
-                    # Select aggressive options using session state criteria
-                    mask = (
-                        (st.session_state.cc_opportunities['delta'] >= st.session_state.cc_aggressive_delta_min) &
-                        (st.session_state.cc_opportunities['delta'] <= st.session_state.cc_aggressive_delta_max) &
-                        (st.session_state.cc_opportunities['dte'] >= st.session_state.cc_aggressive_dte_min) &
-                        (st.session_state.cc_opportunities['dte'] <= st.session_state.cc_aggressive_dte_max) &
-                        (st.session_state.cc_opportunities['open_interest'] >= st.session_state.cc_aggressive_oi_min) &
-                        (st.session_state.cc_opportunities['weekly_return_pct'] >= st.session_state.cc_aggressive_weekly_min)
+                    
+                    # Use smart per-ticker selection
+                    selections = select_best_per_ticker(
+                        st.session_state.cc_opportunities,
+                        st.session_state.cc_aggressive_delta_min,
+                        st.session_state.cc_aggressive_delta_max,
+                        st.session_state.cc_aggressive_dte_min,
+                        st.session_state.cc_aggressive_dte_max,
+                        st.session_state.cc_aggressive_oi_min,
+                        st.session_state.cc_aggressive_weekly_min,
+                        qty_mode='aggressive'
                     )
-                    st.session_state.cc_opportunities.loc[mask, 'Select'] = True
-                    # Aggressive: Set Qty = 100% of max_contracts (all available shares)
-                    st.session_state.cc_opportunities.loc[mask, 'Qty'] = st.session_state.cc_opportunities.loc[mask, 'max_contracts']
+                    
+                    # Apply selections
+                    for idx, qty in selections:
+                        st.session_state.cc_opportunities.loc[idx, 'Select'] = True
+                        st.session_state.cc_opportunities.loc[idx, 'Qty'] = qty
+                    
                     st.rerun()
             
             with col5:
