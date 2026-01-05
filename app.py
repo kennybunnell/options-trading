@@ -2173,6 +2173,7 @@ elif page == "CC Dashboard":
                             # Store in session state as DataFrame (like CSP Dashboard)
                             df = pd.DataFrame(all_opportunities)
                             df.insert(0, 'Select', False)  # Add Select column
+                            df.insert(1, 'Qty', 1)  # Add Qty column with default value of 1
                             df = df.sort_values('weekly_return_pct', ascending=False)
                             st.session_state.cc_opportunities = df
                             st.rerun()
@@ -2262,31 +2263,85 @@ elif page == "CC Dashboard":
             
             st.write("")
             
+            # Row 2: Quantity adjustment buttons
+            st.write("**Adjust Quantities for Selected:**")
+            col1, col2, col3, col4, col5, col6 = st.columns([1, 1, 1, 1, 1, 2])
+            
+            with col1:
+                if st.button("➥ +1", use_container_width=True, key="cc_qty_plus1", help="Add 1 to selected quantities"):
+                    mask = st.session_state.cc_opportunities['Select'] == True
+                    st.session_state.cc_opportunities.loc[mask, 'Qty'] = st.session_state.cc_opportunities.loc[mask, 'Qty'] + 1
+                    st.rerun()
+            
+            with col2:
+                if st.button("➥ +5", use_container_width=True, key="cc_qty_plus5", help="Add 5 to selected quantities"):
+                    mask = st.session_state.cc_opportunities['Select'] == True
+                    st.session_state.cc_opportunities.loc[mask, 'Qty'] = st.session_state.cc_opportunities.loc[mask, 'Qty'] + 5
+                    st.rerun()
+            
+            with col3:
+                if st.button("➥ +10", use_container_width=True, key="cc_qty_plus10", help="Add 10 to selected quantities"):
+                    mask = st.session_state.cc_opportunities['Select'] == True
+                    st.session_state.cc_opportunities.loc[mask, 'Qty'] = st.session_state.cc_opportunities.loc[mask, 'Qty'] + 10
+                    st.rerun()
+            
+            with col4:
+                if st.button("➖ -1", use_container_width=True, key="cc_qty_minus1", help="Subtract 1 from selected quantities (min 1)"):
+                    mask = st.session_state.cc_opportunities['Select'] == True
+                    st.session_state.cc_opportunities.loc[mask, 'Qty'] = st.session_state.cc_opportunities.loc[mask, 'Qty'].apply(lambda x: max(1, x - 1))
+                    st.rerun()
+            
+            with col5:
+                if st.button("🔄 Reset", use_container_width=True, key="cc_qty_reset", help="Reset selected quantities to 1"):
+                    mask = st.session_state.cc_opportunities['Select'] == True
+                    st.session_state.cc_opportunities.loc[mask, 'Qty'] = 1
+                    st.rerun()
+            
+            with col6:
+                # Show total contracts for selected
+                if selected_count > 0:
+                    selected_qty_sum = st.session_state.cc_opportunities[st.session_state.cc_opportunities['Select'] == True]['Qty'].sum()
+                    st.info(f"📊 Selected: {int(selected_qty_sum)} contracts ({int(selected_count)} options)")
+            
+            st.write("")
+            
             # Display dataframe
-            display_opp = opp_df[['Select', 'symbol', 'strike', 'expiration', 'dte', 'delta', 'premium', 'weekly_return_pct', 'open_interest', 'volume']].copy()
-            display_opp.columns = ['Select', 'Symbol', 'Strike', 'Expiration', 'DTE', 'Delta', 'Premium', 'Weekly %', 'OI', 'Volume']
+            display_opp = opp_df[['Select', 'Qty', 'symbol', 'strike', 'expiration', 'dte', 'delta', 'premium', 'weekly_return_pct', 'open_interest', 'volume']].copy()
+            display_opp.columns = ['Select', 'Qty', 'Symbol', 'Strike', 'Expiration', 'DTE', 'Delta', 'Premium', 'Weekly %', 'OI', 'Volume']
             
             # Format
             display_opp['Strike'] = display_opp['Strike'].apply(lambda x: f"${x:.2f}")
             display_opp['Delta'] = display_opp['Delta'].apply(lambda x: f"{x:.3f}")
             display_opp['Premium'] = display_opp['Premium'].apply(lambda x: f"${x:.2f}")
             display_opp['Weekly %'] = display_opp['Weekly %'].apply(lambda x: f"{x:.2f}%")
-            
             edited_opp = st.data_editor(
                 display_opp,
                 use_container_width=True,
                 hide_index=True,
-                disabled=['Symbol', 'Strike', 'Expiration', 'DTE', 'Delta', 'Premium', 'Weekly %', 'OI', 'Volume'],
                 column_config={
-                    "Select": st.column_config.CheckboxColumn("Select", default=False)
+                    "Select": st.column_config.CheckboxColumn(
+                        "Select",
+                        help="Select opportunities to execute",
+                        default=False,
+                    ),
+                    "Qty": st.column_config.NumberColumn(
+                        "Qty",
+                        help="Use buttons above to adjust quantities (editing cells may be unreliable)",
+                        min_value=1,
+                        max_value=100,
+                        step=1,
+                        default=1,
+                        format="%d"
+                    )
                 },
                 key="cc_selector"
             )
             
-            # Update session state with manual selections from data_editor
+            # Update session state with manual selections and quantities from data_editor
             if 'Select' in edited_opp.columns:
                 st.session_state.cc_opportunities['Select'] = edited_opp['Select']
-            
+            if 'Qty' in edited_opp.columns:
+                st.session_state.cc_opportunities['Qty'] = edited_opp['Qty']       
             st.divider()
             
             # Order Summary Card
@@ -2295,9 +2350,9 @@ elif page == "CC Dashboard":
             if len(selected_rows) > 0:
                 st.subheader("💰 Order Summary")
                 
-                # Calculate totals
-                total_contracts = len(selected_rows)  # Each row = 1 contract
-                total_premium = selected_rows['premium'].sum()  # Premium per contract
+                # Calculate totals (multiply by quantity)
+                total_contracts = selected_rows['Qty'].sum()  # Sum of all quantities
+                total_premium = (selected_rows['premium'] * selected_rows['Qty']).sum()  # Premium * Qty
                 total_shares_covered = total_contracts * 100  # Each contract covers 100 shares
                 avg_weekly_return = selected_rows['weekly_return_pct'].mean()
                 avg_delta = selected_rows['delta'].mean()
@@ -2330,9 +2385,9 @@ elif page == "CC Dashboard":
                 st.write("**Selected Opportunities:**")
                 for symbol in selected_rows['symbol'].unique():
                     symbol_rows = selected_rows[selected_rows['symbol'] == symbol]
-                    symbol_premium = symbol_rows['premium'].sum()
-                    symbol_contracts = len(symbol_rows)
-                    st.write(f"- **{symbol}**: {symbol_contracts} contract(s) = ${symbol_premium:.2f} premium")
+                    symbol_premium = (symbol_rows['premium'] * symbol_rows['Qty']).sum()
+                    symbol_contracts = symbol_rows['Qty'].sum()
+                    st.write(f"- **{symbol}**: {int(symbol_contracts)} contract(s) = ${symbol_premium:.2f} premium")
                 
                 st.write("")
                 st.info("🚧 Order submission coming soon!")
