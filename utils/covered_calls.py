@@ -157,28 +157,7 @@ def get_eligible_stock_positions(api, account_number):
         return [], {}
 
 
-def pre_scan_covered_calls(api, holdings, min_prescan_delta=0.10, max_prescan_delta=0.50, min_dte=7, max_dte=14):
-    """
-    Pre-scan for covered call opportunities with wide filters
-    
-    This fetches ALL opportunities within the pre-scan range.
-    User can then filter the results client-side without re-scanning.
-    
-    Args:
-        api: API instance
-        holdings: List of eligible stock holdings
-        min_prescan_delta: Minimum delta for pre-scan (default 0.10)
-        max_prescan_delta: Maximum delta for pre-scan (default 0.50)
-        min_dte: Minimum days to expiration
-        max_dte: Maximum days to expiration
-    
-    Returns:
-        List of ALL covered call opportunities within pre-scan range
-    """
-
-# ... (keep all existing functions until pre_scan_covered_calls)
-
-def pre_scan_covered_calls(api, holdings, min_prescan_delta=0.10, max_prescan_delta=0.50, min_dte=7, max_dte=14):
+def pre_scan_covered_calls(api, tradier_api, holdings, min_prescan_delta=0.10, max_prescan_delta=0.50, min_dte=7, max_dte=14):
     """
     Pre-scan option chains for covered call opportunities WITH DETAILED LOGGING
     """
@@ -200,18 +179,51 @@ def pre_scan_covered_calls(api, holdings, min_prescan_delta=0.10, max_prescan_de
             continue
         
         try:
-            # Get option chain
+            # Get option chain from Tradier (includes greeks!)
             st.write(f"  🔍 Fetching option chain...")
-            chain_data = api.get_option_chain(symbol)
+            tradier_chain = tradier_api.get_option_chains(symbol, min_dte=min_dte, max_dte=max_dte)
             
-            if not chain_data:
+            if not tradier_chain or not tradier_chain.get('options'):
                 st.warning(f"  ⚠️ No option chain data returned for {symbol}")
                 continue
             
             st.write(f"  ✅ Got option chain data")
             
-            # Parse chain data
-            expirations = chain_data.get('expirations', [])
+            # Convert Tradier format to grouped by expiration
+            from collections import defaultdict
+            expirations_dict = defaultdict(lambda: defaultdict(dict))
+            
+            for option in tradier_chain['options']:
+                if option.get('option_type') != 'call':
+                    continue  # Only calls for covered calls
+                
+                exp_date = option.get('expiration_date')
+                strike = float(option.get('strike', 0))
+                
+                # Get greeks
+                greeks = option.get('greeks', {})
+                delta = greeks.get('delta', 0) if greeks else 0
+                
+                # Store call data
+                expirations_dict[exp_date][strike] = {
+                    'strike-price': strike,
+                    'call': {
+                        'delta': abs(delta),  # Make positive for calls
+                        'bid': float(option.get('bid', 0)),
+                        'ask': float(option.get('ask', 0)),
+                        'volume': int(option.get('volume', 0)),
+                        'open-interest': int(option.get('open_interest', 0))
+                    }
+                }
+            
+            # Convert to list format expected by rest of code
+            expirations = []
+            for exp_date, strikes_dict in expirations_dict.items():
+                strikes = [strike_data for strike, strike_data in sorted(strikes_dict.items())]
+                expirations.append({
+                    'expiration-date': exp_date,
+                    'strikes': strikes
+                })
             
             if not expirations:
                 st.warning(f"  ⚠️ No expirations found for {symbol}")

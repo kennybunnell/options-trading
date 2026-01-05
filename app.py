@@ -1921,6 +1921,10 @@ elif page == "CSP Dashboard":
 elif page == "CC Dashboard":
     st.title("📞 Covered Calls Dashboard")
     
+    # Initialize Tradier API for option chains with greeks
+    from utils.tradier_api import TradierAPI
+    tradier = TradierAPI()
+    
     # Use the account selected in the sidebar
     if not selected_account:
         st.error("❌ No account selected. Please select an account from the sidebar.")
@@ -2149,6 +2153,7 @@ elif page == "CC Dashboard":
                             # Pre-scan
                             all_opportunities = pre_scan_covered_calls(
                                 api,
+                                tradier,
                                 selected_holdings,
                                 min_prescan_delta=min_prescan_delta,
                                 max_prescan_delta=max_prescan_delta,
