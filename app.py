@@ -2218,6 +2218,7 @@ elif page == "CC Dashboard":
             with col1:
                 if st.button("🗑️ Clear All", use_container_width=True, key="cc_clear_all"):
                     opp_df['Select'] = False
+                    st.session_state.cc_opportunities_df = opp_df.copy()
                     st.rerun()
             
             with col2:
@@ -2277,6 +2278,7 @@ elif page == "CC Dashboard":
             with col5:
                 if st.button("✅ Select All", use_container_width=True, key="cc_select_all"):
                     opp_df['Select'] = True
+                    st.session_state.cc_opportunities_df = opp_df.copy()
                     st.rerun()
             
             with col6:
