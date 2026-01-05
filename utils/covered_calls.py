@@ -250,6 +250,10 @@ def pre_scan_covered_calls(api, holdings, min_prescan_delta=0.10, max_prescan_de
                     st.write(f"    📊 {exp_date_str} (DTE {dte}): {len(strikes)} strikes")
                     
                     for strike_data in strikes:
+                        # Skip if strike_data is not a dict (API returned invalid data)
+                        if not isinstance(strike_data, dict):
+                            continue
+                        
                         strike = float(strike_data.get('strike-price', 0))
                         total_strikes_checked += 1
                         
