@@ -2600,7 +2600,64 @@ elif page == "CC Dashboard":
                     st.write(f"- **{symbol}**: {int(symbol_contracts)} contract(s) = ${symbol_premium:.2f} premium")
                 
                 st.write("")
-                st.info("🚧 Order submission coming soon!")
+                
+                # Order Submission
+                st.write("---")
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    st.write("📤 **Ready to submit orders to Tastytrade?**")
+                    st.caption(f"This will submit {int(total_contracts)} covered call order(s) as limit orders at the current bid price.")
+                with col2:
+                    if st.button("🚀 Submit Orders", type="primary", use_container_width=True, key="submit_cc_orders"):
+                        # Submit orders
+                        with st.spinner("📫 Submitting orders to Tastytrade..."):
+                            try:
+                                from utils.tastytrade_api import TastytradeAPI
+                                api = TastytradeAPI()
+                                
+                                # Get account number from session state
+                                account_number = st.session_state.get('selected_account')
+                                
+                                if not account_number:
+                                    st.error("⚠️ No account selected. Please select an account first.")
+                                else:
+                                    # Prepare orders
+                                    orders = []
+                                    for idx, row in selected_rows.iterrows():
+                                        orders.append({
+                                            'symbol': row['symbol'],
+                                            'strike': row['strike'],
+                                            'expiration': row['expiration'],
+                                            'quantity': int(row['Qty']),
+                                            'price': row['premium']  # Use current bid as limit price
+                                        })
+                                    
+                                    # Submit batch
+                                    results = api.submit_covered_call_orders_batch(account_number, orders)
+                                    
+                                    # Display results
+                                    st.write("")
+                                    st.write("### 📊 Order Results")
+                                    
+                                    success_count = sum(1 for r in results if r.get('success'))
+                                    fail_count = len(results) - success_count
+                                    
+                                    if success_count > 0:
+                                        st.success(f"✅ {success_count} order(s) submitted successfully!")
+                                    if fail_count > 0:
+                                        st.error(f"❌ {fail_count} order(s) failed")
+                                    
+                                    # Show details
+                                    for result in results:
+                                        if result.get('success'):
+                                            st.write(f"✅ **{result['symbol']}** ${result['strike']} Call x{result['quantity']} - Order ID: {result.get('order_id')}")
+                                        else:
+                                            st.write(f"❌ **{result['symbol']}** ${result['strike']} Call x{result['quantity']} - {result.get('message')}")
+                                    
+                            except Exception as e:
+                                st.error(f"❌ Error submitting orders: {str(e)}")
+                                import traceback
+                                st.error(traceback.format_exc())
             else:
                 st.info("👆 Select opportunities using the checkboxes or preset filters above")
     

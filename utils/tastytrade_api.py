@@ -243,3 +243,108 @@ class TastytradeAPI:
         except Exception as e:
             print(f"Get option chain error: {str(e)}")
             return None
+    def submit_covered_call_order(self, account_number, symbol, strike, expiration, quantity, order_type='Limit', price=None):
+        """
+        Submit a covered call order (sell to open call option)
+        
+        Args:
+            account_number (str): Account number
+            symbol (str): Underlying stock symbol (e.g., 'AAPL')
+            strike (float): Strike price
+            expiration (str): Expiration date in YYYY-MM-DD format
+            quantity (int): Number of contracts to sell
+            order_type (str): 'Limit' or 'Market' (default: 'Limit')
+            price (float): Limit price per contract (required if order_type='Limit')
+        
+        Returns:
+            dict: Order response with status and order ID, or None if failed
+        """
+        try:
+            if not self._is_token_valid():
+                self._authenticate()
+            
+            # Format expiration date (remove dashes for Tastytrade format)
+            exp_formatted = expiration.replace('-', '')
+            
+            # Build option symbol (Tastytrade format: SYMBOL YYMMDD C/P STRIKE)
+            # Example: AAPL  250117C00150000 (AAPL Jan 17 2025 Call $150)
+            exp_short = exp_formatted[2:]  # Remove century (25 instead of 2025)
+            strike_formatted = f"{int(strike * 1000):08d}"  # Strike in cents, 8 digits
+            option_symbol = f"{symbol.ljust(6)}{exp_short}C{strike_formatted}"
+            
+            # Build order payload
+            url = f'{self.base_url}/accounts/{account_number}/orders'
+            headers = self._get_headers()
+            
+            # Covered call = Sell to Open (STO) call option
+            legs = [{
+                'instrument-type': 'Equity Option',
+                'symbol': option_symbol,
+                'action': 'Sell to Open',
+                'quantity': quantity
+            }]
+            
+            payload = {
+                'time-in-force': 'Day',
+                'order-type': order_type,
+                'legs': legs
+            }
+            
+            # Add price if limit order
+            if order_type == 'Limit' and price is not None:
+                payload['price'] = str(price)
+                payload['price-effect'] = 'Credit'  # We receive credit for selling
+            
+            response = requests.post(url, headers=headers, json=payload)
+            
+            if response.status_code == 201:
+                data = response.json()
+                return {
+                    'success': True,
+                    'order_id': data['data'].get('id'),
+                    'status': data['data'].get('status'),
+                    'message': f"Order submitted: {quantity} contracts of {symbol} ${strike} Call"
+                }
+            else:
+                error_msg = response.json().get('error', {}).get('message', 'Unknown error')
+                return {
+                    'success': False,
+                    'message': f"Order failed: {error_msg}",
+                    'status_code': response.status_code
+                }
+                
+        except Exception as e:
+            return {
+                'success': False,
+                'message': f"Order error: {str(e)}"
+            }
+    
+    def submit_covered_call_orders_batch(self, account_number, orders):
+        """
+        Submit multiple covered call orders
+        
+        Args:
+            account_number (str): Account number
+            orders (list): List of order dicts with keys: symbol, strike, expiration, quantity, price
+        
+        Returns:
+            list: List of results for each order
+        """
+        results = []
+        for order in orders:
+            result = self.submit_covered_call_order(
+                account_number=account_number,
+                symbol=order['symbol'],
+                strike=order['strike'],
+                expiration=order['expiration'],
+                quantity=order['quantity'],
+                order_type='Limit',
+                price=order.get('price')
+            )
+            results.append({
+                **result,
+                'symbol': order['symbol'],
+                'strike': order['strike'],
+                'quantity': order['quantity']
+            })
+        return results
