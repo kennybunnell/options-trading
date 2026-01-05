@@ -2192,11 +2192,11 @@ elif page == "CC Dashboard":
             # Initialize preset criteria in session state (defaults)
             if 'cc_conservative_delta_min' not in st.session_state:
                 st.session_state.cc_conservative_delta_min = 0.10
-                st.session_state.cc_conservative_delta_max = 0.20
-                st.session_state.cc_conservative_dte_min = 14
-                st.session_state.cc_conservative_dte_max = 30
-                st.session_state.cc_conservative_oi_min = 100
-                st.session_state.cc_conservative_weekly_min = 0.5
+                st.session_state.cc_conservative_delta_max = 0.50
+                st.session_state.cc_conservative_dte_min = 7
+                st.session_state.cc_conservative_dte_max = 45
+                st.session_state.cc_conservative_oi_min = 50
+                st.session_state.cc_conservative_weekly_min = 0.3
             
             if 'cc_medium_delta_min' not in st.session_state:
                 st.session_state.cc_medium_delta_min = 0.20
@@ -2228,7 +2228,7 @@ elif page == "CC Dashboard":
             
             with col2:
                 if st.button("🟢 Conservative", use_container_width=True, key="cc_preset_conservative", 
-                           help="Δ 0.10-0.20, DTE 14-30, OI ≥100, Weekly ≥0.5% | Qty=1 contract"):
+                           help="Δ 0.10-0.50, DTE 7-45, OI ≥50, Weekly ≥0.3% | Qty=1 contract"):
                     # Clear all first
                     st.session_state.cc_opportunities['Select'] = False
                     st.session_state.cc_opportunities['Qty'] = 1  # Reset all to 1
@@ -2369,11 +2369,11 @@ elif page == "CC Dashboard":
                 with col2:
                     if st.button("🔄 Reset Conservative", use_container_width=True, key="reset_conservative"):
                         st.session_state.cc_conservative_delta_min = 0.10
-                        st.session_state.cc_conservative_delta_max = 0.20
-                        st.session_state.cc_conservative_dte_min = 14
-                        st.session_state.cc_conservative_dte_max = 30
-                        st.session_state.cc_conservative_oi_min = 100
-                        st.session_state.cc_conservative_weekly_min = 0.5
+                        st.session_state.cc_conservative_delta_max = 0.50
+                        st.session_state.cc_conservative_dte_min = 7
+                        st.session_state.cc_conservative_dte_max = 45
+                        st.session_state.cc_conservative_oi_min = 50
+                        st.session_state.cc_conservative_weekly_min = 0.3
                         st.success("✅ Conservative reset to defaults!")
                         st.rerun()
             
