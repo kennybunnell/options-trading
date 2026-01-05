@@ -2170,8 +2170,11 @@ elif page == "CC Dashboard":
                             st.success(f"✅ Found {len(all_opportunities)} opportunities!")
                             status.update(label=f"✅ Found {len(all_opportunities)} opportunities", state="complete")
                             
-                            # Store in session state
-                            st.session_state.cc_opportunities = all_opportunities
+                            # Store in session state as DataFrame (like CSP Dashboard)
+                            df = pd.DataFrame(all_opportunities)
+                            df.insert(0, 'Select', False)  # Add Select column
+                            df = df.sort_values('weekly_return_pct', ascending=False)
+                            st.session_state.cc_opportunities = df
                             st.rerun()
                         
                     except Exception as e:
@@ -2180,36 +2183,13 @@ elif page == "CC Dashboard":
                         st.error(traceback.format_exc())
         
         # Display opportunities if we have them
-        if 'cc_opportunities' in st.session_state and st.session_state.cc_opportunities:
+        if 'cc_opportunities' in st.session_state and len(st.session_state.cc_opportunities) > 0:
             st.write("")
             st.write("---")
             st.write("### 🎯 Covered Call Opportunities")
             
-            opportunities = st.session_state.cc_opportunities
-            
-            import pandas as pd
-            opp_df = pd.DataFrame(opportunities)
-            
-            # Store in session state for preset filters
-            if 'cc_opportunities_df' not in st.session_state:
-                st.session_state.cc_opportunities_df = opp_df.copy()
-            else:
-                st.session_state.cc_opportunities_df = opp_df.copy()
-            
-            # Add selection column
-            if 'cc_selected_opportunities' not in st.session_state:
-                st.session_state.cc_selected_opportunities = []
-            
-            # Restore selections from session state if available
-            if 'cc_opportunities_df' in st.session_state and 'Select' in st.session_state.cc_opportunities_df.columns:
-                # Merge selections back
-                stored_selections = st.session_state.cc_opportunities_df['Select']
-                if len(stored_selections) == len(opp_df):
-                    opp_df['Select'] = stored_selections
-                else:
-                    opp_df['Select'] = False
-            else:
-                opp_df['Select'] = False  # Default
+            # Get DataFrame from session state (already has Select column)
+            opp_df = st.session_state.cc_opportunities
             
             # Preset Filter Buttons
             st.write("")
@@ -2217,74 +2197,63 @@ elif page == "CC Dashboard":
             
             with col1:
                 if st.button("🗑️ Clear All", use_container_width=True, key="cc_clear_all"):
-                    opp_df['Select'] = False
-                    st.session_state.cc_opportunities_df = opp_df.copy()
+                    st.session_state.cc_opportunities['Select'] = False
                     st.rerun()
             
             with col2:
                 if st.button("🟢 Conservative", use_container_width=True, key="cc_preset_conservative", 
                            help="Δ 0.10-0.20, DTE 14-30, OI ≥100, Weekly ≥0.5%"):
                     # Clear all first
-                    opp_df['Select'] = False
+                    st.session_state.cc_opportunities['Select'] = False
                     # Select conservative options
                     mask = (
-                        (opp_df['delta'] >= 0.10) &
-                        (opp_df['delta'] <= 0.20) &
-                        (opp_df['dte'] >= 14) &
-                        (opp_df['dte'] <= 30) &
-                        (opp_df['open_interest'] >= 100) &
-                        (opp_df['weekly_return_pct'] >= 0.5)
+                        (st.session_state.cc_opportunities['delta'] >= 0.10) &
+                        (st.session_state.cc_opportunities['delta'] <= 0.20) &
+                        (st.session_state.cc_opportunities['dte'] >= 14) &
+                        (st.session_state.cc_opportunities['dte'] <= 30) &
+                        (st.session_state.cc_opportunities['open_interest'] >= 100) &
+                        (st.session_state.cc_opportunities['weekly_return_pct'] >= 0.5)
                     )
-                    matched = mask.sum()
-                    st.write(f"DEBUG: Conservative matched {matched} opportunities")
-                    opp_df.loc[mask, 'Select'] = True
-                    st.session_state.cc_opportunities_df = opp_df.copy()
+                    st.session_state.cc_opportunities.loc[mask, 'Select'] = True
                     st.rerun()
             
             with col3:
                 if st.button("🟡 Medium", use_container_width=True, key="cc_preset_medium",
                            help="Δ 0.20-0.35, DTE 7-21, OI ≥50, Weekly ≥0.75%"):
                     # Clear all first
-                    opp_df['Select'] = False
+                    st.session_state.cc_opportunities['Select'] = False
                     # Select medium options
                     mask = (
-                        (opp_df['delta'] >= 0.20) &
-                        (opp_df['delta'] <= 0.35) &
-                        (opp_df['dte'] >= 7) &
-                        (opp_df['dte'] <= 21) &
-                        (opp_df['open_interest'] >= 50) &
-                        (opp_df['weekly_return_pct'] >= 0.75)
+                        (st.session_state.cc_opportunities['delta'] >= 0.20) &
+                        (st.session_state.cc_opportunities['delta'] <= 0.35) &
+                        (st.session_state.cc_opportunities['dte'] >= 7) &
+                        (st.session_state.cc_opportunities['dte'] <= 21) &
+                        (st.session_state.cc_opportunities['open_interest'] >= 50) &
+                        (st.session_state.cc_opportunities['weekly_return_pct'] >= 0.75)
                     )
-                    matched = mask.sum()
-                    st.write(f"DEBUG: Medium matched {matched} opportunities")
-                    opp_df.loc[mask, 'Select'] = True
-                    st.session_state.cc_opportunities_df = opp_df.copy()
+                    st.session_state.cc_opportunities.loc[mask, 'Select'] = True
                     st.rerun()
             
             with col4:
                 if st.button("🔴 Aggressive", use_container_width=True, key="cc_preset_aggressive",
                            help="Δ 0.35-0.50, DTE 7-14, OI ≥25, Weekly ≥1.0%"):
                     # Clear all first
-                    opp_df['Select'] = False
+                    st.session_state.cc_opportunities['Select'] = False
                     # Select aggressive options
                     mask = (
-                        (opp_df['delta'] >= 0.35) &
-                        (opp_df['delta'] <= 0.50) &
-                        (opp_df['dte'] >= 7) &
-                        (opp_df['dte'] <= 14) &
-                        (opp_df['open_interest'] >= 25) &
-                        (opp_df['weekly_return_pct'] >= 1.0)
+                        (st.session_state.cc_opportunities['delta'] >= 0.35) &
+                        (st.session_state.cc_opportunities['delta'] <= 0.50) &
+                        (st.session_state.cc_opportunities['dte'] >= 7) &
+                        (st.session_state.cc_opportunities['dte'] <= 14) &
+                        (st.session_state.cc_opportunities['open_interest'] >= 25) &
+                        (st.session_state.cc_opportunities['weekly_return_pct'] >= 1.0)
                     )
-                    matched = mask.sum()
-                    st.write(f"DEBUG: Aggressive matched {matched} opportunities")
-                    opp_df.loc[mask, 'Select'] = True
-                    st.session_state.cc_opportunities_df = opp_df.copy()
+                    st.session_state.cc_opportunities.loc[mask, 'Select'] = True
                     st.rerun()
             
             with col5:
                 if st.button("✅ Select All", use_container_width=True, key="cc_select_all"):
-                    opp_df['Select'] = True
-                    st.session_state.cc_opportunities_df = opp_df.copy()
+                    st.session_state.cc_opportunities['Select'] = True
                     st.rerun()
             
             with col6:
@@ -2314,15 +2283,14 @@ elif page == "CC Dashboard":
                 key="cc_selector"
             )
             
-            # Update session state with selections
+            # Update session state with manual selections from data_editor
             if 'Select' in edited_opp.columns:
-                opp_df['Select'] = edited_opp['Select']
-                st.session_state.cc_opportunities_df = opp_df.copy()
+                st.session_state.cc_opportunities['Select'] = edited_opp['Select']
             
             st.divider()
             
             # Order Summary Card
-            selected_rows = opp_df[opp_df['Select'] == True]
+            selected_rows = st.session_state.cc_opportunities[st.session_state.cc_opportunities['Select'] == True]
             
             if len(selected_rows) > 0:
                 st.subheader("💰 Order Summary")
