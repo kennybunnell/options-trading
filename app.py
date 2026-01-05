@@ -2197,7 +2197,7 @@ elif page == "CC Dashboard":
             opp_df['Select'] = False  # Default
             
             # Display dataframe
-            display_opp = opp_df[['Select', 'symbol', 'strike', 'expiration', 'dte', 'delta', 'premium', 'weekly_return_pct', 'oi', 'volume']].copy()
+            display_opp = opp_df[['Select', 'symbol', 'strike', 'expiration', 'dte', 'delta', 'premium', 'weekly_return_pct', 'open_interest', 'volume']].copy()
             display_opp.columns = ['Select', 'Symbol', 'Strike', 'Expiration', 'DTE', 'Delta', 'Premium', 'Weekly %', 'OI', 'Volume']
             
             # Format
