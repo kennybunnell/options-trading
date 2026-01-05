@@ -279,12 +279,20 @@ def pre_scan_covered_calls(api, holdings, min_prescan_delta=0.10, max_prescan_de
                         volume = int(call_data.get('volume', 0))
                         open_interest = int(call_data.get('open-interest', 0))
                         
+                        # Debug: Show first OTM call for each stock
+                        if opportunities_found == 0 and strike > current_price:
+                            st.write(f"      🔍 First OTM call: ${strike:.2f} Δ{delta:.3f} bid ${bid:.2f} ask ${ask:.2f}")
+                        
                         # Filter by pre-scan delta range
                         if not (min_prescan_delta <= delta <= max_prescan_delta):
+                            if opportunities_found == 0 and strike > current_price:
+                                st.write(f"      ⚠️ Delta {delta:.3f} outside range {min_prescan_delta:.2f}-{max_prescan_delta:.2f}")
                             continue
                         
                         # Skip if no bid
                         if bid <= 0:
+                            if opportunities_found == 0:
+                                st.write(f"      ⚠️ No bid price available")
                             continue
                         
                         # Calculate metrics
