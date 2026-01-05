@@ -267,6 +267,10 @@ def pre_scan_covered_calls(api, holdings, min_prescan_delta=0.10, max_prescan_de
                         if not call_data:
                             continue
                         
+                        # Skip if call_data is not a dict (API returned invalid data)
+                        if not isinstance(call_data, dict):
+                            continue
+                        
                         # Extract option data
                         delta = abs(float(call_data.get('delta', 0)))
                         bid = float(call_data.get('bid', 0))
