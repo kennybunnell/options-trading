@@ -508,3 +508,127 @@ def format_covered_call_order(opportunity, contracts, account_number):
     }
     
     return order
+
+def get_active_covered_calls(api, account_number):
+    """
+    Get active covered call positions for monitoring with P/L tracking
+    
+    Returns:
+        List of dict with detailed CC position info including:
+        - symbol, strike, expiration, dte
+        - premium_collected, current_value, pl, pl_pct
+        - status (BTC/Hold/Monitor/ITM/Expiring)
+        - stock_price, shares_owned
+    """
+    try:
+        # Get all positions
+        all_positions = api.get_positions(account_number)
+        
+        if not all_positions:
+            return []
+        
+        # Find stock positions for reference
+        stock_positions = {}
+        for position in all_positions:
+            if position.get('instrument-type') == 'Equity':
+                quantity = int(position.get('quantity', 0))
+                if quantity > 0:
+                    symbol = position.get('symbol')
+                    stock_positions[symbol] = {
+                        'quantity': quantity,
+                        'price': float(position.get('close-price', 0))
+                    }
+        
+        # Find all short call positions
+        active_calls = []
+        for position in all_positions:
+            if position.get('instrument-type') == 'Equity Option':
+                quantity = int(position.get('quantity', 0))
+                if quantity < 0:  # Short positions
+                    option_type = position.get('option-type', '').lower()
+                    if option_type == 'call':
+                        underlying = position.get('underlying-symbol')
+                        strike = float(position.get('strike-price', 0))
+                        expiration_date = position.get('expiration-date', 'Unknown')
+                        option_symbol = position.get('symbol', '')
+                        
+                        # Calculate DTE
+                        try:
+                            exp_dt = datetime.strptime(expiration_date, '%Y-%m-%d')
+                            dte = (exp_dt - datetime.now()).days
+                        except:
+                            dte = 0
+                        
+                        # Get premium collected (cost basis)
+                        try:
+                            cost_effect = float(position.get('cost-effect', 0))
+                            premium_collected = abs(cost_effect) * abs(quantity) * 100
+                        except:
+                            premium_collected = 0
+                        
+                        # Get current option price (ask price for buy-back)
+                        try:
+                            option_quote = api.get_quote(option_symbol) if option_symbol else None
+                            current_ask = float(option_quote.get('ask', 0)) if option_quote else 0
+                            current_value_total = current_ask * abs(quantity) * 100
+                        except:
+                            current_ask = 0
+                            current_value_total = 0
+                        
+                        # Calculate P/L
+                        pl = premium_collected - current_value_total
+                        pl_pct = (pl / premium_collected * 100) if premium_collected > 0 else 0
+                        
+                        # Get stock info
+                        stock_price = stock_positions.get(underlying, {}).get('price', 0)
+                        shares_owned = stock_positions.get(underlying, {}).get('quantity', 0)
+                        
+                        # Determine status
+                        if pl_pct >= 80:
+                            status = 'BTC'  # Buy to Close
+                            status_emoji = '🟢'
+                        elif pl_pct >= 50:
+                            status = 'Hold'
+                            status_emoji = '🟡'
+                        elif pl_pct >= 0:
+                            status = 'Monitor'
+                            status_emoji = '🟠'
+                        else:
+                            status = 'Monitor'
+                            status_emoji = '🟠'
+                        
+                        # Check if ITM
+                        if stock_price > strike:
+                            status = 'ITM'
+                            status_emoji = '🔴'
+                        
+                        # Check if expiring soon
+                        if dte <= 3:
+                            status = 'Expiring'
+                            status_emoji = '⚠️'
+                        
+                        active_calls.append({
+                            'symbol': underlying,
+                            'option_symbol': option_symbol,
+                            'strike': strike,
+                            'expiration': expiration_date,
+                            'dte': dte,
+                            'quantity': abs(quantity),
+                            'premium_collected': premium_collected,
+                            'current_ask': current_ask,
+                            'current_value': current_value_total,
+                            'pl': pl,
+                            'pl_pct': pl_pct,
+                            'status': status,
+                            'status_emoji': status_emoji,
+                            'stock_price': stock_price,
+                            'shares_owned': shares_owned
+                        })
+        
+        return active_calls
+        
+    except Exception as e:
+        st.error(f"Error fetching active covered calls: {str(e)}")
+        import traceback
+        st.error(traceback.format_exc())
+        return []

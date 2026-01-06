@@ -348,3 +348,61 @@ class TastytradeAPI:
                 'quantity': order['quantity']
             })
         return results
+
+    def buy_to_close_covered_call(self, account_number, option_symbol, quantity, price):
+        """
+        Submit a buy-to-close order for a covered call
+        
+        Args:
+            account_number: Tastytrade account number
+            option_symbol: Full option symbol from position
+            quantity: Number of contracts to buy back
+            price: Limit price per contract
+        
+        Returns:
+            dict with 'success' (bool) and 'order_id' or 'message'
+        """
+        try:
+            if not self._is_token_valid():
+                self._authenticate()
+            
+            url = f'{self.base_url}/accounts/{account_number}/orders'
+            headers = self._get_headers()
+            
+            # Buy to Close (BTC) order
+            legs = [{
+                'instrument-type': 'Equity Option',
+                'symbol': option_symbol,
+                'action': 'Buy to Close',
+                'quantity': quantity
+            }]
+            
+            payload = {
+                'time-in-force': 'Day',
+                'order-type': 'Limit',
+                'price': str(price),
+                'price-effect': 'Debit',  # We pay to buy back
+                'legs': legs
+            }
+            
+            response = requests.post(url, headers=headers, json=payload)
+            
+            if response.status_code == 201:
+                data = response.json()
+                return {
+                    'success': True,
+                    'order_id': data['data'].get('id'),
+                    'message': f"Buy-to-close order submitted for {quantity} contracts"
+                }
+            else:
+                error_msg = response.json().get('error', {}).get('message', 'Unknown error')
+                return {
+                    'success': False,
+                    'message': f"Order failed: {error_msg}"
+                }
+                
+        except Exception as e:
+            return {
+                'success': False,
+                'message': f"Exception: {str(e)}"
+            }

@@ -2026,43 +2026,157 @@ elif page == "CC Dashboard":
             st.info("📊 This account has no stock positions. Stock positions are required to write covered calls.")
             st.stop()
         
-        # TABLE 1: Existing Covered Calls
-        if breakdown.get('short_call_details'):
-            st.write("### 📋 Table 1: Existing Covered Call Positions")
-            st.write("Track your current covered calls and their performance")
+        # ===== ACTIVE COVERED CALLS MONITORING PANEL =====
+        from utils.covered_calls import get_active_covered_calls
+        active_calls = get_active_covered_calls(api, selected_account)
+        
+        if active_calls:
+            st.write("### 📊 Active Covered Calls Monitoring")
             
+            # Summary Metrics
+            total_active = len(active_calls)
+            total_premium = sum([c['premium_collected'] for c in active_calls])
+            total_pl = sum([c['pl'] for c in active_calls])
+            avg_pl_pct = sum([c['pl_pct'] for c in active_calls]) / total_active if total_active > 0 else 0
+            avg_dte = sum([c['dte'] for c in active_calls]) / total_active if total_active > 0 else 0
+            
+            # Count by status
+            btc_count = len([c for c in active_calls if c['status'] == 'BTC'])
+            itm_count = len([c for c in active_calls if c['status'] == 'ITM'])
+            expiring_count = len([c for c in active_calls if c['dte'] <= 7])
+            
+            # Display summary
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Total Active", total_active)
+            with col2:
+                st.metric("Total Premium", f"${total_premium:,.2f}")
+            with col3:
+                st.metric("Unrealized P/L", f"${total_pl:,.2f}", delta=f"{avg_pl_pct:.1f}%")
+            with col4:
+                st.metric("Avg DTE", f"{avg_dte:.0f} days")
+            
+            # Alerts
+            if btc_count > 0 or itm_count > 0 or expiring_count > 0:
+                st.write("**🔔 Alerts:**")
+                alerts = []
+                if btc_count > 0:
+                    alerts.append(f"🟢 {btc_count} position(s) ready to close (≥80% profit)")
+                if itm_count > 0:
+                    alerts.append(f"🔴 {itm_count} position(s) in-the-money (risk of assignment)")
+                if expiring_count > 0:
+                    alerts.append(f"⚠️ {expiring_count} position(s) expiring in <7 days")
+                
+                for alert in alerts:
+                    st.write(f"- {alert}")
+            
+            st.write("")
+            
+            # Active Positions Table
             import pandas as pd
-            calls_df = pd.DataFrame(breakdown['short_call_details'])
+            calls_df = pd.DataFrame(active_calls)
             
-            # Format the dataframe
-            display_df = pd.DataFrame({
-                'Symbol': calls_df['symbol'],
-                'Shares': calls_df['shares'],
-                'Contracts': calls_df['contracts'],
-                'Strike': calls_df['strike'].apply(lambda x: f"${x:.2f}"),
-                'Expiration': calls_df['expiration'],
-                'DTE': calls_df['dte'],
-                'Premium': calls_df['premium_collected'].apply(lambda x: f"${x:.2f}"),
-                'Current Value': calls_df['current_value'].apply(lambda x: f"${x:.2f}"),
-                'P/L': calls_df['pl'].apply(lambda x: f"${x:.2f}"),
-                '% Recognized': calls_df['pct_recognized'].apply(lambda x: f"{x:.1f}%")
-            })
+            # Add Select column for buy-back actions
+            calls_df.insert(0, 'Select', False)
             
-            st.dataframe(
+            # Format display
+            display_df = calls_df[['Select', 'symbol', 'strike', 'expiration', 'dte', 'premium_collected', 'current_ask', 'pl', 'pl_pct', 'status', 'status_emoji']].copy()
+            display_df.columns = ['Select', 'Symbol', 'Strike', 'Expiration', 'DTE', 'Premium', 'Current', 'P/L', 'P/L %', 'Status', 'Indicator']
+            
+            # Format numbers
+            display_df['Strike'] = display_df['Strike'].apply(lambda x: f"${x:.2f}")
+            display_df['Premium'] = display_df['Premium'].apply(lambda x: f"${x:.2f}")
+            display_df['Current'] = display_df['Current'].apply(lambda x: f"${x:.2f}")
+            display_df['P/L'] = display_df['P/L'].apply(lambda x: f"${x:.2f}")
+            display_df['P/L %'] = display_df['P/L %'].apply(lambda x: f"{x:.1f}%")
+            display_df['Status'] = display_df.apply(lambda row: f"{row['Indicator']} {row['Status']}", axis=1)
+            display_df = display_df.drop('Indicator', axis=1)
+            
+            # Display table with checkboxes
+            edited_calls = st.data_editor(
                 display_df,
                 use_container_width=True,
                 hide_index=True,
                 column_config={
-                    "P/L": st.column_config.TextColumn(
-                        help="Profit/Loss = Premium Collected - Current Value"
-                    ),
-                    "% Recognized": st.column_config.TextColumn(
-                        help="Percentage of premium that has been realized"
+                    "Select": st.column_config.CheckboxColumn(
+                        "Select",
+                        help="Select positions to buy back",
+                        default=False
                     )
-                }
+                },
+                key="cc_monitoring_table"
             )
             
-            st.info("💡 **Tip:** High % Recognized means the call has lost most of its value - good candidate for early close!")
+            # Buy Back Actions
+            selected_for_buyback = edited_calls[edited_calls['Select'] == True]
+            if len(selected_for_buyback) > 0:
+                st.write("")
+                st.write(f"**Selected {len(selected_for_buyback)} position(s) for buy-back**")
+                
+                # Get selected indices to map back to original data
+                selected_indices = selected_for_buyback.index.tolist()
+                selected_calls_data = [active_calls[i] for i in selected_indices]
+                
+                # Calculate totals
+                total_cost = sum([c['current_value'] for c in selected_calls_data])
+                total_profit = sum([c['pl'] for c in selected_calls_data])
+                
+                st.write(f"Total Cost to Close: **${total_cost:,.2f}**")
+                st.write(f"Total Profit: **${total_profit:,.2f}**")
+                
+                # Dry Run Toggle
+                col1, col2 = st.columns([1, 3])
+                with col1:
+                    dry_run = st.toggle("🧪 Dry Run Mode", value=True, key="cc_buyback_dry_run", help="Test order submission without executing real orders")
+                
+                st.write("")
+                
+                if dry_run:
+                    st.info("🧪 **DRY RUN MODE**: Orders will be simulated, not actually submitted.")
+                    if st.button("🧪 Run Dry Run Test", use_container_width=True):
+                        st.write("**🧪 Dry Run Results:**")
+                        for call_data in selected_calls_data:
+                            st.success(f"✅ Would buy back {call_data['quantity']} contract(s) of {call_data['symbol']} ${call_data['strike']:.2f} Call at ${call_data['current_ask']:.2f}")
+                        st.info("💡 Toggle off Dry Run Mode to submit real orders.")
+                else:
+                    st.warning("⚠️ **LIVE MODE**: Orders will be submitted to Tastytrade!")
+                    if st.button("🚀 Submit REAL Buy-Back Orders", type="primary", use_container_width=True):
+                        st.write("**📤 Submitting buy-back orders...**")
+                        
+                        results = []
+                        for call_data in selected_calls_data:
+                            result = api.buy_to_close_covered_call(
+                                account_number=selected_account,
+                                option_symbol=call_data['option_symbol'],
+                                quantity=call_data['quantity'],
+                                price=call_data['current_ask']
+                            )
+                            results.append({
+                                **result,
+                                'symbol': call_data['symbol'],
+                                'strike': call_data['strike'],
+                                'quantity': call_data['quantity']
+                            })
+                        
+                        # Display results
+                        success_count = sum([1 for r in results if r.get('success')])
+                        fail_count = len(results) - success_count
+                        
+                        if success_count > 0:
+                            st.success(f"✅ Successfully submitted {success_count} buy-back order(s)!")
+                            st.balloons()
+                        
+                        if fail_count > 0:
+                            st.error(f"❌ {fail_count} order(s) failed")
+                        
+                        # Show individual results
+                        for result in results:
+                            if result.get('success'):
+                                st.success(f"✅ {result['symbol']} ${result['strike']:.2f}: Order ID {result.get('order_id')}")
+                            else:
+                                st.error(f"❌ {result['symbol']} ${result['strike']:.2f}: {result.get('message')}")
+            
+            st.info("💡 **Tip:** Positions with 🟢 BTC status (≥80% profit) are good candidates for early close to free up capital!")
             st.write("")
         
         # TABLE 2: Eligible Positions (Selectable)
