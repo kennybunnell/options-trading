@@ -287,6 +287,7 @@ class TastytradeAPI:
             payload = {
                 'time-in-force': 'Day',
                 'order-type': order_type,
+                'source': 'WEB',  # Required for programmatic orders
                 'legs': legs
             }
             
@@ -380,6 +381,7 @@ class TastytradeAPI:
             payload = {
                 'time-in-force': 'Day',
                 'order-type': 'Limit',
+                'source': 'WEB',  # Required for programmatic orders
                 'price': str(price),
                 'price-effect': 'Debit',  # We pay to buy back
                 'legs': legs
