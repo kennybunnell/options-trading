@@ -2699,8 +2699,8 @@ elif page == "CC Dashboard":
                         spinner_msg = "Simulating orders..." if dry_run else "📫 Submitting orders to Tastytrade..."
                         with st.spinner(spinner_msg):
                             try:
-                                # Get account number from session state
-                                account_number = st.session_state.get('selected_account')
+                                # Use the selected_account variable from CC Dashboard scope
+                                account_number = selected_account
                                 
                                 if not account_number and not dry_run:
                                     st.error("⚠️ No account selected. Please select an account first.")
