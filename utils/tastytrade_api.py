@@ -287,7 +287,7 @@ class TastytradeAPI:
             payload = {
                 'time-in-force': 'Day',
                 'order-type': order_type,
-                'source': 'WEB',  # Required for programmatic orders
+                'underlying-symbol': symbol,  # Required field
                 'legs': legs
             }
             
@@ -307,11 +307,26 @@ class TastytradeAPI:
                     'message': f"Order submitted: {quantity} contracts of {symbol} ${strike} Call"
                 }
             else:
-                error_msg = response.json().get('error', {}).get('message', 'Unknown error')
+                # Capture full error response for debugging
+                try:
+                    error_data = response.json()
+                    error_msg = error_data.get('error', {}).get('message', 'Unknown error')
+                    # Log full response for debugging
+                    print(f"\n=== TASTYTRADE ORDER ERROR ===")
+                    print(f"Status Code: {response.status_code}")
+                    print(f"Full Response: {error_data}")
+                    print(f"Payload Sent: {payload}")
+                    print(f"Option Symbol: {option_symbol}")
+                    print(f"==========================\n")
+                except:
+                    error_msg = response.text
+                    print(f"Raw error: {response.text}")
+                
                 return {
                     'success': False,
                     'message': f"Order failed: {error_msg}",
-                    'status_code': response.status_code
+                    'status_code': response.status_code,
+                    'full_response': error_data if 'error_data' in locals() else response.text
                 }
                 
         except Exception as e:
@@ -370,6 +385,9 @@ class TastytradeAPI:
             url = f'{self.base_url}/accounts/{account_number}/orders'
             headers = self._get_headers()
             
+            # Extract underlying symbol from option symbol (first 6 chars, stripped)
+            underlying_symbol = option_symbol[:6].strip()
+            
             # Buy to Close (BTC) order
             legs = [{
                 'instrument-type': 'Equity Option',
@@ -381,7 +399,7 @@ class TastytradeAPI:
             payload = {
                 'time-in-force': 'Day',
                 'order-type': 'Limit',
-                'source': 'WEB',  # Required for programmatic orders
+                'underlying-symbol': underlying_symbol,  # Required field
                 'price': str(price),
                 'price-effect': 'Debit',  # We pay to buy back
                 'legs': legs
