@@ -141,3 +141,121 @@ class TradierAPI:
 
 
 
+
+    def get_rsi(self, symbol, period=14):
+        """Get RSI (Relative Strength Index) for a symbol using Tradier timeseries"""
+        try:
+            url = f"{self.base_url}/markets/timesales"
+            params = {
+                "symbol": symbol,
+                "interval": "daily",
+                "start": (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'),
+                "end": datetime.now().strftime('%Y-%m-%d')
+            }
+            
+            response = requests.get(url, headers=self.headers, params=params, timeout=10)
+            
+            if response.status_code != 200:
+                return None
+            
+            data = response.json()
+            
+            if 'series' not in data or not data['series']:
+                return None
+            
+            series = data['series'].get('data', [])
+            if not series or len(series) < period + 1:
+                return None
+            
+            # Calculate RSI
+            closes = [float(d['close']) for d in series if 'close' in d]
+            if len(closes) < period + 1:
+                return None
+            
+            # Calculate price changes
+            deltas = [closes[i] - closes[i-1] for i in range(1, len(closes))]
+            
+            # Separate gains and losses
+            gains = [d if d > 0 else 0 for d in deltas]
+            losses = [-d if d < 0 else 0 for d in deltas]
+            
+            # Calculate average gain and loss
+            avg_gain = sum(gains[-period:]) / period
+            avg_loss = sum(losses[-period:]) / period
+            
+            if avg_loss == 0:
+                return 100  # No losses = overbought
+            
+            rs = avg_gain / avg_loss
+            rsi = 100 - (100 / (1 + rs))
+            
+            return round(rsi, 2)
+            
+        except Exception as e:
+            print(f"Error getting RSI for {symbol}: {e}")
+            return None
+    
+    def get_iv_rank(self, symbol):
+        """
+        Calculate IV Rank: where current IV sits relative to 52-week high/low
+        IV Rank = (Current IV - 52w Low IV) / (52w High IV - 52w Low IV) * 100
+        """
+        try:
+            # Get historical volatility data from Tradier
+            url = f"{self.base_url}/markets/history"
+            params = {
+                "symbol": symbol,
+                "interval": "daily",
+                "start": (datetime.now() - timedelta(days=365)).strftime('%Y-%m-%d'),
+                "end": datetime.now().strftime('%Y-%m-%d')
+            }
+            
+            response = requests.get(url, headers=self.headers, params=params, timeout=10)
+            
+            if response.status_code != 200:
+                return None
+            
+            data = response.json()
+            
+            if 'history' not in data or not data['history']:
+                return None
+            
+            history = data['history'].get('day', [])
+            if not history or len(history) < 30:
+                return None
+            
+            # Calculate historical volatility for each day
+            closes = [float(d['close']) for d in history if 'close' in d]
+            if len(closes) < 30:
+                return None
+            
+            # Calculate daily returns
+            returns = [(closes[i] - closes[i-1]) / closes[i-1] for i in range(1, len(closes))]
+            
+            # Calculate rolling 30-day volatility
+            import math
+            volatilities = []
+            window = 30
+            for i in range(window, len(returns)):
+                window_returns = returns[i-window:i]
+                variance = sum((r - sum(window_returns)/len(window_returns))**2 for r in window_returns) / len(window_returns)
+                vol = math.sqrt(variance) * math.sqrt(252) * 100  # Annualized
+                volatilities.append(vol)
+            
+            if not volatilities:
+                return None
+            
+            current_iv = volatilities[-1]
+            iv_high = max(volatilities)
+            iv_low = min(volatilities)
+            
+            if iv_high == iv_low:
+                return 50  # No range = middle
+            
+            iv_rank = ((current_iv - iv_low) / (iv_high - iv_low)) * 100
+            
+            return round(iv_rank, 1)
+            
+        except Exception as e:
+            print(f"Error getting IV Rank for {symbol}: {e}")
+            return None

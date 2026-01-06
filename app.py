@@ -2216,9 +2216,9 @@ elif page == "CC Dashboard":
                     )
                     matches = ticker_opps[mask]
                     
-                    # If no match, relax criteria progressively
+                    # If no match, relax ONLY weekly return and OI (NEVER relax delta or DTE)
                     if len(matches) == 0:
-                        # Relax weekly return
+                        # Relax weekly return (keep delta and DTE as hard limits)
                         mask = (
                             (ticker_opps['delta'] >= delta_min) &
                             (ticker_opps['delta'] <= delta_max) &
@@ -2229,7 +2229,7 @@ elif page == "CC Dashboard":
                         matches = ticker_opps[mask]
                     
                     if len(matches) == 0:
-                        # Relax open interest
+                        # Relax open interest (keep delta and DTE as hard limits)
                         mask = (
                             (ticker_opps['delta'] >= delta_min) &
                             (ticker_opps['delta'] <= delta_max) &
@@ -2238,35 +2238,29 @@ elif page == "CC Dashboard":
                         )
                         matches = ticker_opps[mask]
                     
+                    # If still no match, skip this ticker (Delta and DTE are HARD LIMITS)
                     if len(matches) == 0:
-                        # Relax delta range (expand by 50%)
-                        delta_range = delta_max - delta_min
-                        mask = (
-                            (ticker_opps['delta'] >= delta_min - delta_range * 0.5) &
-                            (ticker_opps['delta'] <= delta_max + delta_range * 0.5) &
-                            (ticker_opps['dte'] >= dte_min) &
-                            (ticker_opps['dte'] <= dte_max)
-                        )
-                        matches = ticker_opps[mask]
+                        continue  # Skip this ticker - no contracts within delta/DTE range
                     
-                    if len(matches) == 0:
-                        # Final fallback: just take all opportunities for this ticker
-                        matches = ticker_opps
+                    # Find the best match: closest to target delta, then highest weekly return
+                    # Target delta is the middle of the range
+                    target_delta = (delta_min + delta_max) / 2
+                    matches['delta_distance'] = abs(matches['delta'] - target_delta)
                     
-                    # Find the best match (highest weekly return)
-                    if len(matches) > 0:
-                        best_idx = matches['weekly_return_pct'].idxmax()
-                        best_opp = matches.loc[best_idx]
-                        
-                        # Calculate quantity based on mode
-                        if qty_mode == 'conservative':
-                            qty = 1
-                        elif qty_mode == 'medium':
-                            qty = max(1, math.ceil(best_opp['max_contracts'] * 0.5))
-                        else:  # aggressive
-                            qty = best_opp['max_contracts']
-                        
-                        selections.append((best_idx, qty))
+                    # Sort by: 1) closest to target delta, 2) highest weekly return
+                    matches = matches.sort_values(['delta_distance', 'weekly_return_pct'], ascending=[True, False])
+                    best_idx = matches.index[0]
+                    best_opp = matches.loc[best_idx]
+                    
+                    # Calculate quantity based on mode
+                    if qty_mode == 'conservative':
+                        qty = 1
+                    elif qty_mode == 'medium':
+                        qty = max(1, math.ceil(best_opp['max_contracts'] * 0.5))
+                    else:  # aggressive
+                        qty = best_opp['max_contracts']
+                    
+                    selections.append((best_idx, qty))
                 
                 return selections
             
@@ -2557,7 +2551,7 @@ elif page == "CC Dashboard":
             st.write("---")
             
             # Display dataframe
-            display_opp = opp_df[['Select', 'Qty', 'symbol', 'strike', 'expiration', 'dte', 'delta', 'premium', 'weekly_return_pct', 'open_interest', 'volume', 'max_contracts']].copy()
+            display_opp = opp_df[['Select', 'Qty', 'symbol', 'strike', 'expiration', 'dte', 'delta', 'premium', 'weekly_return_pct', 'rsi', 'iv_rank', 'spread_pct', 'open_interest', 'volume', 'max_contracts']].copy()
             
             # Calculate Available column (remaining contracts)
             display_opp['Available'] = display_opp['max_contracts'] - display_opp['Qty']
@@ -2572,16 +2566,52 @@ elif page == "CC Dashboard":
             display_opp['Available_Display'] = display_opp['Available'].apply(format_available)
             
             # Rename columns
-            display_opp.columns = ['Select', 'Qty', 'Symbol', 'Strike', 'Expiration', 'DTE', 'Delta', 'Premium', 'Weekly %', 'OI', 'Volume', 'max_contracts', 'Available', 'Available_Display']
+            display_opp.columns = ['Select', 'Qty', 'Symbol', 'Strike', 'Expiration', 'DTE', 'Delta', 'Premium', 'Weekly %', 'RSI', 'IV Rank', 'Spread %', 'OI', 'Volume', 'max_contracts', 'Available', 'Available_Display']
             
-            # Format
+            # Format RSI with emoji indicators
+            def format_rsi(val):
+                if val is None or val != val:  # Check for None or NaN
+                    return "N/A"
+                if val > 70:
+                    return f"🔴 {val:.0f}"  # Red = Overbought
+                elif val < 30:
+                    return f"🟡 {val:.0f}"  # Yellow = Oversold
+                else:
+                    return f"🟢 {val:.0f}"  # Green = Normal
+            
+            # Format IV Rank with emoji indicators
+            def format_iv_rank(val):
+                if val is None or val != val:  # Check for None or NaN
+                    return "N/A"
+                if val > 75:
+                    return f"🟢 {val:.0f}%"  # Green = High IV (good for selling)
+                elif val < 25:
+                    return f"🔴 {val:.0f}%"  # Red = Low IV (bad for selling)
+                else:
+                    return f"🟡 {val:.0f}%"  # Yellow = Medium IV
+            
+            # Format Spread % with emoji indicators
+            def format_spread(val):
+                if val is None or val != val:  # Check for None or NaN
+                    return "N/A"
+                if val < 2:
+                    return f"🟢 {val:.1f}%"  # Green = Tight spread (good)
+                elif val < 5:
+                    return f"🟡 {val:.1f}%"  # Yellow = Medium spread
+                else:
+                    return f"🔴 {val:.1f}%"  # Red = Wide spread (bad)
+            
+            # Apply formatting
             display_opp['Strike'] = display_opp['Strike'].apply(lambda x: f"${x:.2f}")
             display_opp['Delta'] = display_opp['Delta'].apply(lambda x: f"{x:.3f}")
             display_opp['Premium'] = display_opp['Premium'].apply(lambda x: f"${x:.2f}")
             display_opp['Weekly %'] = display_opp['Weekly %'].apply(lambda x: f"{x:.2f}%")
+            display_opp['RSI'] = display_opp['RSI'].apply(format_rsi)
+            display_opp['IV Rank'] = display_opp['IV Rank'].apply(format_iv_rank)
+            display_opp['Spread %'] = display_opp['Spread %'].apply(format_spread)
             
             # Reorder columns to put Available after Qty (use display version with emoji)
-            display_opp = display_opp[['Select', 'Qty', 'Available_Display', 'Symbol', 'Strike', 'Expiration', 'DTE', 'Delta', 'Premium', 'Weekly %', 'OI', 'Volume']]
+            display_opp = display_opp[['Select', 'Qty', 'Available_Display', 'Symbol', 'Strike', 'Expiration', 'DTE', 'Delta', 'Premium', 'Weekly %', 'RSI', 'IV Rank', 'Spread %', 'OI', 'Volume']]
             
             edited_opp = st.data_editor(
                 display_opp,

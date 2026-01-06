@@ -190,14 +190,19 @@ def pre_scan_covered_calls(api, tradier_api, holdings, min_prescan_delta=0.10, m
         
         try:
             # Get option chain from Tradier (includes greeks!)
-            st.write(f"  🔍 Fetching option chain...")
+            st.write(f"  🔍 Fetching option chain and indicators...")
+            
+            # Fetch RSI and IV Rank for this stock
+            rsi = tradier_api.get_rsi(symbol)
+            iv_rank = tradier_api.get_iv_rank(symbol)
+            
             tradier_chain = tradier_api.get_option_chains(symbol, min_dte=min_dte, max_dte=max_dte)
             
             if not tradier_chain or not tradier_chain.get('options'):
                 st.warning(f"  ⚠️ No option chain data returned for {symbol}")
                 continue
             
-            st.write(f"  ✅ Got option chain data")
+            st.write(f"  ✅ Got option chain data (RSI: {rsi if rsi else 'N/A'}, IV Rank: {iv_rank if iv_rank else 'N/A'})")
             
             # Convert Tradier format to grouped by expiration
             from collections import defaultdict
@@ -363,6 +368,8 @@ def pre_scan_covered_calls(api, tradier_api, holdings, min_prescan_delta=0.10, m
                             'volume': volume,
                             'open_interest': open_interest,
                             'spread_pct': spread_pct,
+                            'rsi': rsi,  # Stock RSI
+                            'iv_rank': iv_rank,  # IV Rank
                             'shares_owned': quantity,
                             'max_contracts': max_contracts,
                             'distance_otm': distance_otm_pct
