@@ -191,6 +191,7 @@ def pre_scan_covered_calls(api, tradier_api, holdings, min_prescan_delta=0.10, m
         symbol = holding['symbol']
         quantity = holding['quantity']
         current_price = holding['current_price']
+        holding_max_contracts = holding.get('max_contracts', quantity // 100)  # Use pre-calculated max_contracts
         
         st.write(f"**[{idx}/{len(holdings)}] {symbol}** - ${current_price:.2f}, {quantity} shares")
         
@@ -349,8 +350,8 @@ def pre_scan_covered_calls(api, tradier_api, holdings, min_prescan_delta=0.10, m
                         return_pct = (premium_per_share / current_price) * 100
                         weekly_return = (return_pct / dte) * 7 if dte > 0 else 0
                         
-                        # Calculate max contracts
-                        max_contracts = quantity // 100
+                        # Use max contracts from holdings (accounts for existing covered calls)
+                        max_contracts = holding_max_contracts
                         
                         if max_contracts <= 0:
                             continue
