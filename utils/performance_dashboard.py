@@ -362,7 +362,11 @@ def render_options_table(positions: List[Dict], position_type: str):
             'Premium Collected': f"${premium_collected:,.0f}",
             'Current Value': f"${current_value:,.0f}",
             'Realized %': premium_realized,  # Numeric value for progress bar
-            'Action': recommendation
+            'Action': recommendation,
+            # Debug columns
+            'DEBUG Open': f"${open_price:.2f}",
+            'DEBUG Current': f"${current_price:.2f}",
+            'DEBUG Calc': f"{premium_realized:.2f}%"
         })
         
         # Store raw data for closing
@@ -433,6 +437,9 @@ def render_options_table(positions: List[Dict], position_type: str):
                 width="medium"
             ),
             "Action": st.column_config.TextColumn("Action", width="small"),
+            "DEBUG Open": st.column_config.TextColumn("Open Price", width="small"),
+            "DEBUG Current": st.column_config.TextColumn("Current Price", width="small"),
+            "DEBUG Calc": st.column_config.TextColumn("Calc %", width="small"),
         },
         key=f"{position_type}_positions_table"
     )
