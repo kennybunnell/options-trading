@@ -933,136 +933,7 @@ elif page == "CSP Dashboard":
     
     st.divider()
     
-    # Quick Presets for CSP
-    st.subheader("⚡ Quick Presets")
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        if st.button("🟢 Conservative", use_container_width=True, key="csp_conservative"):
-            st.session_state.csp_min_delta = 0.10
-            st.session_state.csp_max_delta = 0.20
-            st.session_state.csp_min_volume = 50
-            st.session_state.csp_min_oi = 100
-            st.session_state.csp_min_dte = 5
-            st.session_state.csp_max_dte = 10
-            st.rerun()
-    
-    with col2:
-        if st.button("🟡 Medium", use_container_width=True, key="csp_medium"):
-            st.session_state.csp_min_delta = 0.15
-            st.session_state.csp_max_delta = 0.25
-            st.session_state.csp_min_volume = 25
-            st.session_state.csp_min_oi = 50
-            st.session_state.csp_min_dte = 5
-            st.session_state.csp_max_dte = 14
-            st.rerun()
-    
-    with col3:
-        if st.button("🔴 Aggressive", use_container_width=True, key="csp_aggressive"):
-            st.session_state.csp_min_delta = 0.20
-            st.session_state.csp_max_delta = 0.35
-            st.session_state.csp_min_volume = 10
-            st.session_state.csp_min_oi = 25
-            st.session_state.csp_min_dte = 5
-            st.session_state.csp_max_dte = 21
-            st.rerun()
-    
-    with st.expander("📘 Preset Explanations"):
-        st.markdown("""
-        **🟢 Conservative (Lower Risk)**
-        - Delta: 0.10-0.20 (80-90% success rate)
-        - DTE: 5-10 days (1-1.5 weeks)
-        - Min Volume: 50 contracts
-        - Min Open Interest: 100 contracts
-        - **Best for:** Capital preservation with steady income
-        
-        **🟡 Medium (Balanced)**
-        - Delta: 0.15-0.25 (75-85% success rate)
-        - DTE: 5-14 days (1-2 weeks)
-        - Min Volume: 25 contracts
-        - Min Open Interest: 50 contracts
-        - **Best for:** Balanced risk/reward
-        
-        **🔴 Aggressive (Higher Premium)**
-        - Delta: 0.20-0.35 (65-80% success rate)
-        - DTE: 5-21 days (1-3 weeks)
-        - Min Volume: 10 contracts
-        - Min Open Interest: 25 contracts
-        - **Best for:** Maximum premium collection, higher assignment risk
-        
-        ---
-        
-        **Delta Interpretation:**
-        - Delta 0.10 = ~10% chance of assignment (90% success)
-        - Delta 0.20 = ~20% chance of assignment (80% success)
-        - Delta 0.30 = ~30% chance of assignment (70% success)
-        
-        **Returns are calculated and displayed, not filtered!**
-        You'll see what returns are actually available in the market.
-        """)
-    
-    st.divider()
-    
-    # Filters Section
-    st.subheader("🔍 Option Filters")
-    
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        min_delta = st.number_input(
-            "Min Delta", 
-            0.05, 0.50, 
-            st.session_state.get('csp_min_delta', 0.10), 
-            0.05
-        )
-    with col2:
-        max_delta = st.number_input(
-            "Max Delta", 
-            0.05, 0.50, 
-            st.session_state.get('csp_max_delta', 0.30), 
-            0.05
-        )
-    with col3:
-        min_volume = st.number_input(
-            "Min Volume", 
-            0, 10000, 
-            st.session_state.get('csp_min_volume', 0), 
-            10
-        )
-    with col4:
-        min_oi = st.number_input(
-            "Min Open Interest", 
-            0, 10000, 
-            st.session_state.get('csp_min_oi', 0), 
-            25
-        )
-    
-    col5, col6, col7 = st.columns(3)
-    
-    with col5:
-        min_dte = st.number_input(
-            "Min Days to Exp", 
-            0, 365, 
-            st.session_state.get('csp_min_dte', 5), 
-            1
-        )
-    with col6:
-        max_dte = st.number_input(
-            "Max Days to Exp", 
-            0, 365, 
-            st.session_state.get('csp_max_dte', 21), 
-            1
-        )
-    with col7:
-        fetch_technicals = st.checkbox(
-            "Fetch Technical Indicators", 
-            value=False, 
-            help="Slower but shows RSI, BB%, etc."
-        )
-    
-    # Max orders setting - Make it prominent
-    st.divider()
+    # Max orders setting
     st.subheader("⚙️ Order Submission Settings")
     
     col8, col9 = st.columns([1, 3])
@@ -1079,6 +950,15 @@ elif page == "CSP Dashboard":
     
     with col9:
         st.info(f"💡 **Current Limit:** You can submit up to **{max_orders} different options** per submission. Each option can have multiple contracts (adjust with Qty column). This limit is checked during validation before order submission.")
+    
+    # Set default filter values for fetching (no UI, just defaults)
+    min_delta = 0.05
+    max_delta = 0.50
+    min_volume = 0
+    min_oi = 0
+    min_dte = 0
+    max_dte = 365
+    fetch_technicals = False
     
     st.divider()
     
@@ -1347,67 +1227,265 @@ elif page == "CSP Dashboard":
         # Selection controls
         st.subheader("📋 Select Options to Trade")
         
-        # Row 1: Selection and Preset buttons
-        col1, col2, col3, col4, col5, col6 = st.columns([1, 1, 1, 1, 1, 2])
+        # Initialize preset criteria in session state (defaults)
+        if 'csp_conservative_delta_min' not in st.session_state:
+            st.session_state.csp_conservative_delta_min = 0.10
+            st.session_state.csp_conservative_delta_max = 0.20
+            st.session_state.csp_conservative_dte_min = 7
+            st.session_state.csp_conservative_dte_max = 30
+            st.session_state.csp_conservative_oi_min = 50
+            st.session_state.csp_conservative_weekly_min = 0.3
+        
+        if 'csp_medium_delta_min' not in st.session_state:
+            st.session_state.csp_medium_delta_min = 0.15
+            st.session_state.csp_medium_delta_max = 0.30
+            st.session_state.csp_medium_dte_min = 7
+            st.session_state.csp_medium_dte_max = 30
+            st.session_state.csp_medium_oi_min = 50
+            st.session_state.csp_medium_weekly_min = 0.3
+        
+        if 'csp_aggressive_delta_min' not in st.session_state:
+            st.session_state.csp_aggressive_delta_min = 0.20
+            st.session_state.csp_aggressive_delta_max = 0.40
+            st.session_state.csp_aggressive_dte_min = 7
+            st.session_state.csp_aggressive_dte_max = 21
+            st.session_state.csp_aggressive_oi_min = 25
+            st.session_state.csp_aggressive_weekly_min = 0.3
+        
+        # Helper function to select best per ticker
+        def select_best_csp_per_ticker(df, delta_min, delta_max, dte_min, dte_max, oi_min, weekly_min, qty=1):
+            """Select best CSP option per ticker based on criteria"""
+            selections = []
+            
+            # Filter by criteria
+            filtered = df[
+                (df['Delta'].abs() >= delta_min) &
+                (df['Delta'].abs() <= delta_max) &
+                (df['DTE'] >= dte_min) &
+                (df['DTE'] <= dte_max) &
+                (df['Open Interest'] >= oi_min) &
+                (df['Weekly %'] >= weekly_min)
+            ]
+            
+            if len(filtered) == 0:
+                return selections
+            
+            # Group by symbol and select best (highest weekly return)
+            for symbol in filtered['Symbol'].unique():
+                symbol_opps = filtered[filtered['Symbol'] == symbol]
+                if len(symbol_opps) > 0:
+                    # Select highest weekly return for this symbol
+                    best_idx = symbol_opps['Weekly %'].idxmax()
+                    selections.append((best_idx, qty))
+            
+            return selections
+        
+        # Preset Filter Buttons
+        st.write("")
+        col1, col2, col3, col4, col5, col6 = st.columns([1, 1.5, 1.5, 1.5, 1, 1])
         
         with col1:
-            if st.button("✅ Select All", use_container_width=True, key="csp_select_all"):
-                st.session_state.csp_opportunities['Select'] = True
+            if st.button("🗑️ Clear All", use_container_width=True, key="csp_clear_all"):
+                st.session_state.csp_opportunities['Select'] = False
                 st.rerun()
         
         with col2:
-            if st.button("❌ Clear Selection", use_container_width=True, key="csp_clear"):
+            if st.button("🟢 Conservative", use_container_width=True, key="csp_preset_conservative", 
+                       help=f"Δ {st.session_state.csp_conservative_delta_min}-{st.session_state.csp_conservative_delta_max}, DTE {st.session_state.csp_conservative_dte_min}-{st.session_state.csp_conservative_dte_max}, OI ≥{st.session_state.csp_conservative_oi_min}, Weekly ≥{st.session_state.csp_conservative_weekly_min}%"):
+                # Clear all first
                 st.session_state.csp_opportunities['Select'] = False
+                st.session_state.csp_opportunities['Qty'] = 1
+                
+                # Use smart per-ticker selection
+                selections = select_best_csp_per_ticker(
+                    st.session_state.csp_opportunities,
+                    st.session_state.csp_conservative_delta_min,
+                    st.session_state.csp_conservative_delta_max,
+                    st.session_state.csp_conservative_dte_min,
+                    st.session_state.csp_conservative_dte_max,
+                    st.session_state.csp_conservative_oi_min,
+                    st.session_state.csp_conservative_weekly_min,
+                    qty=1
+                )
+                
+                # Apply selections
+                for idx, qty in selections:
+                    st.session_state.csp_opportunities.loc[idx, 'Select'] = True
+                    st.session_state.csp_opportunities.loc[idx, 'Qty'] = qty
+                
                 st.rerun()
         
         with col3:
-            if st.button("🟢 Conservative", use_container_width=True, key="csp_preset_conservative", help="Select delta 0.15-0.25, premium ≥2.5%, qty=1"):
+            if st.button("🟡 Medium", use_container_width=True, key="csp_preset_medium",
+                       help=f"Δ {st.session_state.csp_medium_delta_min}-{st.session_state.csp_medium_delta_max}, DTE {st.session_state.csp_medium_dte_min}-{st.session_state.csp_medium_dte_max}, OI ≥{st.session_state.csp_medium_oi_min}, Weekly ≥{st.session_state.csp_medium_weekly_min}%"):
                 # Clear all first
                 st.session_state.csp_opportunities['Select'] = False
                 st.session_state.csp_opportunities['Qty'] = 1
-                # Select conservative options
-                mask = (
-                    (st.session_state.csp_opportunities['Delta'].abs() >= 0.15) &
-                    (st.session_state.csp_opportunities['Delta'].abs() <= 0.25) &
-                    (st.session_state.csp_opportunities['Premium %'] >= 2.5)
+                
+                # Use smart per-ticker selection
+                selections = select_best_csp_per_ticker(
+                    st.session_state.csp_opportunities,
+                    st.session_state.csp_medium_delta_min,
+                    st.session_state.csp_medium_delta_max,
+                    st.session_state.csp_medium_dte_min,
+                    st.session_state.csp_medium_dte_max,
+                    st.session_state.csp_medium_oi_min,
+                    st.session_state.csp_medium_weekly_min,
+                    qty=1
                 )
-                st.session_state.csp_opportunities.loc[mask, 'Select'] = True
-                st.session_state.csp_opportunities.loc[mask, 'Qty'] = 1
+                
+                # Apply selections
+                for idx, qty in selections:
+                    st.session_state.csp_opportunities.loc[idx, 'Select'] = True
+                    st.session_state.csp_opportunities.loc[idx, 'Qty'] = qty
+                
                 st.rerun()
         
         with col4:
-            if st.button("🟡 Medium", use_container_width=True, key="csp_preset_medium", help="Select delta 0.25-0.35, premium ≥2.0%, qty=2"):
+            if st.button("🔴 Aggressive", use_container_width=True, key="csp_preset_aggressive",
+                       help=f"Δ {st.session_state.csp_aggressive_delta_min}-{st.session_state.csp_aggressive_delta_max}, DTE {st.session_state.csp_aggressive_dte_min}-{st.session_state.csp_aggressive_dte_max}, OI ≥{st.session_state.csp_aggressive_oi_min}, Weekly ≥{st.session_state.csp_aggressive_weekly_min}%"):
                 # Clear all first
                 st.session_state.csp_opportunities['Select'] = False
                 st.session_state.csp_opportunities['Qty'] = 1
-                # Select medium options
-                mask = (
-                    (st.session_state.csp_opportunities['Delta'].abs() >= 0.25) &
-                    (st.session_state.csp_opportunities['Delta'].abs() <= 0.35) &
-                    (st.session_state.csp_opportunities['Premium %'] >= 2.0)
+                
+                # Use smart per-ticker selection
+                selections = select_best_csp_per_ticker(
+                    st.session_state.csp_opportunities,
+                    st.session_state.csp_aggressive_delta_min,
+                    st.session_state.csp_aggressive_delta_max,
+                    st.session_state.csp_aggressive_dte_min,
+                    st.session_state.csp_aggressive_dte_max,
+                    st.session_state.csp_aggressive_oi_min,
+                    st.session_state.csp_aggressive_weekly_min,
+                    qty=1
                 )
-                st.session_state.csp_opportunities.loc[mask, 'Select'] = True
-                st.session_state.csp_opportunities.loc[mask, 'Qty'] = 2
+                
+                # Apply selections
+                for idx, qty in selections:
+                    st.session_state.csp_opportunities.loc[idx, 'Select'] = True
+                    st.session_state.csp_opportunities.loc[idx, 'Qty'] = qty
+                
                 st.rerun()
         
         with col5:
-            if st.button("🔴 Aggressive", use_container_width=True, key="csp_preset_aggressive", help="Select delta 0.35-0.50, premium ≥1.5%, qty=3"):
-                # Clear all first
-                st.session_state.csp_opportunities['Select'] = False
-                st.session_state.csp_opportunities['Qty'] = 1
-                # Select aggressive options
-                mask = (
-                    (st.session_state.csp_opportunities['Delta'].abs() >= 0.35) &
-                    (st.session_state.csp_opportunities['Delta'].abs() <= 0.50) &
-                    (st.session_state.csp_opportunities['Premium %'] >= 1.5)
-                )
-                st.session_state.csp_opportunities.loc[mask, 'Select'] = True
-                st.session_state.csp_opportunities.loc[mask, 'Qty'] = 3
+            if st.button("✅ Select All", use_container_width=True, key="csp_select_all"):
+                st.session_state.csp_opportunities['Select'] = True
                 st.rerun()
         
         with col6:
             selected_count = st.session_state.csp_opportunities['Select'].sum()
             st.metric("Selected", selected_count)
+        
+        st.write("")
+        st.write("---")
+        
+        # Filter Configuration Expanders
+        st.subheader("⚙️ Preset Filter Configuration")
+        
+        # Conservative Expander
+        with st.expander("🟢 Conservative Filter Configuration", expanded=False):
+            col1, col2 = st.columns(2)
+            with col1:
+                cons_delta_min = st.number_input("Min Delta", value=st.session_state.csp_conservative_delta_min, min_value=0.0, max_value=1.0, step=0.01, key="csp_cons_delta_min_input")
+                cons_delta_max = st.number_input("Max Delta", value=st.session_state.csp_conservative_delta_max, min_value=0.0, max_value=1.0, step=0.01, key="csp_cons_delta_max_input")
+                cons_dte_min = st.number_input("Min DTE", value=st.session_state.csp_conservative_dte_min, min_value=0, max_value=365, step=1, key="csp_cons_dte_min_input")
+            with col2:
+                cons_dte_max = st.number_input("Max DTE", value=st.session_state.csp_conservative_dte_max, min_value=0, max_value=365, step=1, key="csp_cons_dte_max_input")
+                cons_oi_min = st.number_input("Min Open Interest", value=st.session_state.csp_conservative_oi_min, min_value=0, step=10, key="csp_cons_oi_min_input")
+                cons_weekly_min = st.number_input("Min Weekly Return %", value=st.session_state.csp_conservative_weekly_min, min_value=0.0, step=0.1, key="csp_cons_weekly_min_input")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("💾 Commit Conservative", use_container_width=True, key="csp_commit_conservative"):
+                    st.session_state.csp_conservative_delta_min = cons_delta_min
+                    st.session_state.csp_conservative_delta_max = cons_delta_max
+                    st.session_state.csp_conservative_dte_min = cons_dte_min
+                    st.session_state.csp_conservative_dte_max = cons_dte_max
+                    st.session_state.csp_conservative_oi_min = cons_oi_min
+                    st.session_state.csp_conservative_weekly_min = cons_weekly_min
+                    st.success("✅ Conservative criteria committed!")
+                    st.rerun()
+            with col2:
+                if st.button("🔄 Reset Conservative", use_container_width=True, key="csp_reset_conservative"):
+                    st.session_state.csp_conservative_delta_min = 0.10
+                    st.session_state.csp_conservative_delta_max = 0.20
+                    st.session_state.csp_conservative_dte_min = 7
+                    st.session_state.csp_conservative_dte_max = 30
+                    st.session_state.csp_conservative_oi_min = 50
+                    st.session_state.csp_conservative_weekly_min = 0.3
+                    st.success("✅ Conservative reset to defaults!")
+                    st.rerun()
+        
+        # Medium Expander
+        with st.expander("🟡 Medium Filter Configuration", expanded=False):
+            col1, col2 = st.columns(2)
+            with col1:
+                med_delta_min = st.number_input("Min Delta", value=st.session_state.csp_medium_delta_min, min_value=0.0, max_value=1.0, step=0.01, key="csp_med_delta_min_input")
+                med_delta_max = st.number_input("Max Delta", value=st.session_state.csp_medium_delta_max, min_value=0.0, max_value=1.0, step=0.01, key="csp_med_delta_max_input")
+                med_dte_min = st.number_input("Min DTE", value=st.session_state.csp_medium_dte_min, min_value=0, max_value=365, step=1, key="csp_med_dte_min_input")
+            with col2:
+                med_dte_max = st.number_input("Max DTE", value=st.session_state.csp_medium_dte_max, min_value=0, max_value=365, step=1, key="csp_med_dte_max_input")
+                med_oi_min = st.number_input("Min Open Interest", value=st.session_state.csp_medium_oi_min, min_value=0, step=10, key="csp_med_oi_min_input")
+                med_weekly_min = st.number_input("Min Weekly Return %", value=st.session_state.csp_medium_weekly_min, min_value=0.0, step=0.1, key="csp_med_weekly_min_input")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("💾 Commit Medium", use_container_width=True, key="csp_commit_medium"):
+                    st.session_state.csp_medium_delta_min = med_delta_min
+                    st.session_state.csp_medium_delta_max = med_delta_max
+                    st.session_state.csp_medium_dte_min = med_dte_min
+                    st.session_state.csp_medium_dte_max = med_dte_max
+                    st.session_state.csp_medium_oi_min = med_oi_min
+                    st.session_state.csp_medium_weekly_min = med_weekly_min
+                    st.success("✅ Medium criteria committed!")
+                    st.rerun()
+            with col2:
+                if st.button("🔄 Reset Medium", use_container_width=True, key="csp_reset_medium"):
+                    st.session_state.csp_medium_delta_min = 0.15
+                    st.session_state.csp_medium_delta_max = 0.30
+                    st.session_state.csp_medium_dte_min = 7
+                    st.session_state.csp_medium_dte_max = 30
+                    st.session_state.csp_medium_oi_min = 50
+                    st.session_state.csp_medium_weekly_min = 0.3
+                    st.success("✅ Medium reset to defaults!")
+                    st.rerun()
+        
+        # Aggressive Expander
+        with st.expander("🔴 Aggressive Filter Configuration", expanded=False):
+            col1, col2 = st.columns(2)
+            with col1:
+                agg_delta_min = st.number_input("Min Delta", value=st.session_state.csp_aggressive_delta_min, min_value=0.0, max_value=1.0, step=0.01, key="csp_agg_delta_min_input")
+                agg_delta_max = st.number_input("Max Delta", value=st.session_state.csp_aggressive_delta_max, min_value=0.0, max_value=1.0, step=0.01, key="csp_agg_delta_max_input")
+                agg_dte_min = st.number_input("Min DTE", value=st.session_state.csp_aggressive_dte_min, min_value=0, max_value=365, step=1, key="csp_agg_dte_min_input")
+            with col2:
+                agg_dte_max = st.number_input("Max DTE", value=st.session_state.csp_aggressive_dte_max, min_value=0, max_value=365, step=1, key="csp_agg_dte_max_input")
+                agg_oi_min = st.number_input("Min Open Interest", value=st.session_state.csp_aggressive_oi_min, min_value=0, step=10, key="csp_agg_oi_min_input")
+                agg_weekly_min = st.number_input("Min Weekly Return %", value=st.session_state.csp_aggressive_weekly_min, min_value=0.0, step=0.1, key="csp_agg_weekly_min_input")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("💾 Commit Aggressive", use_container_width=True, key="csp_commit_aggressive"):
+                    st.session_state.csp_aggressive_delta_min = agg_delta_min
+                    st.session_state.csp_aggressive_delta_max = agg_delta_max
+                    st.session_state.csp_aggressive_dte_min = agg_dte_min
+                    st.session_state.csp_aggressive_dte_max = agg_dte_max
+                    st.session_state.csp_aggressive_oi_min = agg_oi_min
+                    st.session_state.csp_aggressive_weekly_min = agg_weekly_min
+                    st.success("✅ Aggressive criteria committed!")
+                    st.rerun()
+            with col2:
+                if st.button("🔄 Reset Aggressive", use_container_width=True, key="csp_reset_aggressive"):
+                    st.session_state.csp_aggressive_delta_min = 0.20
+                    st.session_state.csp_aggressive_delta_max = 0.40
+                    st.session_state.csp_aggressive_dte_min = 7
+                    st.session_state.csp_aggressive_dte_max = 21
+                    st.session_state.csp_aggressive_oi_min = 25
+                    st.session_state.csp_aggressive_weekly_min = 0.3
+                    st.success("✅ Aggressive reset to defaults!")
+                    st.rerun()
+        
+        st.write("")
+        st.write("---")
         
         # Row 2: Quantity adjustment buttons
         st.write("**Adjust Quantities for Selected:**")
