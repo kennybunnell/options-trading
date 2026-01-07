@@ -276,13 +276,21 @@ class TastytradeAPI:
             url = f'{self.base_url}/accounts/{account_number}/orders'
             headers = self._get_headers()
             
-            # Covered call = Sell to Open (STO) call option
-            legs = [{
-                'instrument-type': 'Equity Option',
-                'symbol': option_symbol,
-                'action': 'Sell to Open',
-                'quantity': quantity
-            }]
+            # Covered call = Sell to Open (STO) call option + stock position
+            # IMPORTANT: Must include stock leg to indicate this is COVERED, not naked
+            legs = [
+                {
+                    'instrument-type': 'Equity Option',
+                    'symbol': option_symbol,
+                    'action': 'Sell to Open',
+                    'quantity': quantity
+                },
+                {
+                    'instrument-type': 'Equity',
+                    'symbol': symbol,
+                    'quantity': quantity * 100  # Each contract covers 100 shares
+                }
+            ]
             
             payload = {
                 'time-in-force': 'Day',
