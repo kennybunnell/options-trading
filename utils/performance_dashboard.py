@@ -73,13 +73,15 @@ def get_premium_realization(open_price: float, current_price: float) -> float:
 
 
 def get_recommendation(premium_realized: float, dte: int) -> str:
-    """Get recommendation based on premium realized and DTE"""
+    """Get recommendation with emoji color indicators based on premium realized and DTE"""
     if premium_realized >= 80:
-        return 'CLOSE'
+        return '🟢 CLOSE'  # Green - Ready to close
+    elif premium_realized >= 60:
+        return '🟡 WATCH'  # Yellow - Watch closely
     elif premium_realized >= 50 or dte <= 7:
-        return 'WATCH'
+        return '🟡 WATCH'  # Yellow - Watch (50%+ or expiring soon)
     else:
-        return 'HOLD'
+        return '🔴 HOLD'   # Red - Hold
 
 
 def load_premium_data() -> Dict:
