@@ -793,8 +793,59 @@ elif page == "CSP Dashboard":
     
     from utils.tradier_api import TradierAPI
     from utils.yahoo_finance import get_technical_indicators
+    from utils.cash_secured_puts import get_existing_csp_positions
     
     tradier = TradierAPI()
+    
+    # Display existing CSP positions
+    st.subheader("📊 Existing CSP Positions")
+    
+    existing_csp_data = get_existing_csp_positions(api, selected_account)
+    short_put_details = existing_csp_data['short_put_details']
+    
+    if short_put_details:
+        csp_df = pd.DataFrame(short_put_details)
+        
+        # Format columns for display
+        display_df = csp_df[[
+            'symbol', 'contracts', 'strike', 'expiration', 'dte',
+            'premium_collected', 'current_value', 'pl', 'pct_recognized', 'collateral_required'
+        ]].copy()
+        
+        display_df.columns = [
+            'Symbol', 'Contracts', 'Strike', 'Expiration', 'DTE',
+            'Premium Collected', 'Current Value', 'P/L', '% Recognized', 'Collateral'
+        ]
+        
+        # Format currency and percentages
+        display_df['Strike'] = display_df['Strike'].apply(lambda x: f"${x:.2f}")
+        display_df['Premium Collected'] = display_df['Premium Collected'].apply(lambda x: f"${x:.2f}")
+        display_df['Current Value'] = display_df['Current Value'].apply(lambda x: f"${x:.2f}")
+        display_df['P/L'] = display_df['P/L'].apply(lambda x: f"${x:.2f}")
+        display_df['% Recognized'] = display_df['% Recognized'].apply(lambda x: f"{x:.1f}%")
+        display_df['Collateral'] = display_df['Collateral'].apply(lambda x: f"${x:,.0f}")
+        
+        st.dataframe(display_df, use_container_width=True, hide_index=True)
+        
+        # Summary metrics
+        total_premium = sum([p['premium_collected'] for p in short_put_details])
+        total_current = sum([p['current_value'] for p in short_put_details])
+        total_pl = sum([p['pl'] for p in short_put_details])
+        total_collateral = sum([p['collateral_required'] for p in short_put_details])
+        
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Total Premium Collected", f"${total_premium:,.2f}")
+        with col2:
+            st.metric("Current Value", f"${total_current:,.2f}")
+        with col3:
+            st.metric("Total P/L", f"${total_pl:,.2f}", delta=f"{(total_pl/total_premium*100) if total_premium > 0 else 0:.1f}%")
+        with col4:
+            st.metric("Total Collateral", f"${total_collateral:,.0f}")
+    else:
+        st.info("ℹ️ No existing CSP positions found")
+    
+    st.divider()
     
     # Read watchlist
     try:
