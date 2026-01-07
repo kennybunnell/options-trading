@@ -509,16 +509,19 @@ def render_options_table(positions: List[Dict], position_type: str):
     
     chart_df = pd.DataFrame(chart_data)
     
-    # Create bar chart with threshold lines
+    # Create HORIZONTAL bar chart for better scalability
     fig = go.Figure()
     
-    # Determine Y-axis range based on data
+    # Sort by realized % for better visualization
+    chart_df = chart_df.sort_values('Realized %', ascending=True)
+    
+    # Determine X-axis range based on data
     min_val = min(chart_df['Realized %']) if len(chart_df) > 0 else 0
     max_val = max(chart_df['Realized %']) if len(chart_df) > 0 else 100
     
     # Extend range to show thresholds and accommodate negative values
-    y_min = min(min_val - 10, -20)  # Show at least -20% for losses
-    y_max = max(max_val + 10, 105)  # Show at least 105% for targets
+    x_min = min(min_val - 10, -20)  # Show at least -20% for losses
+    x_max = max(max_val + 10, 105)  # Show at least 105% for targets
     
     # Color coding: Green for profit (>0), Red for loss (<0), Gray for breakeven (0)
     colors = []
@@ -534,42 +537,52 @@ def render_options_table(positions: List[Dict], position_type: str):
         else:
             colors.append('#dc3545')  # Red - loss
     
+    # HORIZONTAL bars (note: x and y are swapped)
     fig.add_trace(go.Bar(
-        x=chart_df['Symbol'],
-        y=chart_df['Realized %'],
+        y=chart_df['Symbol'],  # Symbols on Y-axis (vertical)
+        x=chart_df['Realized %'],  # Values on X-axis (horizontal)
         marker_color=colors,
+        orientation='h',  # Horizontal orientation
         name='Realized %',
         text=[f"{x:.1f}%" for x in chart_df['Realized %']],
-        textposition='outside'
+        textposition='outside',
+        textfont=dict(size=11)
     ))
     
-    # Add 80% threshold line
-    fig.add_hline(y=80, line_dash="dash", line_color="#28a745", 
-                  annotation_text="80% Target", annotation_position="right")
+    # Add 80% threshold line (vertical line for horizontal chart)
+    fig.add_vline(x=80, line_dash="dash", line_color="#28a745", line_width=2,
+                  annotation_text="80% Target", annotation_position="top")
     
     # Add 50% threshold line
-    fig.add_hline(y=50, line_dash="dot", line_color="#ffc107",
-                  annotation_text="50% Watch", annotation_position="right")
+    fig.add_vline(x=50, line_dash="dot", line_color="#ffc107", line_width=2,
+                  annotation_text="50% Watch", annotation_position="top")
     
     # Add 0% baseline
-    fig.add_hline(y=0, line_dash="solid", line_color="#888", line_width=1)
+    fig.add_vline(x=0, line_dash="solid", line_color="#888", line_width=2)
+    
+    # Calculate height based on number of positions (min 250, ~60px per position)
+    chart_height = max(250, len(chart_df) * 60)
     
     fig.update_layout(
         plot_bgcolor='rgba(0,0,0,0)',
         paper_bgcolor='rgba(0,0,0,0)',
-        xaxis=dict(showgrid=False, color='#888'),
-        yaxis=dict(
+        xaxis=dict(
             showgrid=True, 
             gridcolor='rgba(255,255,255,0.1)', 
             color='#888', 
-            title='Premium Realized %', 
-            range=[y_min, y_max],
+            title='Premium Realized %',
+            range=[x_min, x_max],
             zeroline=True,
             zerolinewidth=2,
             zerolinecolor='#888'
         ),
-        margin=dict(l=50, r=50, t=30, b=50),
-        height=350,
+        yaxis=dict(
+            showgrid=False, 
+            color='#888',
+            title=''
+        ),
+        margin=dict(l=80, r=100, t=30, b=50),
+        height=chart_height,
         showlegend=False
     )
     
