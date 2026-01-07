@@ -276,22 +276,24 @@ class TastytradeAPI:
             url = f'{self.base_url}/accounts/{account_number}/orders'
             headers = self._get_headers()
             
-            # Covered call = Sell to Open (STO) call option + stock position
-            # IMPORTANT: Must include stock leg to indicate this is COVERED, not naked
-            legs = [
-                {
-                    'instrument-type': 'Equity Option',
-                    'symbol': option_symbol,
-                    'action': 'Sell to Open',
-                    'quantity': quantity
-                },
-                {
-                    'instrument-type': 'Equity',
-                    'symbol': symbol,
-                    'action': 'None',  # Existing position, not buying/selling
-                    'quantity': quantity * 100  # Each contract covers 100 shares
-                }
-            ]
+            print(f"\n=== ORDER SUBMISSION DEBUG ===")
+            print(f"Account Number: {account_number}")
+            print(f"URL: {url}")
+            print(f"Symbol: {symbol}")
+            print(f"Option Symbol: {option_symbol}")
+            print(f"Quantity: {quantity}")
+            print(f"============================\n")
+            
+            # Covered call = Sell to Open (STO) call option
+            # NOTE: Tastytrade API does NOT support multi-leg covered call orders
+            # The system will automatically check if you own the underlying shares
+            # and treat this as covered if shares are available in the account
+            legs = [{
+                'instrument-type': 'Equity Option',
+                'symbol': option_symbol,
+                'action': 'Sell to Open',
+                'quantity': quantity
+            }]
             
             payload = {
                 'time-in-force': 'Day',
