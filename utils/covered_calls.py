@@ -42,8 +42,8 @@ def get_eligible_stock_positions(api, account_number):
                 if quantity > 0:  # Long positions only
                     stock_positions.append(position)
         
-        # Find existing short call positions
-        short_calls = []
+        # Find existing short call positions and count contracts per symbol
+        short_calls = {}  # Dict: symbol -> number of contracts sold
         short_call_details = []  # For display purposes
         for position in all_positions:
             if position.get('instrument-type') == 'Equity Option':
@@ -52,7 +52,8 @@ def get_eligible_stock_positions(api, account_number):
                     option_type = position.get('option-type', '').lower()
                     if option_type == 'call':
                         underlying = position.get('underlying-symbol')
-                        short_calls.append(underlying)
+                        contracts_sold = abs(quantity)
+                        short_calls[underlying] = short_calls.get(underlying, 0) + contracts_sold
                         
                         # Collect details for display
                         expiration_date = position.get('expiration-date', 'Unknown')
@@ -106,9 +107,9 @@ def get_eligible_stock_positions(api, account_number):
                             'option_symbol': position.get('symbol', '')
                         })
         
-        # Filter out stocks that already have covered calls
-        covered_symbols = set(short_calls)
-        eligible_positions = [p for p in stock_positions if p.get('symbol') not in covered_symbols]
+        # Don't filter out stocks with existing calls - just reduce available shares
+        # All stock positions are eligible, but max_contracts will be reduced
+        eligible_positions = stock_positions
         
         # Format holdings
         holdings = []
@@ -134,16 +135,25 @@ def get_eligible_stock_positions(api, account_number):
             except:
                 current_price = 0
             
+            # Calculate available shares (total shares - shares already covered)
+            existing_contracts = short_calls.get(symbol, 0)
+            shares_covered = existing_contracts * 100
+            available_shares = quantity - shares_covered
+            max_new_contracts = max(0, available_shares // 100)  # Can't be negative
+            
             # Add to holdings even if current_price is 0 (will fetch later)
             holdings.append({
                 'symbol': symbol,
                 'quantity': quantity,
+                'existing_contracts': existing_contracts,
+                'shares_covered': shares_covered,
+                'available_shares': available_shares,
                 'avg_cost': average_open_price,
                 'current_price': current_price if current_price > 0 else average_open_price,  # Use avg_cost as fallback
                 'market_value': (current_price if current_price > 0 else average_open_price) * quantity,
                 'unrealized_pl': (current_price - average_open_price) * quantity if current_price > 0 else 0,
                 'unrealized_pl_pct': ((current_price - average_open_price) / average_open_price * 100) if (average_open_price > 0 and current_price > 0) else 0,
-                'max_contracts': quantity // 100
+                'max_contracts': max_new_contracts
             })
         
         # Create breakdown info
@@ -151,11 +161,11 @@ def get_eligible_stock_positions(api, account_number):
             'total_positions': len(all_positions),
             'stock_positions': len(stock_positions),
             'stock_symbols': [p.get('symbol') for p in stock_positions],
-            'existing_calls': len(covered_symbols),
-            'covered_symbols': list(covered_symbols),
+            'existing_calls': len(short_calls),  # Number of unique symbols with calls
+            'covered_symbols': list(short_calls.keys()),
             'short_call_details': short_call_details,  # Full details with expiration
-            'eligible_positions': len(holdings),
-            'eligible_symbols': [h['symbol'] for h in holdings]
+            'eligible_positions': len([h for h in holdings if h['max_contracts'] > 0]),  # Only count if has available contracts
+            'eligible_symbols': [h['symbol'] for h in holdings if h['max_contracts'] > 0]
         }
         
         return holdings, breakdown
