@@ -56,14 +56,30 @@ def get_eligible_stock_positions(api, account_number):
                 
                 # Parse option type from symbol if not in field (OCC format: last char before strike is C or P)
                 # Example: SOFI  260206C00030000 -> 'C' means Call
+                # Example: AMZN  260109P00240000 -> 'P' means Put
                 option_type = option_type_field
-                if not option_type and len(symbol) > 15:
-                    # OCC format: Symbol(6) + Date(6) + C/P(1) + Strike(8)
-                    type_char = symbol[14:15].upper()  # Character at position 14 (0-indexed)
-                    if type_char == 'C':
-                        option_type = 'call'
-                    elif type_char == 'P':
-                        option_type = 'put'
+                if not option_type:
+                    # Find 'C' or 'P' in the symbol (appears after the date, before the strike)
+                    if 'C' in symbol:
+                        # Check if it's the option type C (not part of ticker)
+                        # It should appear after 6 digits (date)
+                        import re
+                        match = re.search(r'\d{6}([CP])\d{8}', symbol)
+                        if match:
+                            type_char = match.group(1)
+                            if type_char == 'C':
+                                option_type = 'call'
+                            elif type_char == 'P':
+                                option_type = 'put'
+                    elif 'P' in symbol:
+                        import re
+                        match = re.search(r'\d{6}([CP])\d{8}', symbol)
+                        if match:
+                            type_char = match.group(1)
+                            if type_char == 'C':
+                                option_type = 'call'
+                            elif type_char == 'P':
+                                option_type = 'put'
                 
                 print(f"Found option: {symbol}, Type: {option_type}, Qty: {quantity}, Underlying: {underlying}")
                 
