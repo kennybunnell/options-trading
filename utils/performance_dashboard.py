@@ -509,16 +509,38 @@ def render_options_table(positions: List[Dict], position_type: str):
     
     chart_df = pd.DataFrame(chart_data)
     
-    # Create bar chart with 80% threshold line
+    # Create bar chart with threshold lines
     fig = go.Figure()
     
-    # Add bars
-    colors = ['#28a745' if x >= 80 else '#ffc107' if x >= 50 else '#dc3545' for x in chart_df['Realized %']]
+    # Determine Y-axis range based on data
+    min_val = min(chart_df['Realized %']) if len(chart_df) > 0 else 0
+    max_val = max(chart_df['Realized %']) if len(chart_df) > 0 else 100
+    
+    # Extend range to show thresholds and accommodate negative values
+    y_min = min(min_val - 10, -20)  # Show at least -20% for losses
+    y_max = max(max_val + 10, 105)  # Show at least 105% for targets
+    
+    # Color coding: Green for profit (>0), Red for loss (<0), Gray for breakeven (0)
+    colors = []
+    for x in chart_df['Realized %']:
+        if x >= 80:
+            colors.append('#28a745')  # Dark green - ready to close
+        elif x >= 50:
+            colors.append('#ffc107')  # Yellow - watch
+        elif x > 0:
+            colors.append('#17a2b8')  # Light blue - small profit
+        elif x == 0:
+            colors.append('#6c757d')  # Gray - breakeven
+        else:
+            colors.append('#dc3545')  # Red - loss
+    
     fig.add_trace(go.Bar(
         x=chart_df['Symbol'],
         y=chart_df['Realized %'],
         marker_color=colors,
-        name='Realized %'
+        name='Realized %',
+        text=[f"{x:.1f}%" for x in chart_df['Realized %']],
+        textposition='outside'
     ))
     
     # Add 80% threshold line
@@ -529,14 +551,25 @@ def render_options_table(positions: List[Dict], position_type: str):
     fig.add_hline(y=50, line_dash="dot", line_color="#ffc107",
                   annotation_text="50% Watch", annotation_position="right")
     
+    # Add 0% baseline
+    fig.add_hline(y=0, line_dash="solid", line_color="#888", line_width=1)
+    
     fig.update_layout(
         plot_bgcolor='rgba(0,0,0,0)',
         paper_bgcolor='rgba(0,0,0,0)',
         xaxis=dict(showgrid=False, color='#888'),
-        yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.1)', color='#888', 
-                   title='Premium Realized %', range=[0, 105]),
+        yaxis=dict(
+            showgrid=True, 
+            gridcolor='rgba(255,255,255,0.1)', 
+            color='#888', 
+            title='Premium Realized %', 
+            range=[y_min, y_max],
+            zeroline=True,
+            zerolinewidth=2,
+            zerolinecolor='#888'
+        ),
         margin=dict(l=50, r=50, t=30, b=50),
-        height=300,
+        height=350,
         showlegend=False
     )
     
