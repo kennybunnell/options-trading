@@ -384,8 +384,16 @@ def render_options_table(positions: List[Dict], position_type: str):
         
         # Keep numeric value for progress bar display
         
+        # Get account name, truncate if too long
+        account_name = pos.get('account_name', 'Unknown')
+        if len(account_name) > 20:
+            account_display = account_name[:17] + '...'
+        else:
+            account_display = account_name
+        
         table_data.append({
             'Select': False,
+            'Account': account_display,
             'Symbol': pos['underlying'],
             'Type': position_type,
             'Qty': qty,  # Number of contracts
