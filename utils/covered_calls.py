@@ -45,15 +45,21 @@ def get_eligible_stock_positions(api, account_number):
         # Find existing short call positions and count contracts per symbol
         short_calls = {}  # Dict: symbol -> number of contracts sold
         short_call_details = []  # For display purposes
+        
+        print("\n=== DEBUG: Scanning for existing short calls ===")
         for position in all_positions:
             if position.get('instrument-type') == 'Equity Option':
                 quantity = int(position.get('quantity', 0))
+                symbol = position.get('symbol', 'UNKNOWN')
+                option_type = position.get('option-type', '').lower()
+                underlying = position.get('underlying-symbol', 'UNKNOWN')
+                print(f"Found option: {symbol}, Type: {option_type}, Qty: {quantity}, Underlying: {underlying}")
+                
                 if quantity < 0:  # Short positions
-                    option_type = position.get('option-type', '').lower()
                     if option_type == 'call':
-                        underlying = position.get('underlying-symbol')
                         contracts_sold = abs(quantity)
                         short_calls[underlying] = short_calls.get(underlying, 0) + contracts_sold
+                        print(f"  ✅ SHORT CALL: {underlying} - {contracts_sold} contracts")
                         
                         # Collect details for display
                         expiration_date = position.get('expiration-date', 'Unknown')
@@ -106,6 +112,9 @@ def get_eligible_stock_positions(api, account_number):
                             'pct_recognized': pct_recognized,
                             'option_symbol': position.get('symbol', '')
                         })
+        
+        print(f"\n=== DEBUG: Total short calls found: {short_calls} ===")
+        print(f"Short call details count: {len(short_call_details)}\n")
         
         # Don't filter out stocks with existing calls - just reduce available shares
         # All stock positions are eligible, but max_contracts will be reduced
