@@ -437,3 +437,112 @@ class TastytradeAPI:
                 'success': False,
                 'message': f"Exception: {str(e)}"
             }
+
+    def submit_csp_order(self, account_number, symbol, quantity, price):
+        """
+        Submit a cash-secured put order (sell to open put option)
+        
+        Args:
+            account_number (str): Account number
+            symbol (str): Full option symbol in OCC format (e.g., 'AAPL  250117P00150000')
+            quantity (int): Number of contracts to sell
+            price (float): Limit price per contract
+        
+        Returns:
+            dict: Order response with success status, or None if failed
+        """
+        try:
+            if not self._is_token_valid():
+                self._authenticate()
+            
+            # Extract underlying symbol from option symbol
+            # OCC format: TICKER(6) + DATE(6) + C/P(1) + STRIKE(8)
+            # Example: AAPL  250117P00150000
+            underlying = symbol[:6].strip()
+            
+            # Build order payload
+            url = f'{self.base_url}/accounts/{account_number}/orders'
+            headers = self._get_headers()
+            
+            print(f"\n=== CSP ORDER SUBMISSION DEBUG ===")
+            print(f"Account Number: {account_number}")
+            print(f"URL: {url}")
+            print(f"Underlying: {underlying}")
+            print(f"Option Symbol: {symbol}")
+            print(f"Quantity: {quantity}")
+            print(f"Price: {price}")
+            print(f"==================================\n")
+            
+            # Cash-secured put = Sell to Open (STO) put option
+            # Tastytrade will automatically check buying power
+            legs = [{
+                'instrument-type': 'Equity Option',
+                'symbol': symbol,
+                'action': 'Sell to Open',
+                'quantity': quantity
+            }]
+            
+            payload = {
+                'time-in-force': 'Day',
+                'order-type': 'Limit',
+                'underlying-symbol': underlying,
+                'legs': legs,
+                'price': str(price),
+                'price-effect': 'Credit'  # We receive credit for selling
+            }
+            
+            response = requests.post(url, headers=headers, json=payload)
+            
+            if response.status_code == 201:
+                data = response.json()
+                return {
+                    'success': True,
+                    'order_id': data['data'].get('id'),
+                    'status': data['data'].get('status'),
+                    'message': f"CSP order submitted: {quantity} contracts of {underlying}"
+                }
+            else:
+                # Capture full error response for debugging
+                try:
+                    error_data = response.json()
+                    error_msg = error_data.get('error', {}).get('message', 'Unknown error')
+                    errors = error_data.get('error', {}).get('errors', [])
+                    
+                    # Log full response for debugging
+                    print(f"\n=== TASTYTRADE CSP ORDER ERROR ===")
+                    print(f"Status Code: {response.status_code}")
+                    print(f"Error Message: {error_msg}")
+                    print(f"Errors: {errors}")
+                    print(f"Full Response: {error_data}")
+                    print(f"Payload Sent: {payload}")
+                    print(f"==================================\n")
+                    
+                    # Return detailed error for user
+                    if errors:
+                        error_details = '; '.join([e.get('message', '') for e in errors])
+                        return {
+                            'success': False,
+                            'message': f"Order failed: {error_msg} - {error_details}",
+                            'status_code': response.status_code
+                        }
+                    else:
+                        return {
+                            'success': False,
+                            'message': f"Order failed: {error_msg}",
+                            'status_code': response.status_code
+                        }
+                except:
+                    error_msg = response.text
+                    print(f"Raw error: {response.text}")
+                    return {
+                        'success': False,
+                        'message': f"Order failed: {error_msg}",
+                        'status_code': response.status_code
+                    }
+                
+        except Exception as e:
+            print(f"Exception in submit_csp_order: {str(e)}")
+            return {
+                'success': False,
+                'message': f"Order error: {str(e)}"
+            }
