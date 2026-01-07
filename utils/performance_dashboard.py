@@ -58,11 +58,18 @@ def calculate_dte(expiration_str: str) -> int:
 
 
 def get_premium_realization(open_price: float, current_price: float) -> float:
-    """Calculate premium realization percentage"""
+    """Calculate premium realization percentage for short options
+    
+    For sold options (short positions):
+    - Positive % = profit (option value decreased)
+    - Negative % = loss (option value increased)
+    
+    Formula: (Premium Received - Current Cost) / Premium Received × 100
+    """
     if open_price <= 0:
         return 0
     realized = ((open_price - current_price) / open_price) * 100
-    return max(0, min(100, realized))
+    return realized  # Allow negative values for losses, no capping
 
 
 def get_recommendation(premium_realized: float, dte: int) -> str:
@@ -273,7 +280,17 @@ def render_options_table(positions: List[Dict], position_type: str):
     
     for pos in positions:
         open_price = pos['average_open_price']
-        current_price = pos.get('mark', pos.get('mark_price', 0))
+        
+        # Get current price with better fallback logic
+        current_price = (
+            pos.get('mark') or 
+            pos.get('mark-price') or 
+            pos.get('mark_price') or 
+            pos.get('close-price') or
+            pos.get('close_price') or
+            0
+        )
+        
         multiplier = pos.get('multiplier', 100)
         qty = pos['quantity']
         
@@ -311,7 +328,17 @@ def render_options_table(positions: List[Dict], position_type: str):
     for pos in positions:
         dte = calculate_dte(pos['expiration'])
         open_price = pos['average_open_price']
-        current_price = pos.get('mark', pos.get('mark_price', 0))
+        
+        # Get current price with better fallback logic
+        current_price = (
+            pos.get('mark') or 
+            pos.get('mark-price') or 
+            pos.get('mark_price') or 
+            pos.get('close-price') or
+            pos.get('close_price') or
+            0
+        )
+        
         multiplier = pos.get('multiplier', 100)
         qty = pos['quantity']
         
@@ -463,7 +490,17 @@ def render_options_table(positions: List[Dict], position_type: str):
     chart_data = []
     for pos in positions:
         open_price = pos['average_open_price']
-        current_price = pos.get('mark', pos.get('mark_price', 0))
+        
+        # Get current price with better fallback logic
+        current_price = (
+            pos.get('mark') or 
+            pos.get('mark-price') or 
+            pos.get('mark_price') or 
+            pos.get('close-price') or
+            pos.get('close_price') or
+            0
+        )
+        
         premium_realized = get_premium_realization(open_price, current_price)
         chart_data.append({
             'Symbol': pos['underlying'],
