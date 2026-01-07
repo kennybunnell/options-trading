@@ -288,6 +288,7 @@ class TastytradeAPI:
                 {
                     'instrument-type': 'Equity',
                     'symbol': symbol,
+                    'action': 'None',  # Existing position, not buying/selling
                     'quantity': quantity * 100  # Each contract covers 100 shares
                 }
             ]
