@@ -331,6 +331,11 @@ def render_options_table(positions: List[Dict], position_type: str):
         dte = calculate_dte(pos['expiration'])
         open_price = pos['average_open_price']
         
+        # DEBUG: Print raw position data to see available fields
+        if pos['underlying'] in ['SOFI', 'INTC']:  # Only for these symbols
+            st.write(f"\n**DEBUG: {pos['underlying']} Position Data:**")
+            st.json(pos)
+        
         # Get current price with better fallback logic
         current_price = (
             pos.get('mark') or 
