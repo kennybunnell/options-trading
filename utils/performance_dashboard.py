@@ -347,6 +347,11 @@ def render_options_table(positions: List[Dict], position_type: str):
         premium_realized = get_premium_realization(open_price, current_price)
         recommendation = get_recommendation(premium_realized, dte)
         
+        # Create color-coded bar visualization
+        bar_color = '#dc3545' if premium_realized < 60 else '#ffc107' if premium_realized < 80 else '#28a745'
+        bar_width = max(0, min(100, premium_realized))  # Clamp to 0-100 for display
+        realized_display = f"{premium_realized:.1f}%"
+        
         table_data.append({
             'Select': False,
             'Symbol': pos['underlying'],
@@ -356,7 +361,8 @@ def render_options_table(positions: List[Dict], position_type: str):
             'Days Left': f"{dte}d",
             'Premium Collected': f"${premium_collected:,.0f}",
             'Current Value': f"${current_value:,.0f}",
-            'Realized %': f"{premium_realized:.0f}%",
+            'Realized %': premium_realized,  # Numeric value
+            'Realized': realized_display,  # Formatted display
             'Action': recommendation
         })
         
@@ -374,7 +380,7 @@ def render_options_table(positions: List[Dict], position_type: str):
     
     # Sort by realized % descending
     sorted_indices = sorted(range(len(table_data)), 
-                           key=lambda i: float(table_data[i]['Realized %'].replace('%', '')), 
+                           key=lambda i: table_data[i]['Realized %'], 
                            reverse=True)
     table_data = [table_data[i] for i in sorted_indices]
     positions_raw = [positions_raw[i] for i in sorted_indices]
@@ -400,7 +406,15 @@ def render_options_table(positions: List[Dict], position_type: str):
             "Days Left": st.column_config.TextColumn("DTE", width="small"),
             "Premium Collected": st.column_config.TextColumn("Premium", width="medium"),
             "Current Value": st.column_config.TextColumn("Current", width="medium"),
-            "Realized %": st.column_config.TextColumn("Realized", width="small"),
+            "Realized %": st.column_config.ProgressColumn(
+                "Realized %",
+                help="Premium realization percentage with color-coded bar",
+                format="%.1f%%",
+                min_value=-20,
+                max_value=100,
+                width="medium"
+            ),
+            "Realized": None,  # Hidden column
             "Action": st.column_config.TextColumn("Action", width="small"),
         },
         key=f"{position_type}_positions_table"
@@ -482,111 +496,7 @@ def render_options_table(positions: List[Dict], position_type: str):
         
         st.write("")
     
-    st.divider()
-    
-    # Premium Realized Chart - Bar chart with line overlay
-    st.subheader("Premium Realization by Position")
-    
-    chart_data = []
-    for pos in positions:
-        open_price = pos['average_open_price']
-        
-        # Get current price with better fallback logic
-        current_price = (
-            pos.get('mark') or 
-            pos.get('mark-price') or 
-            pos.get('mark_price') or 
-            pos.get('close-price') or
-            pos.get('close_price') or
-            0
-        )
-        
-        premium_realized = get_premium_realization(open_price, current_price)
-        chart_data.append({
-            'Symbol': pos['underlying'],
-            'Realized %': premium_realized
-        })
-    
-    chart_df = pd.DataFrame(chart_data)
-    
-    # Create HORIZONTAL bar chart for better scalability
-    fig = go.Figure()
-    
-    # Sort by realized % for better visualization
-    chart_df = chart_df.sort_values('Realized %', ascending=True)
-    
-    # Determine X-axis range based on data
-    min_val = min(chart_df['Realized %']) if len(chart_df) > 0 else 0
-    max_val = max(chart_df['Realized %']) if len(chart_df) > 0 else 100
-    
-    # Extend range to show thresholds and accommodate negative values
-    x_min = min(min_val - 10, -20)  # Show at least -20% for losses
-    x_max = max(max_val + 10, 105)  # Show at least 105% for targets
-    
-    # Color coding: Green for profit (>0), Red for loss (<0), Gray for breakeven (0)
-    colors = []
-    for x in chart_df['Realized %']:
-        if x >= 80:
-            colors.append('#28a745')  # Dark green - ready to close
-        elif x >= 50:
-            colors.append('#ffc107')  # Yellow - watch
-        elif x > 0:
-            colors.append('#17a2b8')  # Light blue - small profit
-        elif x == 0:
-            colors.append('#6c757d')  # Gray - breakeven
-        else:
-            colors.append('#dc3545')  # Red - loss
-    
-    # HORIZONTAL bars (note: x and y are swapped)
-    fig.add_trace(go.Bar(
-        y=chart_df['Symbol'],  # Symbols on Y-axis (vertical)
-        x=chart_df['Realized %'],  # Values on X-axis (horizontal)
-        marker_color=colors,
-        orientation='h',  # Horizontal orientation
-        name='Realized %',
-        text=[f"{x:.1f}%" for x in chart_df['Realized %']],
-        textposition='outside',
-        textfont=dict(size=11)
-    ))
-    
-    # Add 80% threshold line (vertical line for horizontal chart)
-    fig.add_vline(x=80, line_dash="dash", line_color="#28a745", line_width=2,
-                  annotation_text="80% Target", annotation_position="top")
-    
-    # Add 50% threshold line
-    fig.add_vline(x=50, line_dash="dot", line_color="#ffc107", line_width=2,
-                  annotation_text="50% Watch", annotation_position="top")
-    
-    # Add 0% baseline
-    fig.add_vline(x=0, line_dash="solid", line_color="#888", line_width=2)
-    
-    # Calculate height based on number of positions (min 250, ~60px per position)
-    chart_height = max(250, len(chart_df) * 60)
-    
-    fig.update_layout(
-        plot_bgcolor='rgba(0,0,0,0)',
-        paper_bgcolor='rgba(0,0,0,0)',
-        xaxis=dict(
-            showgrid=True, 
-            gridcolor='rgba(255,255,255,0.1)', 
-            color='#888', 
-            title='Premium Realized %',
-            range=[x_min, x_max],
-            zeroline=True,
-            zerolinewidth=2,
-            zerolinecolor='#888'
-        ),
-        yaxis=dict(
-            showgrid=False, 
-            color='#888',
-            title=''
-        ),
-        margin=dict(l=80, r=100, t=30, b=50),
-        height=chart_height,
-        showlegend=False
-    )
-    
-    st.plotly_chart(fig, use_container_width=True)
+    # Progress bars are now inline in the table - no separate chart needed
 
 
 # ============================================
