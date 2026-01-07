@@ -233,30 +233,7 @@ def render_active_positions(api, tradier_api=None):
             else:
                 cc_positions.append(opt)
     
-    # Calculate metrics
-    all_options = csp_positions + cc_positions
-    ready_to_close = 0
-    total_premium_at_risk = 0
-    total_realized_pct = 0
-    
-    for opt in all_options:
-        open_price = opt['average_open_price']
-        current_price = opt.get('mark', opt.get('mark_price', 0))
-        premium_realized = get_premium_realization(open_price, current_price)
-        
-        if premium_realized >= 80:
-            ready_to_close += 1
-        
-        multiplier = opt.get('multiplier', 100)
-        qty = opt['quantity']
-        total_premium_at_risk += current_price * qty * multiplier
-        total_realized_pct += premium_realized
-    
-    avg_realized = total_realized_pct / len(all_options) if all_options else 0
-    
-    # Alert banner if positions ready to close
-    if ready_to_close > 0:
-        st.success(f"⚡ {ready_to_close} positions at 80%+ premium realized - Ready to close and roll!")
+    # No alert banner needed - users can see status in the table
     
     # Tabs for CSP and CC
     tab1, tab2 = st.tabs(["📄 Active CSPs", "📄 Active CCs"])
