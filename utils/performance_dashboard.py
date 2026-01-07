@@ -304,8 +304,10 @@ def render_options_table(positions: List[Dict], position_type: str):
     
     st.divider()
     
-    # Build dataframe
+    # Build dataframe with raw data for closing
     table_data = []
+    positions_raw = []  # Keep raw position data for closing
+    
     for pos in positions:
         dte = calculate_dte(pos['expiration'])
         open_price = pos['average_open_price']
@@ -319,6 +321,7 @@ def render_options_table(positions: List[Dict], position_type: str):
         recommendation = get_recommendation(premium_realized, dte)
         
         table_data.append({
+            'Select': False,
             'Symbol': pos['underlying'],
             'Type': position_type,
             'Strike': f"${pos['strike']:.0f}{'P' if position_type == 'CSP' else 'C'}",
@@ -329,18 +332,40 @@ def render_options_table(positions: List[Dict], position_type: str):
             'Realized %': f"{premium_realized:.0f}%",
             'Action': recommendation
         })
+        
+        # Store raw data for closing
+        positions_raw.append({
+            'symbol': pos['symbol'],
+            'underlying': pos['underlying'],
+            'strike': pos['strike'],
+            'option_type': position_type,
+            'quantity': qty,
+            'current_price': current_price,
+            'premium_realized': premium_realized,
+            'account_id': pos.get('account_id')
+        })
     
     # Sort by realized % descending
-    table_data.sort(key=lambda x: float(x['Realized %'].replace('%', '')), reverse=True)
+    sorted_indices = sorted(range(len(table_data)), 
+                           key=lambda i: float(table_data[i]['Realized %'].replace('%', '')), 
+                           reverse=True)
+    table_data = [table_data[i] for i in sorted_indices]
+    positions_raw = [positions_raw[i] for i in sorted_indices]
     
     df = pd.DataFrame(table_data)
     
-    # Display with custom styling
-    st.dataframe(
+    # Display with checkboxes for selection
+    edited_df = st.data_editor(
         df,
         use_container_width=True,
         hide_index=True,
         column_config={
+            "Select": st.column_config.CheckboxColumn(
+                "Select",
+                help="Select positions to close",
+                default=False,
+                width="small"
+            ),
             "Symbol": st.column_config.TextColumn("Symbol", width="small"),
             "Type": st.column_config.TextColumn("Type", width="small"),
             "Strike": st.column_config.TextColumn("Strike", width="small"),
@@ -350,8 +375,87 @@ def render_options_table(positions: List[Dict], position_type: str):
             "Current Value": st.column_config.TextColumn("Current", width="medium"),
             "Realized %": st.column_config.TextColumn("Realized", width="small"),
             "Action": st.column_config.TextColumn("Action", width="small"),
-        }
+        },
+        key=f"{position_type}_positions_table"
     )
+    
+    # Close positions functionality
+    selected_rows = edited_df[edited_df['Select'] == True]
+    
+    if len(selected_rows) > 0:
+        st.write("")
+        st.write(f"**Selected {len(selected_rows)} position(s) to close**")
+        
+        # Get selected positions data
+        selected_indices = selected_rows.index.tolist()
+        selected_positions = [positions_raw[i] for i in selected_indices]
+        
+        # Calculate totals
+        total_cost = sum([p['current_price'] * p['quantity'] * 100 for p in selected_positions])
+        
+        st.write(f"Total Cost to Close: **${total_cost:,.2f}**")
+        
+        # Dry Run Toggle
+        col1, col2 = st.columns([1, 3])
+        with col1:
+            dry_run = st.toggle("🧪 Dry Run Mode", value=True, key=f"{position_type}_dry_run", 
+                              help="Test order submission without executing real orders")
+        
+        st.write("")
+        
+        if dry_run:
+            st.info("🧪 **DRY RUN MODE**: Orders will be simulated, not actually submitted.")
+            if st.button("🧪 Run Dry Run Test", use_container_width=True, key=f"{position_type}_dryrun_btn"):
+                st.write("**🧪 Dry Run Results:**")
+                for pos_data in selected_positions:
+                    st.success(f"✅ Would close {pos_data['quantity']} contract(s) of {pos_data['underlying']} ${pos_data['strike']:.0f} {pos_data['option_type']} at ${pos_data['current_price']:.2f}")
+                st.info("💡 Toggle off Dry Run Mode to submit real orders.")
+        else:
+            st.warning("⚠️ **LIVE MODE**: Orders will be submitted to Tastytrade!")
+            if st.button("🚀 Submit REAL Close Orders", type="primary", use_container_width=True, key=f"{position_type}_live_btn"):
+                st.write("**📤 Submitting close orders...**")
+                
+                # Import API at function level to avoid circular imports
+                from utils.tastytrade_api import TastytradeAPI
+                api = TastytradeAPI()
+                
+                results = []
+                for pos_data in selected_positions:
+                    # Use buy_to_close_covered_call for both CCs and CSPs (it's actually a generic buy-to-close)
+                    result = api.buy_to_close_covered_call(
+                        account_number=pos_data['account_id'],
+                        option_symbol=pos_data['symbol'],
+                        quantity=pos_data['quantity'],
+                        price=pos_data['current_price']
+                    )
+                    results.append({
+                        **result,
+                        'symbol': pos_data['underlying'],
+                        'strike': pos_data['strike'],
+                        'quantity': pos_data['quantity']
+                    })
+                
+                # Display results
+                success_count = sum([1 for r in results if r.get('success')])
+                fail_count = len(results) - success_count
+                
+                if success_count > 0:
+                    st.success(f"✅ Successfully submitted {success_count} close order(s)!")
+                    st.balloons()
+                
+                if fail_count > 0:
+                    st.error(f"❌ {fail_count} order(s) failed")
+                
+                # Show individual results
+                for result in results:
+                    if result.get('success'):
+                        st.success(f"✅ {result['symbol']} ${result['strike']:.2f}: Order ID {result.get('order_id')}")
+                    else:
+                        st.error(f"❌ {result['symbol']} ${result['strike']:.2f}: {result.get('message')}")
+        
+        st.write("")
+    
+    st.divider()
     
     # Premium Realized Chart - Bar chart with line overlay
     st.subheader("Premium Realization by Position")
