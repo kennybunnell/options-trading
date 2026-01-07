@@ -344,12 +344,9 @@ def render_options_table(positions: List[Dict], position_type: str):
             import requests
             api_key = os.getenv('TRADIER_API_KEY', '')
             
-            # DEBUG: Check API key
             if not api_key:
-                st.error("❌ TRADIER_API_KEY not set in environment variables")
+                pass  # Silently skip if no API key
             else:
-                st.info(f"🔑 API Key found (length: {len(api_key)})")
-                
                 base_url = 'https://api.tradier.com/v1'
                 headers = {
                     'Authorization': f'Bearer {api_key}',
@@ -358,15 +355,10 @@ def render_options_table(positions: List[Dict], position_type: str):
                 url = f'{base_url}/markets/quotes'
                 params = {'symbols': symbols_str}
                 
-                st.info(f"📡 Fetching quotes for: {symbols_str}")
-                
                 response = requests.get(url, headers=headers, params=params)
-                
-                st.info(f"📊 API Response Status: {response.status_code}")
                 
                 if response.status_code == 200:
                     data = response.json()
-                    st.info(f"📦 Response data keys: {list(data.keys())}")
                     
                     if 'quotes' in data and 'quote' in data['quotes']:
                         quotes = data['quotes']['quote']
@@ -376,22 +368,10 @@ def render_options_table(positions: List[Dict], position_type: str):
                         elif isinstance(quotes, list):
                             for q in quotes:
                                 quotes_data[q['symbol']] = q
-                    else:
-                        st.error(f"❌ Unexpected response structure: {data}")
-                else:
-                    st.error(f"❌ API returned status {response.status_code}: {response.text}")
         except Exception as e:
-            st.error(f"❌ Could not fetch real-time quotes: {e}")
-            import traceback
-            st.code(traceback.format_exc())
+            pass  # Silently handle errors
     
-    # DEBUG: Show what we got from Tradier
-    if quotes_data:
-        st.success(f"✅ Fetched {len(quotes_data)} real-time quotes from Tradier")
-        with st.expander("DEBUG: Tradier Quotes Data"):
-            st.json(quotes_data)
-    else:
-        st.warning("⚠️ No real-time quotes fetched from Tradier API")
+    # Quotes fetched silently
     
     for pos in positions:
         dte = calculate_dte(pos['expiration'])
@@ -438,11 +418,7 @@ def render_options_table(positions: List[Dict], position_type: str):
             'Premium Collected': f"${premium_collected:,.0f}",
             'Current Value': f"${current_value:,.0f}",
             'Realized %': premium_realized,  # Numeric value for progress bar
-            'Action': recommendation,
-            # Debug columns
-            'DEBUG Open': f"${open_price:.2f}",
-            'DEBUG Current': f"${current_price:.2f}",
-            'DEBUG Calc': f"{premium_realized:.2f}%"
+            'Action': recommendation
         })
         
         # Store raw data for closing
@@ -513,9 +489,6 @@ def render_options_table(positions: List[Dict], position_type: str):
                 width="medium"
             ),
             "Action": st.column_config.TextColumn("Action", width="small"),
-            "DEBUG Open": st.column_config.TextColumn("Open Price", width="small"),
-            "DEBUG Current": st.column_config.TextColumn("Current Price", width="small"),
-            "DEBUG Calc": st.column_config.TextColumn("Calc %", width="small"),
         },
         key=f"{position_type}_positions_table"
     )
