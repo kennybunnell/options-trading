@@ -983,3 +983,7 @@ def render_trade_history():
 def render_import_section():
     """Render the import section - handled in app.py"""
     pass
+
+
+# Import positions view
+from utils.positions_view import render_positions_view
