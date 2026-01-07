@@ -2229,25 +2229,25 @@ elif page == "CC Dashboard":
             # Initialize preset criteria in session state (defaults)
             if 'cc_conservative_delta_min' not in st.session_state:
                 st.session_state.cc_conservative_delta_min = 0.10
-                st.session_state.cc_conservative_delta_max = 0.25
+                st.session_state.cc_conservative_delta_max = 0.20
                 st.session_state.cc_conservative_dte_min = 7
                 st.session_state.cc_conservative_dte_max = 30
                 st.session_state.cc_conservative_oi_min = 50
                 st.session_state.cc_conservative_weekly_min = 0.3
             
             if 'cc_medium_delta_min' not in st.session_state:
-                st.session_state.cc_medium_delta_min = 0.20
-                st.session_state.cc_medium_delta_max = 0.35
+                st.session_state.cc_medium_delta_min = 0.15
+                st.session_state.cc_medium_delta_max = 0.30
                 st.session_state.cc_medium_dte_min = 7
-                st.session_state.cc_medium_dte_max = 21
+                st.session_state.cc_medium_dte_max = 30
                 st.session_state.cc_medium_oi_min = 50
                 st.session_state.cc_medium_weekly_min = 0.3
             
             if 'cc_aggressive_delta_min' not in st.session_state:
-                st.session_state.cc_aggressive_delta_min = 0.25
+                st.session_state.cc_aggressive_delta_min = 0.20
                 st.session_state.cc_aggressive_delta_max = 0.40
                 st.session_state.cc_aggressive_dte_min = 7
-                st.session_state.cc_aggressive_dte_max = 14
+                st.session_state.cc_aggressive_dte_max = 21
                 st.session_state.cc_aggressive_oi_min = 25
                 st.session_state.cc_aggressive_weekly_min = 0.3
             
@@ -2265,7 +2265,7 @@ elif page == "CC Dashboard":
             
             with col2:
                 if st.button("🟢 Conservative", use_container_width=True, key="cc_preset_conservative", 
-                           help="Δ 0.10-0.50, DTE 7-45, OI ≥50, Weekly ≥0.3% | Qty=1 contract"):
+                           help="Δ 0.10-0.20, DTE 7-30, OI ≥50, Weekly ≥0.3% | Qty=1 contract"):
                     # Clear all first
                     st.session_state.cc_opportunities['Select'] = False
                     st.session_state.cc_opportunities['Qty'] = 1  # Reset all to 1
@@ -2291,7 +2291,7 @@ elif page == "CC Dashboard":
             
             with col3:
                 if st.button("🟡 Medium", use_container_width=True, key="cc_preset_medium",
-                           help="Δ 0.20-0.35, DTE 7-21, OI ≥50, Weekly ≥0.75% | Qty=50% of shares"):
+                           help="Δ 0.15-0.30, DTE 7-30, OI ≥50, Weekly ≥0.3% | Qty=50% of shares"):
                     # Clear all first
                     st.session_state.cc_opportunities['Select'] = False
                     st.session_state.cc_opportunities['Qty'] = 1  # Reset all to 1
@@ -2317,7 +2317,7 @@ elif page == "CC Dashboard":
             
             with col4:
                 if st.button("🔴 Aggressive", use_container_width=True, key="cc_preset_aggressive",
-                           help="Δ 0.35-0.50, DTE 7-14, OI ≥25, Weekly ≥1.0% | Qty=100% of shares"):
+                           help="Δ 0.20-0.40, DTE 7-21, OI ≥25, Weekly ≥0.3% | Qty=100% of shares"):
                     # Clear all first
                     st.session_state.cc_opportunities['Select'] = False
                     st.session_state.cc_opportunities['Qty'] = 1  # Reset all to 1
@@ -2433,7 +2433,7 @@ elif page == "CC Dashboard":
                 with col2:
                     if st.button("🔄 Reset Conservative", use_container_width=True, key="reset_conservative"):
                         st.session_state.cc_conservative_delta_min = 0.10
-                        st.session_state.cc_conservative_delta_max = 0.25
+                        st.session_state.cc_conservative_delta_max = 0.20
                         st.session_state.cc_conservative_dte_min = 7
                         st.session_state.cc_conservative_dte_max = 30
                         st.session_state.cc_conservative_oi_min = 50
@@ -2466,10 +2466,10 @@ elif page == "CC Dashboard":
                         st.rerun()
                 with col2:
                     if st.button("🔄 Reset Medium", use_container_width=True, key="reset_medium"):
-                        st.session_state.cc_medium_delta_min = 0.20
-                        st.session_state.cc_medium_delta_max = 0.35
+                        st.session_state.cc_medium_delta_min = 0.15
+                        st.session_state.cc_medium_delta_max = 0.30
                         st.session_state.cc_medium_dte_min = 7
-                        st.session_state.cc_medium_dte_max = 21
+                        st.session_state.cc_medium_dte_max = 30
                         st.session_state.cc_medium_oi_min = 50
                         st.session_state.cc_medium_weekly_min = 0.3
                         st.success("✅ Medium reset to defaults!")
@@ -2500,10 +2500,10 @@ elif page == "CC Dashboard":
                         st.rerun()
                 with col2:
                     if st.button("🔄 Reset Aggressive", use_container_width=True, key="reset_aggressive"):
-                        st.session_state.cc_aggressive_delta_min = 0.25
+                        st.session_state.cc_aggressive_delta_min = 0.20
                         st.session_state.cc_aggressive_delta_max = 0.40
                         st.session_state.cc_aggressive_dte_min = 7
-                        st.session_state.cc_aggressive_dte_max = 14
+                        st.session_state.cc_aggressive_dte_max = 21
                         st.session_state.cc_aggressive_oi_min = 25
                         st.session_state.cc_aggressive_weekly_min = 0.3
                         st.success("✅ Aggressive reset to defaults!")
