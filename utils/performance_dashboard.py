@@ -347,22 +347,30 @@ def render_options_table(positions: List[Dict], position_type: str):
         premium_realized = get_premium_realization(open_price, current_price)
         recommendation = get_recommendation(premium_realized, dte)
         
-        # Create color-coded bar visualization
+        # Create color-coded HTML bar visualization
         bar_color = '#dc3545' if premium_realized < 60 else '#ffc107' if premium_realized < 80 else '#28a745'
         bar_width = max(0, min(100, premium_realized))  # Clamp to 0-100 for display
         realized_display = f"{premium_realized:.1f}%"
+        
+        # Create HTML progress bar (Tastytrade style)
+        bar_html = f'''<div style="display: flex; align-items: center; width: 100%;">
+            <span style="min-width: 50px; text-align: right; margin-right: 8px; font-weight: 500;">{realized_display}</span>
+            <div style="flex: 1; background-color: rgba(255,255,255,0.1); border-radius: 3px; height: 18px; position: relative; overflow: hidden;">
+                <div style="background-color: {bar_color}; height: 100%; width: {bar_width}%; transition: width 0.3s ease;"></div>
+            </div>
+        </div>'''
         
         table_data.append({
             'Select': False,
             'Symbol': pos['underlying'],
             'Type': position_type,
+            'Qty': qty,  # Number of contracts
             'Strike': f"${pos['strike']:.0f}{'P' if position_type == 'CSP' else 'C'}",
             'Expiration': datetime.strptime(pos['expiration'], '%Y-%m-%d').strftime('%m/%d'),
             'Days Left': f"{dte}d",
             'Premium Collected': f"${premium_collected:,.0f}",
             'Current Value': f"${current_value:,.0f}",
-            'Realized %': premium_realized,  # Numeric value
-            'Realized': realized_display,  # Formatted display
+            'Realized %': bar_html,  # HTML bar with color coding
             'Action': recommendation
         })
         
@@ -385,43 +393,28 @@ def render_options_table(positions: List[Dict], position_type: str):
     table_data = [table_data[i] for i in sorted_indices]
     positions_raw = [positions_raw[i] for i in sorted_indices]
     
-    df = pd.DataFrame(table_data)
+    # Remove Select column for display
+    display_data = [{k: v for k, v in row.items() if k != 'Select'} for row in table_data]
+    df = pd.DataFrame(display_data)
     
-    # Display with checkboxes for selection
-    edited_df = st.data_editor(
-        df,
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "Select": st.column_config.CheckboxColumn(
-                "Select",
-                help="Select positions to close",
-                default=False,
-                width="small"
-            ),
-            "Symbol": st.column_config.TextColumn("Symbol", width="small"),
-            "Type": st.column_config.TextColumn("Type", width="small"),
-            "Strike": st.column_config.TextColumn("Strike", width="small"),
-            "Expiration": st.column_config.TextColumn("Exp", width="small"),
-            "Days Left": st.column_config.TextColumn("DTE", width="small"),
-            "Premium Collected": st.column_config.TextColumn("Premium", width="medium"),
-            "Current Value": st.column_config.TextColumn("Current", width="medium"),
-            "Realized %": st.column_config.ProgressColumn(
-                "Realized %",
-                help="Premium realization percentage with color-coded bar",
-                format="%.1f%%",
-                min_value=-20,
-                max_value=100,
-                width="medium"
-            ),
-            "Realized": None,  # Hidden column
-            "Action": st.column_config.TextColumn("Action", width="small"),
-        },
-        key=f"{position_type}_positions_table"
+    # Display table with HTML rendering
+    st.markdown(df.to_html(escape=False, index=False), unsafe_allow_html=True)
+    
+    st.write("")
+    
+    # Position selection for closing
+    st.subheader("Close Positions")
+    
+    position_options = [f"{row['Symbol']} {row['Strike']} (Exp: {row['Expiration']})" for row in table_data]
+    selected_positions_display = st.multiselect(
+        "Select positions to close:",
+        options=position_options,
+        key=f"{position_type}_select_positions"
     )
     
-    # Close positions functionality
-    selected_rows = edited_df[edited_df['Select'] == True]
+    # Map selected display strings back to indices
+    selected_indices = [i for i, opt in enumerate(position_options) if opt in selected_positions_display]
+    selected_rows = [table_data[i] for i in selected_indices]
     
     if len(selected_rows) > 0:
         st.write("")
