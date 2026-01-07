@@ -339,7 +339,13 @@ def render_options_table(positions: List[Dict], position_type: str):
             import os
             import requests
             api_key = os.getenv('TRADIER_API_KEY', '')
-            if api_key:
+            
+            # DEBUG: Check API key
+            if not api_key:
+                st.error("❌ TRADIER_API_KEY not set in environment variables")
+            else:
+                st.info(f"🔑 API Key found (length: {len(api_key)})")
+                
                 base_url = 'https://api.tradier.com/v1'
                 headers = {
                     'Authorization': f'Bearer {api_key}',
@@ -347,9 +353,17 @@ def render_options_table(positions: List[Dict], position_type: str):
                 }
                 url = f'{base_url}/markets/quotes'
                 params = {'symbols': symbols_str}
+                
+                st.info(f"📡 Fetching quotes for: {symbols_str}")
+                
                 response = requests.get(url, headers=headers, params=params)
+                
+                st.info(f"📊 API Response Status: {response.status_code}")
+                
                 if response.status_code == 200:
                     data = response.json()
+                    st.info(f"📦 Response data keys: {list(data.keys())}")
+                    
                     if 'quotes' in data and 'quote' in data['quotes']:
                         quotes = data['quotes']['quote']
                         # Handle both single quote (dict) and multiple quotes (list)
@@ -358,8 +372,14 @@ def render_options_table(positions: List[Dict], position_type: str):
                         elif isinstance(quotes, list):
                             for q in quotes:
                                 quotes_data[q['symbol']] = q
+                    else:
+                        st.error(f"❌ Unexpected response structure: {data}")
+                else:
+                    st.error(f"❌ API returned status {response.status_code}: {response.text}")
         except Exception as e:
-            st.error(f"Could not fetch real-time quotes: {e}")
+            st.error(f"❌ Could not fetch real-time quotes: {e}")
+            import traceback
+            st.code(traceback.format_exc())
     
     # DEBUG: Show what we got from Tradier
     if quotes_data:
