@@ -2229,9 +2229,9 @@ elif page == "CC Dashboard":
             # Initialize preset criteria in session state (defaults)
             if 'cc_conservative_delta_min' not in st.session_state:
                 st.session_state.cc_conservative_delta_min = 0.10
-                st.session_state.cc_conservative_delta_max = 0.50
+                st.session_state.cc_conservative_delta_max = 0.25
                 st.session_state.cc_conservative_dte_min = 7
-                st.session_state.cc_conservative_dte_max = 45
+                st.session_state.cc_conservative_dte_max = 30
                 st.session_state.cc_conservative_oi_min = 50
                 st.session_state.cc_conservative_weekly_min = 0.3
             
@@ -2241,15 +2241,15 @@ elif page == "CC Dashboard":
                 st.session_state.cc_medium_dte_min = 7
                 st.session_state.cc_medium_dte_max = 21
                 st.session_state.cc_medium_oi_min = 50
-                st.session_state.cc_medium_weekly_min = 0.75
+                st.session_state.cc_medium_weekly_min = 0.3
             
             if 'cc_aggressive_delta_min' not in st.session_state:
-                st.session_state.cc_aggressive_delta_min = 0.35
-                st.session_state.cc_aggressive_delta_max = 0.50
+                st.session_state.cc_aggressive_delta_min = 0.25
+                st.session_state.cc_aggressive_delta_max = 0.40
                 st.session_state.cc_aggressive_dte_min = 7
                 st.session_state.cc_aggressive_dte_max = 14
                 st.session_state.cc_aggressive_oi_min = 25
-                st.session_state.cc_aggressive_weekly_min = 1.0
+                st.session_state.cc_aggressive_weekly_min = 0.3
             
             # Get DataFrame from session state (already has Select column)
             opp_df = st.session_state.cc_opportunities
@@ -2433,9 +2433,9 @@ elif page == "CC Dashboard":
                 with col2:
                     if st.button("🔄 Reset Conservative", use_container_width=True, key="reset_conservative"):
                         st.session_state.cc_conservative_delta_min = 0.10
-                        st.session_state.cc_conservative_delta_max = 0.50
+                        st.session_state.cc_conservative_delta_max = 0.25
                         st.session_state.cc_conservative_dte_min = 7
-                        st.session_state.cc_conservative_dte_max = 45
+                        st.session_state.cc_conservative_dte_max = 30
                         st.session_state.cc_conservative_oi_min = 50
                         st.session_state.cc_conservative_weekly_min = 0.3
                         st.success("✅ Conservative reset to defaults!")
@@ -2471,7 +2471,7 @@ elif page == "CC Dashboard":
                         st.session_state.cc_medium_dte_min = 7
                         st.session_state.cc_medium_dte_max = 21
                         st.session_state.cc_medium_oi_min = 50
-                        st.session_state.cc_medium_weekly_min = 0.75
+                        st.session_state.cc_medium_weekly_min = 0.3
                         st.success("✅ Medium reset to defaults!")
                         st.rerun()
             
@@ -2500,12 +2500,12 @@ elif page == "CC Dashboard":
                         st.rerun()
                 with col2:
                     if st.button("🔄 Reset Aggressive", use_container_width=True, key="reset_aggressive"):
-                        st.session_state.cc_aggressive_delta_min = 0.35
-                        st.session_state.cc_aggressive_delta_max = 0.50
+                        st.session_state.cc_aggressive_delta_min = 0.25
+                        st.session_state.cc_aggressive_delta_max = 0.40
                         st.session_state.cc_aggressive_dte_min = 7
                         st.session_state.cc_aggressive_dte_max = 14
                         st.session_state.cc_aggressive_oi_min = 25
-                        st.session_state.cc_aggressive_weekly_min = 1.0
+                        st.session_state.cc_aggressive_weekly_min = 0.3
                         st.success("✅ Aggressive reset to defaults!")
                         st.rerun()
             
