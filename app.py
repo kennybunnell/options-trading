@@ -1032,11 +1032,17 @@ elif page == "CSP Dashboard":
     st.divider()
     
     if st.button("🔄 Fetch Opportunities", type="primary", use_container_width=True):
+        # Get existing CSP positions first
+        from utils.cash_secured_puts import get_existing_csp_positions
+        existing_csp_data = get_existing_csp_positions(api, selected_account)
+        existing_short_puts = existing_csp_data['short_puts']  # Dict: symbol -> contracts
+        
         # Initialize logging
         log_lines = []
         log_lines.append(f"=== CSP Opportunity Scan Log ===")
         log_lines.append(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         log_lines.append(f"Watchlist Size: {len(watchlist)} symbols")
+        log_lines.append(f"Existing Short Puts: {existing_short_puts}")
         log_lines.append(f"")
         log_lines.append(f"FILTER SETTINGS:")
         log_lines.append(f"  Min Delta: {min_delta}")
@@ -1165,6 +1171,9 @@ elif page == "CSP Dashboard":
                     
                     puts_passing_filters += 1
                     
+                    # Check for existing CSP positions on this symbol
+                    existing_contracts = existing_short_puts.get(symbol, 0)
+                    
                     opp = {
                         'Symbol': symbol,
                         'Strike': strike,
@@ -1181,6 +1190,7 @@ elif page == "CSP Dashboard":
                         'Theta': round(put.get('greeks', {}).get('theta', 0), 3),
                         'Volume': volume,
                         'Open Int': oi,
+                        'Existing CSPs': existing_contracts,
                     }
                     
                     if fetch_technicals:
