@@ -1257,13 +1257,13 @@ elif page == "CSP Dashboard":
             """Select best CSP option per ticker based on criteria"""
             selections = []
             
-            # Filter by criteria
+            # Filter by criteria (using correct column names from DataFrame)
             filtered = df[
                 (df['Delta'].abs() >= delta_min) &
                 (df['Delta'].abs() <= delta_max) &
                 (df['DTE'] >= dte_min) &
                 (df['DTE'] <= dte_max) &
-                (df['Open Interest'] >= oi_min) &
+                (df['Open Int'] >= oi_min) &  # Column is 'Open Int' not 'Open Interest'
                 (df['Weekly %'] >= weekly_min)
             ]
             
