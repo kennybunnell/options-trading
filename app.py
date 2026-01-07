@@ -1514,8 +1514,9 @@ elif page == "CSP Dashboard":
             # Check buying power
             balances = api.get_account_balances(selected_account)
             if balances:
-                # For CSP, use Option Buying Power (matches Tastytrade UI)
-                buying_power = float(balances.get('option-buying-power', 0))
+                # For CSP, use Derivative Buying Power (API field name)
+                # This is what Tastytrade UI shows as "Option Buying Power"
+                buying_power = float(balances.get('derivative-buying-power', 0))
                 bp_label = "Option Buying Power"
                 
                 # Get cash balance for reference
@@ -1721,8 +1722,9 @@ elif page == "CSP Dashboard":
                 
                 balances = api.get_account_balances(selected_account)
                 if balances:
-                    # Use Option Buying Power (matches Tastytrade UI)
-                    buying_power = float(balances.get('option-buying-power', 0))
+                    # Use Derivative Buying Power (API field name)
+                    # This is what Tastytrade UI shows as "Option Buying Power"
+                    buying_power = float(balances.get('derivative-buying-power', 0))
                     
                     col1, col2, col3 = st.columns(3)
                     with col1:
