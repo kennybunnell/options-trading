@@ -51,12 +51,30 @@ def get_eligible_stock_positions(api, account_number):
             if position.get('instrument-type') == 'Equity Option':
                 quantity = int(position.get('quantity', 0))
                 symbol = position.get('symbol', 'UNKNOWN')
-                option_type = position.get('option-type', '').lower()
+                option_type_field = position.get('option-type', '').lower()
                 underlying = position.get('underlying-symbol', 'UNKNOWN')
+                
+                # Parse option type from symbol if not in field (OCC format: last char before strike is C or P)
+                # Example: SOFI  260206C00030000 -> 'C' means Call
+                option_type = option_type_field
+                if not option_type and len(symbol) > 15:
+                    # OCC format: Symbol(6) + Date(6) + C/P(1) + Strike(8)
+                    type_char = symbol[14:15].upper()  # Character at position 14 (0-indexed)
+                    if type_char == 'C':
+                        option_type = 'call'
+                    elif type_char == 'P':
+                        option_type = 'put'
+                
                 print(f"Found option: {symbol}, Type: {option_type}, Qty: {quantity}, Underlying: {underlying}")
                 
-                if quantity < 0:  # Short positions
-                    if option_type == 'call':
+                # Check if it's a short call (quantity can be positive or negative depending on API)
+                if option_type == 'call':
+                    # Tastytrade may return positive quantity for short positions
+                    # Check quantity-direction or assume short if we own the underlying stock
+                    quantity_direction = position.get('quantity-direction', '')
+                    is_short = (quantity < 0) or (quantity_direction == 'Short')
+                    
+                    if is_short or quantity > 0:  # Assume positive quantity for options means short
                         contracts_sold = abs(quantity)
                         short_calls[underlying] = short_calls.get(underlying, 0) + contracts_sold
                         print(f"  ✅ SHORT CALL: {underlying} - {contracts_sold} contracts")
