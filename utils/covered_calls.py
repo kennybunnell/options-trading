@@ -335,7 +335,7 @@ def pre_scan_covered_calls(api, tradier_api, holdings, min_prescan_delta=0.10, m
                             continue
                         
                         # Calculate metrics
-                        premium_per_share = bid  # Conservative (use bid)
+                        premium_per_share = mid  # Use mid-price for better fill rate
                         return_pct = (premium_per_share / current_price) * 100
                         weekly_return = (return_pct / dte) * 7 if dte > 0 else 0
                         
@@ -346,7 +346,7 @@ def pre_scan_covered_calls(api, tradier_api, holdings, min_prescan_delta=0.10, m
                             continue
                         
                         # Calculate bid-ask spread
-                        spread_pct = ((ask - bid) / bid * 100) if bid > 0 else 999
+                        spread_pct = ((ask - bid) / mid * 100) if mid > 0 else 999
                         
                         # Distance OTM
                         distance_otm_pct = ((strike - current_price) / current_price) * 100
@@ -361,7 +361,7 @@ def pre_scan_covered_calls(api, tradier_api, holdings, min_prescan_delta=0.10, m
                             'bid': bid,
                             'ask': ask,
                             'mid': mid,
-                            'premium': bid * 100,  # Per contract
+                            'premium': mid * 100,  # Per contract - use mid price
                             'return_pct': return_pct,
                             'weekly_return': weekly_return,
                             'weekly_return_pct': weekly_return,  # Add this for display
