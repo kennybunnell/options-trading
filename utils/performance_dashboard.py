@@ -17,6 +17,7 @@ import os
 from collections import defaultdict
 
 from utils.data_models import Trade, StockPosition, PremiumSummary, data_store
+from utils.yahoo_finance import get_quote_tradier
 
 
 # ============================================
@@ -327,24 +328,61 @@ def render_options_table(positions: List[Dict], position_type: str):
     table_data = []
     positions_raw = []  # Keep raw position data for closing
     
+    # Batch fetch all option quotes from Tradier for better performance
+    option_symbols = [pos['symbol'] for pos in positions]
+    symbols_str = ','.join(option_symbols)
+    
+    # Fetch all quotes in one API call
+    quotes_data = {}
+    if symbols_str:
+        try:
+            import os
+            import requests
+            api_key = os.getenv('TRADIER_API_KEY', '')
+            if api_key:
+                base_url = 'https://api.tradier.com/v1'
+                headers = {
+                    'Authorization': f'Bearer {api_key}',
+                    'Accept': 'application/json'
+                }
+                url = f'{base_url}/markets/quotes'
+                params = {'symbols': symbols_str}
+                response = requests.get(url, headers=headers, params=params)
+                if response.status_code == 200:
+                    data = response.json()
+                    if 'quotes' in data and 'quote' in data['quotes']:
+                        quotes = data['quotes']['quote']
+                        # Handle both single quote (dict) and multiple quotes (list)
+                        if isinstance(quotes, dict):
+                            quotes_data[quotes['symbol']] = quotes
+                        elif isinstance(quotes, list):
+                            for q in quotes:
+                                quotes_data[q['symbol']] = q
+        except Exception as e:
+            st.warning(f"Could not fetch real-time quotes: {e}")
+    
     for pos in positions:
         dte = calculate_dte(pos['expiration'])
         open_price = pos['average_open_price']
         
-        # DEBUG: Print raw position data to see available fields
-        if pos['underlying'] in ['SOFI', 'INTC']:  # Only for these symbols
-            st.write(f"\n**DEBUG: {pos['underlying']} Position Data:**")
-            st.json(pos)
+        # Get real-time quote from batched data
+        option_symbol = pos['symbol']
+        quote = quotes_data.get(option_symbol, {})
         
-        # Get current price with better fallback logic
-        current_price = (
-            pos.get('mark') or 
-            pos.get('mark-price') or 
-            pos.get('mark_price') or 
-            pos.get('close-price') or
-            pos.get('close_price') or
-            0
-        )
+        if quote:
+            # Use last price, or calculate mid from bid/ask
+            current_price = quote.get('last', 0)
+            if current_price == 0 or current_price is None:
+                bid = quote.get('bid', 0) or 0
+                ask = quote.get('ask', 0) or 0
+                if bid > 0 and ask > 0:
+                    current_price = (bid + ask) / 2
+                else:
+                    # If no valid price, fallback to open price
+                    current_price = open_price
+        else:
+            # Fallback to position data if quote not found
+            current_price = open_price
         
         multiplier = pos.get('multiplier', 100)
         qty = pos['quantity']
