@@ -359,7 +359,15 @@ def render_options_table(positions: List[Dict], position_type: str):
                             for q in quotes:
                                 quotes_data[q['symbol']] = q
         except Exception as e:
-            st.warning(f"Could not fetch real-time quotes: {e}")
+            st.error(f"Could not fetch real-time quotes: {e}")
+    
+    # DEBUG: Show what we got from Tradier
+    if quotes_data:
+        st.success(f"✅ Fetched {len(quotes_data)} real-time quotes from Tradier")
+        with st.expander("DEBUG: Tradier Quotes Data"):
+            st.json(quotes_data)
+    else:
+        st.warning("⚠️ No real-time quotes fetched from Tradier API")
     
     for pos in positions:
         dte = calculate_dte(pos['expiration'])
