@@ -1004,36 +1004,6 @@ elif page == "CSP Dashboard":
     
     st.divider()
     
-    # Margin Avoidance Setting
-    st.subheader("⚠️ Buying Power Settings")
-    
-    # Detect if account is IRA
-    is_ira = 'IRA' in selected_display.upper() or 'RETIREMENT' in selected_display.upper()
-    
-    if is_ira:
-        st.info("🛡️ **IRA Account Detected** - Will use cash-only buying power (no margin available)")
-        avoid_margin = True
-        st.session_state.csp_avoid_margin = True
-    else:
-        col1, col2 = st.columns([1, 3])
-        
-        with col1:
-            avoid_margin = st.checkbox(
-                "Avoid Margin for CSP",
-                value=st.session_state.get('csp_avoid_margin', True),
-                help="When enabled, only uses cash balance (no margin). When disabled, uses full derivative buying power (may include margin).",
-                key="csp_avoid_margin_checkbox"
-            )
-            st.session_state.csp_avoid_margin = avoid_margin
-        
-        with col2:
-            if avoid_margin:
-                st.success("✅ **Cash-Only Mode** - Will only use available cash balance (no margin)")
-            else:
-                st.warning("⚠️ **Margin Allowed** - Will use full derivative buying power (may include margin)")
-    
-    st.divider()
-    
     # Filters Section
     st.subheader("🔍 Option Filters")
     
@@ -1544,21 +1514,12 @@ elif page == "CSP Dashboard":
             # Check buying power
             balances = api.get_account_balances(selected_account)
             if balances:
-                # Use correct buying power based on margin setting
-                avoid_margin = st.session_state.get('csp_avoid_margin', True)
+                # For CSP, use Option Buying Power (matches Tastytrade UI)
+                buying_power = float(balances.get('option-buying-power', 0))
+                bp_label = "Option Buying Power"
                 
-                if avoid_margin:
-                    # Cash-only mode: use cash-balance
-                    buying_power = float(balances.get('cash-balance', 0))
-                    bp_label = "Available Cash (No Margin)"
-                else:
-                    # Margin allowed: use derivative-buying-power
-                    buying_power = float(balances.get('derivative-buying-power', 0))
-                    bp_label = "Available Buying Power (With Margin)"
-                
-                # Get both values for comparison
+                # Get cash balance for reference
                 cash_balance = float(balances.get('cash-balance', 0))
-                derivative_bp = float(balances.get('derivative-buying-power', 0))
                 
                 col1, col2, col3 = st.columns(3)
                 
@@ -1579,12 +1540,6 @@ elif page == "CSP Dashboard":
                     can_submit = False
                 else:
                     can_submit = True
-                    
-                    # Additional warning if using margin (cash < collateral but derivative BP > collateral)
-                    if not avoid_margin and total_collateral > cash_balance:
-                        margin_usage = total_collateral - cash_balance
-                        st.warning(f"⚠️ **Margin Usage Alert:** This order will use ${margin_usage:,.2f} of margin. Your cash balance is ${cash_balance:,.2f} but you need ${total_collateral:,.2f}.")
-                        st.info("💡 **Tip:** Enable 'Avoid Margin for CSP' above to prevent margin usage.")
             else:
                 st.warning("⚠️ Could not fetch account balances")
                 can_submit = False
@@ -1766,21 +1721,12 @@ elif page == "CSP Dashboard":
                 
                 balances = api.get_account_balances(selected_account)
                 if balances:
-                    # Use correct buying power based on margin setting
-                    avoid_margin = st.session_state.get('csp_avoid_margin', True)
-                    
-                    if avoid_margin:
-                        buying_power = float(balances.get('cash-balance', 0))
-                        bp_type = "Cash Balance (No Margin)"
-                    else:
-                        buying_power = float(balances.get('derivative-buying-power', 0))
-                        bp_type = "Derivative BP (With Margin)"
-                    
-                    cash_balance = float(balances.get('cash-balance', 0))
+                    # Use Option Buying Power (matches Tastytrade UI)
+                    buying_power = float(balances.get('option-buying-power', 0))
                     
                     col1, col2, col3 = st.columns(3)
                     with col1:
-                        st.metric(f"Available {bp_type}", f"${buying_power:,.2f}")
+                        st.metric("Available Option BP", f"${buying_power:,.2f}")
                     with col2:
                         st.metric("Required Collateral", f"${total_collateral:,.2f}")
                     with col3:
@@ -1791,11 +1737,6 @@ elif page == "CSP Dashboard":
                         buffer_pct = (buffer / buying_power * 100) if buying_power > 0 else 0
                         st.success(f"✅ Sufficient buying power ({buffer_pct:.1f}% buffer remaining)")
                         validation_results.append(("Buying Power", True, f"${buffer:,.2f} buffer"))
-                        
-                        # Warn if using margin
-                        if not avoid_margin and total_collateral > cash_balance:
-                            margin_usage = total_collateral - cash_balance
-                            st.warning(f"⚠️ Will use ${margin_usage:,.2f} of margin (cash: ${cash_balance:,.2f}, need: ${total_collateral:,.2f})")
                     else:
                         shortage = total_collateral - buying_power
                         st.error(f"❌ Insufficient buying power! Short by ${shortage:,.2f}")
