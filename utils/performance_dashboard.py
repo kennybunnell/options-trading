@@ -384,7 +384,25 @@ def render_options_table(positions: List[Dict], position_type: str):
     table_data = [table_data[i] for i in sorted_indices]
     positions_raw = [positions_raw[i] for i in sorted_indices]
     
+    # Initialize session state for auto-selection
+    if f'{position_type}_auto_select_green' not in st.session_state:
+        st.session_state[f'{position_type}_auto_select_green'] = False
+    
     df = pd.DataFrame(table_data)
+    
+    # Add button to auto-select all green (80%+) positions
+    col1, col2, col3 = st.columns([1, 2, 2])
+    with col1:
+        if st.button("🟢 Select All Green (80%+)", key=f"{position_type}_select_green"):
+            st.session_state[f'{position_type}_auto_select_green'] = True
+    
+    # Auto-select green positions if button was clicked
+    if st.session_state[f'{position_type}_auto_select_green']:
+        for i, row in enumerate(table_data):
+            if '🟢' in row['Action']:  # Check if it's a green CLOSE action
+                df.at[i, 'Select'] = True
+        # Reset flag after applying
+        st.session_state[f'{position_type}_auto_select_green'] = False
     
     # Display with checkboxes for selection
     edited_df = st.data_editor(
