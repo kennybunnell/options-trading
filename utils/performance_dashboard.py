@@ -329,8 +329,12 @@ def render_options_table(positions: List[Dict], position_type: str):
     positions_raw = []  # Keep raw position data for closing
     
     # Batch fetch all option quotes from Tradier for better performance
-    option_symbols = [pos['symbol'] for pos in positions]
+    # Remove spaces from symbols as Tradier expects no spaces
+    option_symbols = [pos['symbol'].replace(' ', '') for pos in positions]
     symbols_str = ','.join(option_symbols)
+    
+    # Create a mapping from no-space symbols back to original symbols
+    symbol_mapping = {pos['symbol'].replace(' ', ''): pos['symbol'] for pos in positions}
     
     # Fetch all quotes in one API call
     quotes_data = {}
@@ -394,8 +398,9 @@ def render_options_table(positions: List[Dict], position_type: str):
         open_price = pos['average_open_price']
         
         # Get real-time quote from batched data
-        option_symbol = pos['symbol']
-        quote = quotes_data.get(option_symbol, {})
+        # Use the no-space version to lookup the quote
+        option_symbol_no_space = pos['symbol'].replace(' ', '')
+        quote = quotes_data.get(option_symbol_no_space, {})
         
         if quote:
             # Use last price, or calculate mid from bid/ask
