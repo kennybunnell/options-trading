@@ -1704,20 +1704,34 @@ elif page == "Performance":
     
     # Premium Performance Metrics
     if selected_account:
-        # Get account balances and positions
-        balances = api.get_account_balances(selected_account)
-        positions = api.get_positions(selected_account)
-        
-        if balances:
-            nlv = float(balances.get('net-liquidating-value', 0))
+        try:
+            # Get account balances and positions
+            balances = api.get_account_balances(selected_account)
+            positions = api.get_positions(selected_account)
             
-            # Count positions
-            total_positions = len(positions) if positions else 0
-            stock_positions = len([p for p in positions if p.get('instrument-type') == 'Equity']) if positions else 0
-            option_positions = len([p for p in positions if p.get('instrument-type') == 'Equity Option']) if positions else 0
-            
-            # Calculate total P/L from positions
-            total_pl = sum([float(p.get('realized-day-gain-effect', 0) or 0) for p in positions]) if positions else 0
+            if balances:
+                # Safely get NLV
+                nlv = 0
+                try:
+                    nlv = float(balances.get('net-liquidating-value', 0) or 0)
+                except (ValueError, TypeError):
+                    nlv = 0
+                
+                # Count positions
+                total_positions = len(positions) if positions else 0
+                stock_positions = len([p for p in positions if p.get('instrument-type') == 'Equity']) if positions else 0
+                option_positions = len([p for p in positions if p.get('instrument-type') == 'Equity Option']) if positions else 0
+                
+                # Calculate total P/L from positions - with comprehensive error handling
+                total_pl = 0
+                if positions:
+                    for p in positions:
+                        try:
+                            pl_value = p.get('realized-day-gain-effect', 0)
+                            if pl_value is not None and pl_value != 'None':
+                                total_pl += float(pl_value)
+                        except (ValueError, TypeError):
+                            continue
             
             # Premium Metric Cards Row
             col1, col2, col3, col4 = st.columns(4)
@@ -1760,6 +1774,8 @@ elif page == "Performance":
                 """, unsafe_allow_html=True)
             
             st.markdown("<br>", unsafe_allow_html=True)
+        except Exception as e:
+            st.error(f"Error loading performance metrics: {str(e)}")
     
     # Monthly Premium Summary
     from utils.monthly_premium import render_monthly_premium_summary
