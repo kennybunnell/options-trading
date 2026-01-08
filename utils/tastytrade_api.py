@@ -176,24 +176,42 @@ class TastytradeAPI:
             if not self._is_token_valid():
                 self._authenticate()
             
+            print(f"\n=== DEBUG: Getting option quote ===")
+            print(f"Symbol: {option_symbol}")
+            
             # Use the market-data endpoint with option symbol
             url = f'{self.base_url}/market-data/by-type'
             headers = {'Authorization': self.session_token}
             params = {'option': option_symbol}
             
+            print(f"URL: {url}")
+            print(f"Params: {params}")
+            
             response = requests.get(url, headers=headers, params=params)
+            
+            print(f"Response status: {response.status_code}")
             
             if response.status_code == 200:
                 data = response.json()
-                if data.get('data') and len(data['data']) > 0:
-                    return data['data'][0]
+                print(f"Response data keys: {data.keys() if data else 'None'}")
+                if data.get('data'):
+                    print(f"Data length: {len(data['data'])}")
+                    if len(data['data']) > 0:
+                        quote = data['data'][0]
+                        print(f"Quote keys: {quote.keys()}")
+                        print(f"Bid: {quote.get('bid')}, Ask: {quote.get('ask')}")
+                        return quote
+                print("No data in response")
                 return None
             else:
                 print(f"Get option quote failed: {response.status_code}")
+                print(f"Response text: {response.text[:200]}")
                 return None
                 
         except Exception as e:
             print(f"Get option quote error: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return None
     
     def get_option_expirations(self, symbol):
