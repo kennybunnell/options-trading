@@ -1657,13 +1657,16 @@ elif page == "CSP Dashboard":
             key="csp_selector"
         )
         
-        # Update session state
-        st.session_state.csp_opportunities = edited_df
+        # Update session state - only copy Select and Qty columns (user-editable)
+        # Keep original numeric values for other columns (formatted columns are display-only)
+        st.session_state.csp_opportunities['Select'] = edited_df['Select']
+        st.session_state.csp_opportunities['Qty'] = edited_df['Qty']
         
         st.divider()
         
         # Order Summary Card
-        selected_rows = edited_df[edited_df['Select'] == True]
+        # Use original DataFrame (with numeric values) for calculations
+        selected_rows = st.session_state.csp_opportunities[st.session_state.csp_opportunities['Select'] == True]
         
         if len(selected_rows) > 0:
             st.subheader("💰 Order Summary")
