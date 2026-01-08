@@ -1014,6 +1014,10 @@ elif page == "CSP Dashboard":
                 log_lines.append(f"  ✅ Chain data received")
                 log_lines.append(f"  Underlying Price: ${underlying_price}")
                 
+                # Fetch IV Rank for this symbol (once per symbol, not per option)
+                iv_rank = tradier.get_iv_rank(symbol)
+                log_lines.append(f"  IV Rank: {iv_rank if iv_rank else 'N/A'}")
+                
                 puts = tradier.filter_put_options(chain_data, min_delta=min_delta, max_delta=max_delta)
                 stats['total_puts_found'] += len(puts)
                 log_lines.append(f"  Total PUT options in chain: {len(chain_data.get('options', []))}")
@@ -1087,6 +1091,10 @@ elif page == "CSP Dashboard":
                     # Check for existing CSP positions on this symbol
                     existing_contracts = existing_short_puts.get(symbol, 0)
                     
+                    # Calculate spread percentage
+                    mid = (bid + ask) / 2
+                    spread_pct = ((ask - bid) / mid * 100) if mid > 0 else 999
+                    
                     opp = {
                         'Symbol': symbol,
                         'Strike': strike,
@@ -1103,6 +1111,8 @@ elif page == "CSP Dashboard":
                         'Theta': round(put.get('greeks', {}).get('theta', 0), 3),
                         'Volume': volume,
                         'Open Int': oi,
+                        'IV Rank': round(iv_rank, 1) if iv_rank else None,
+                        'Spread %': round(spread_pct, 1),
                         'Existing CSPs': existing_contracts,
                     }
                     
@@ -1511,9 +1521,40 @@ elif page == "CSP Dashboard":
         
         st.write("")
         
+        # Format IV Rank and Spread % with colored emoji indicators (like CC Dashboard)
+        display_df = st.session_state.csp_opportunities.copy()
+        
+        # Format IV Rank with emoji indicators
+        def format_iv_rank(val):
+            if val is None or (isinstance(val, float) and val != val):  # Check for None or NaN
+                return "N/A"
+            if val > 75:
+                return f"🟢 {val:.0f}%"  # Green = High IV (good for selling)
+            elif val < 25:
+                return f"🔴 {val:.0f}%"  # Red = Low IV (bad for selling)
+            else:
+                return f"🟡 {val:.0f}%"  # Yellow = Medium IV
+        
+        # Format Spread % with emoji indicators
+        def format_spread(val):
+            if val is None or (isinstance(val, float) and val != val):  # Check for None or NaN
+                return "N/A"
+            if val <= 1.0:  # ≤1% spread
+                return f"🟢 {val:.1f}%"  # Green = Tight spread (good)
+            elif val <= 3.0:  # 1-3% spread
+                return f"🟡 {val:.1f}%"  # Yellow = Medium spread
+            else:  # >3% spread
+                return f"🔴 {val:.1f}%"  # Red = Wide spread (bad)
+        
+        # Apply formatting to display columns
+        if 'IV Rank' in display_df.columns:
+            display_df['IV Rank'] = display_df['IV Rank'].apply(format_iv_rank)
+        if 'Spread %' in display_df.columns:
+            display_df['Spread %'] = display_df['Spread %'].apply(format_spread)
+        
         # Display editable table (but encourage using buttons instead of editing cells)
         edited_df = st.data_editor(
-            st.session_state.csp_opportunities,
+            display_df,
             column_config={
                 "Select": st.column_config.CheckboxColumn(
                     "Select",
