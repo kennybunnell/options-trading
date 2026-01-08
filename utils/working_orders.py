@@ -54,6 +54,11 @@ def render_working_orders_monitor(api, account_number, order_type='all'):
                 
                 print(f"  Order {order_id}: symbol={symbol}, action={action}, qty={quantity}, status={status}")
                 
+                # Filter out non-Live orders (Cancelled, Filled, etc.)
+                if status != 'Live':
+                    print(f"    Filtered out: Status is {status} (not Live)")
+                    continue
+                
                 # Parse symbol to get underlying and option details
                 # Format: TICKER  YYMMDDC########
                 # Example: SOFI  260116P00030000
