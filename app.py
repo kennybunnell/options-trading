@@ -1477,6 +1477,115 @@ elif page == "CSP Dashboard":
         st.write("")
         st.write("---")
         
+        # ========== AUTO-TRIM TO WEEKLY TARGET ==========
+        st.subheader("🎯 Trim to Weekly Target")
+        
+        # Initialize mark column in session state if not exists
+        if 'Mark' not in st.session_state.csp_opportunities.columns:
+            st.session_state.csp_opportunities.insert(2, 'Mark', False)
+        
+        # Calculate current selection totals
+        selected_rows = st.session_state.csp_opportunities[st.session_state.csp_opportunities['Select'] == True]
+        if len(selected_rows) > 0:
+            current_collateral = (selected_rows['Strike'] * selected_rows['Qty'] * 100).sum()
+        else:
+            current_collateral = 0
+        
+        # Get weekly target from ladder manager
+        from utils.csp_ladder_manager import calculate_tranche_targets
+        balances = api.get_account_balances(selected_account)
+        if balances:
+            buying_power = float(balances.get('derivative-buying-power', 0))
+            weekly_target = calculate_tranche_targets(buying_power, 4)
+        else:
+            weekly_target = 0
+        
+        # Display current vs target
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Current Selection", f"${current_collateral:,.0f}")
+        with col2:
+            st.metric("Weekly Target", f"${weekly_target:,.0f}")
+        with col3:
+            if current_collateral > weekly_target:
+                over_amount = current_collateral - weekly_target
+                st.metric("Over by", f"${over_amount:,.0f}", delta=f"-${over_amount:,.0f}", delta_color="inverse")
+            else:
+                under_amount = weekly_target - current_collateral
+                st.metric("Under by", f"${under_amount:,.0f}", delta=f"+${under_amount:,.0f}")
+        
+        # Auto-Trim controls
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            trim_strategy = st.selectbox(
+                "Trim Strategy",
+                [
+                    "Keep Lowest Delta (Most Conservative)",
+                    "Keep Highest Premium (Most Income)",
+                    "Keep Highest Weekly % (Best Efficiency)",
+                    "Keep Highest IV Rank (Best Volatility)"
+                ],
+                help="Choose which options to keep when trimming to target"
+            )
+        
+        with col2:
+            st.write("")  # Spacing
+            st.write("")  # Spacing
+            if st.button("🎯 Auto-Trim to Target", use_container_width=True, type="primary", disabled=(current_collateral <= weekly_target)):
+                # Only trim if over target
+                if current_collateral > weekly_target:
+                    # Sort selected rows by chosen strategy
+                    selected_indices = st.session_state.csp_opportunities[st.session_state.csp_opportunities['Select'] == True].index.tolist()
+                    selected_df = st.session_state.csp_opportunities.loc[selected_indices].copy()
+                    
+                    # Add collateral column for sorting
+                    selected_df['Collateral'] = selected_df['Strike'] * selected_df['Qty'] * 100
+                    
+                    # Sort by strategy (ascending for "keep lowest", descending for "keep highest")
+                    if "Lowest Delta" in trim_strategy:
+                        selected_df = selected_df.sort_values('Delta', key=lambda x: abs(x), ascending=True)
+                    elif "Highest Premium" in trim_strategy:
+                        selected_df = selected_df.sort_values('Bid', ascending=False)
+                    elif "Highest Weekly" in trim_strategy:
+                        selected_df = selected_df.sort_values('Weekly %', ascending=False)
+                    elif "Highest IV Rank" in trim_strategy:
+                        # Handle None/NaN in IV Rank
+                        selected_df['IV Rank Filled'] = selected_df['IV Rank'].fillna(-999)
+                        selected_df = selected_df.sort_values('IV Rank Filled', ascending=False)
+                    
+                    # Keep removing from bottom until we're under target
+                    running_collateral = current_collateral
+                    indices_to_keep = []
+                    removed_count = 0
+                    
+                    for idx in selected_df.index:
+                        row_collateral = selected_df.loc[idx, 'Collateral']
+                        
+                        # If keeping this row would still be over target, keep it
+                        # Otherwise, check if removing it gets us closer to target
+                        if running_collateral - row_collateral >= weekly_target:
+                            # Remove this row (don't add to keep list)
+                            running_collateral -= row_collateral
+                            removed_count += 1
+                        else:
+                            # Keep this row
+                            indices_to_keep.append(idx)
+                    
+                    # Update selections: unselect removed rows
+                    for idx in selected_indices:
+                        if idx not in indices_to_keep:
+                            st.session_state.csp_opportunities.loc[idx, 'Select'] = False
+                    
+                    final_collateral = (st.session_state.csp_opportunities[st.session_state.csp_opportunities['Select'] == True]['Strike'] * 
+                                      st.session_state.csp_opportunities[st.session_state.csp_opportunities['Select'] == True]['Qty'] * 100).sum()
+                    
+                    st.success(f"✅ Removed {removed_count} options. New total: ${final_collateral:,.0f}")
+                    st.rerun()
+        
+        st.write("")
+        st.write("---")
+        
         # Filter Configuration Expanders
         st.subheader("⚙️ Preset Filter Configuration")
         
@@ -1627,6 +1736,12 @@ elif page == "CSP Dashboard":
         
         st.write("")
         
+        # Initialize mark tracking in session state if not exists
+        if 'csp_marked_indices' not in st.session_state:
+            st.session_state.csp_marked_indices = set()
+        
+        st.write("")
+        
         # Format IV Rank and Spread % with colored emoji indicators (like CC Dashboard)
         display_df = st.session_state.csp_opportunities.copy()
         
@@ -1728,6 +1843,8 @@ elif page == "CSP Dashboard":
         if 'Spread %' in display_df.columns:
             display_df['Spread %'] = display_df['Spread %'].apply(format_spread)
         
+        # No Mark column in table - we'll add individual buttons below
+        
         # Display editable table (but encourage using buttons instead of editing cells)
         # Use dynamic key based on active preset to force re-render when formatting changes
         editor_key = f"csp_selector_{st.session_state.get('csp_active_preset', 'none')}"
@@ -1761,6 +1878,88 @@ elif page == "CSP Dashboard":
         # Keep original numeric values for other columns (formatted columns are display-only)
         st.session_state.csp_opportunities['Select'] = edited_df['Select']
         st.session_state.csp_opportunities['Qty'] = edited_df['Qty']
+        
+        # ========== MANUAL MARKING CONTROLS (Below Table) ==========
+        st.write("")
+        st.write("**🏷️ Manual Mark & Remove:**")
+        st.caption("Click buttons below to mark options for removal. Marked options can be batch-removed with the 'Remove Marked' button.")
+        
+        # Get currently selected rows
+        selected_indices = st.session_state.csp_opportunities[st.session_state.csp_opportunities['Select'] == True].index.tolist()
+        
+        if len(selected_indices) > 0:
+            # Display mark buttons for selected rows in a grid
+            # Show up to 20 buttons at a time (4 columns x 5 rows)
+            buttons_per_row = 4
+            
+            for i in range(0, min(len(selected_indices), 20), buttons_per_row):
+                cols = st.columns(buttons_per_row)
+                
+                for col_idx, idx in enumerate(selected_indices[i:i+buttons_per_row]):
+                    with cols[col_idx]:
+                        row = st.session_state.csp_opportunities.loc[idx]
+                        symbol = row['Symbol']
+                        strike = row['Strike']
+                        expiration = row['Expiration']
+                        
+                        is_marked = idx in st.session_state.csp_marked_indices
+                        
+                        if is_marked:
+                            button_label = f"✅ {symbol} ${strike:.0f}"
+                            button_type = "secondary"
+                        else:
+                            button_label = f"🏷️ {symbol} ${strike:.0f}"
+                            button_type = "secondary"
+                        
+                        if st.button(button_label, key=f"mark_btn_{idx}", use_container_width=True, type=button_type,
+                                   help=f"{symbol} ${strike:.0f} exp {expiration}"):
+                            # Toggle mark state
+                            if idx in st.session_state.csp_marked_indices:
+                                st.session_state.csp_marked_indices.remove(idx)
+                            else:
+                                st.session_state.csp_marked_indices.add(idx)
+                            st.rerun()
+            
+            if len(selected_indices) > 20:
+                st.info(f"ℹ️ Showing first 20 of {len(selected_indices)} selected options. Use Auto-Trim for large selections.")
+            
+            st.write("")
+            
+            # Action buttons
+            col1, col2, col3 = st.columns([1, 1, 4])
+            
+            with col1:
+                if st.button("🗑️ Remove Marked", use_container_width=True, type="primary", 
+                           disabled=len(st.session_state.csp_marked_indices) == 0,
+                           help=f"Remove {len(st.session_state.csp_marked_indices)} marked options"):
+                    # Unselect all marked rows
+                    for idx in st.session_state.csp_marked_indices:
+                        if idx in st.session_state.csp_opportunities.index:
+                            st.session_state.csp_opportunities.loc[idx, 'Select'] = False
+                    
+                    removed_count = len(st.session_state.csp_marked_indices)
+                    st.session_state.csp_marked_indices = set()  # Clear marks
+                    st.success(f"✅ Removed {removed_count} marked options")
+                    st.rerun()
+            
+            with col2:
+                if st.button("↩️ Clear Marks", use_container_width=True, 
+                           disabled=len(st.session_state.csp_marked_indices) == 0,
+                           help="Clear all marks without removing"):
+                    st.session_state.csp_marked_indices = set()
+                    st.success("✅ Cleared all marks")
+                    st.rerun()
+            
+            with col3:
+                if len(st.session_state.csp_marked_indices) > 0:
+                    marked_symbols = []
+                    for idx in st.session_state.csp_marked_indices:
+                        if idx in st.session_state.csp_opportunities.index:
+                            symbol = st.session_state.csp_opportunities.loc[idx, 'Symbol']
+                            marked_symbols.append(symbol)
+                    st.info(f"🏷️ Marked ({len(marked_symbols)}): {', '.join(marked_symbols[:8])}{'...' if len(marked_symbols) > 8 else ''}")
+        else:
+            st.info("ℹ️ No options selected. Select options above to enable manual marking.")
         
         st.divider()
         
