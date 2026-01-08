@@ -917,8 +917,8 @@ elif page == "CSP Dashboard":
                     if len(new_symbols) > 16:
                         st.info(f"... and {len(new_symbols) - 16} more")
                     
-                    # Import button
-                    if st.button(f"✅ {import_mode} Watchlist with {len(new_symbols)} Symbols", type="primary", use_container_width=True):
+                    # Import button with unique key
+                    if st.button(f"✅ {import_mode} Watchlist with {len(new_symbols)} Symbols", type="primary", use_container_width=True, key="import_watchlist_btn"):
                         if import_mode == "Replace":
                             # Replace entire watchlist
                             with open('watchlist.txt', 'w') as f:
