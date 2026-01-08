@@ -141,15 +141,27 @@ def render_working_orders_monitor(api, account_number, order_type='all'):
         
         st.write("")
         
+        # Initialize session state for selections if not exists
+        session_key = f"working_orders_selections_{order_type}"
+        if session_key not in st.session_state:
+            st.session_state[session_key] = [False] * len(df)
+        
+        # Ensure session state matches current df length
+        if len(st.session_state[session_key]) != len(df):
+            st.session_state[session_key] = [False] * len(df)
+        
+        # Apply session state to df
+        df['Select'] = st.session_state[session_key]
+        
         # Add Select All / Deselect All buttons
         col1, col2, col3 = st.columns([1, 1, 3])
         with col1:
             if st.button("✅ Select All", use_container_width=True, key=f"select_all_{order_type}"):
-                df['Select'] = True
+                st.session_state[session_key] = [True] * len(df)
                 st.rerun()
         with col2:
             if st.button("⬜ Deselect All", use_container_width=True, key=f"deselect_all_{order_type}"):
-                df['Select'] = False
+                st.session_state[session_key] = [False] * len(df)
                 st.rerun()
         
         st.write("")
@@ -173,8 +185,9 @@ def render_working_orders_monitor(api, account_number, order_type='all'):
             key=f"working_orders_editor_{order_type}"
         )
         
-        # Update selections
+        # Update selections in both df and session state
         df['Select'] = edited_df['Select']
+        st.session_state[session_key] = edited_df['Select'].tolist()
         
         # Action buttons
         selected_orders = df[df['Select'] == True]
