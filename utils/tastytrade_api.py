@@ -162,6 +162,40 @@ class TastytradeAPI:
             print(f"Get quote error: {str(e)}")
             return None
     
+    def get_option_quote(self, option_symbol):
+        """
+        Get current quote for an option symbol
+        
+        Args:
+            option_symbol (str): Full option symbol (e.g., 'AAPL  260116C00255000')
+            
+        Returns:
+            dict: Quote data with bid, ask, last, etc.
+        """
+        try:
+            if not self._is_token_valid():
+                self._authenticate()
+            
+            # Use the market-data endpoint with option symbol
+            url = f'{self.base_url}/market-data/by-type'
+            headers = {'Authorization': self.session_token}
+            params = {'option': option_symbol}
+            
+            response = requests.get(url, headers=headers, params=params)
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('data') and len(data['data']) > 0:
+                    return data['data'][0]
+                return None
+            else:
+                print(f"Get option quote failed: {response.status_code}")
+                return None
+                
+        except Exception as e:
+            print(f"Get option quote error: {str(e)}")
+            return None
+    
     def get_option_expirations(self, symbol):
         """
         Get available option expirations for a symbol
