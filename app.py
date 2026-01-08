@@ -854,8 +854,105 @@ elif page == "CSP Dashboard":
     except:
         watchlist = []
     
-    # Watchlist Management Section
+    # ========== TRADINGVIEW CSV IMPORT ==========
     st.subheader("📝 Watchlist Management")
+    
+    # Prominent CSV import section
+    with st.expander("📥 Import from TradingView", expanded=False):
+        st.markdown("""
+        **Quick Import from TradingView:**
+        
+        1. Export your TradingView screener results as CSV
+        2. Upload the CSV file below
+        3. Choose to Replace or Append to current watchlist
+        """)
+        
+        col1, col2 = st.columns([3, 1])
+        
+        with col1:
+            import_file = st.file_uploader(
+                "Upload TradingView CSV",
+                type=['csv'],
+                help="CSV file from TradingView with Symbol column",
+                key="tradingview_csv_import"
+            )
+        
+        with col2:
+            import_mode = st.radio(
+                "Import Mode",
+                ["Replace", "Append"],
+                help="Replace: Clear existing watchlist\nAppend: Add to existing",
+                key="import_mode"
+            )
+        
+        if import_file is not None:
+            try:
+                import pandas as pd
+                
+                # Read CSV
+                df = pd.read_csv(import_file)
+                
+                # Find Symbol column
+                symbol_col = None
+                for col in df.columns:
+                    if col.lower() in ['symbol', 'ticker', 'stock']:
+                        symbol_col = col
+                        break
+                
+                if symbol_col:
+                    # Extract and clean symbols
+                    new_symbols = df[symbol_col].dropna().unique().tolist()
+                    new_symbols = [str(s).strip().upper() for s in new_symbols if str(s).strip()]
+                    new_symbols = sorted(set(new_symbols))  # Remove duplicates and sort
+                    
+                    # Show preview
+                    st.success(f"✅ Found {len(new_symbols)} symbols in CSV")
+                    
+                    # Display preview
+                    preview_cols = st.columns(8)
+                    for idx, symbol in enumerate(new_symbols[:16]):  # Show first 16
+                        with preview_cols[idx % 8]:
+                            st.markdown(f"**{symbol}**")
+                    
+                    if len(new_symbols) > 16:
+                        st.info(f"... and {len(new_symbols) - 16} more")
+                    
+                    # Import button
+                    if st.button(f"✅ {import_mode} Watchlist with {len(new_symbols)} Symbols", type="primary", use_container_width=True):
+                        if import_mode == "Replace":
+                            # Replace entire watchlist
+                            with open('watchlist.txt', 'w') as f:
+                                for symbol in new_symbols:
+                                    f.write(f"{symbol}\n")
+                            st.success(f"✅ Replaced watchlist with {len(new_symbols)} symbols!")
+                        else:  # Append
+                            # Read existing watchlist
+                            try:
+                                with open('watchlist.txt', 'r') as f:
+                                    existing = [line.strip() for line in f if line.strip()]
+                            except:
+                                existing = []
+                            
+                            # Combine and deduplicate
+                            combined = sorted(set(existing + new_symbols))
+                            added_count = len(combined) - len(existing)
+                            
+                            # Write back
+                            with open('watchlist.txt', 'w') as f:
+                                for symbol in combined:
+                                    f.write(f"{symbol}\n")
+                            
+                            st.success(f"✅ Added {added_count} new symbols! Total: {len(combined)}")
+                        
+                        st.rerun()
+                else:
+                    st.error("❌ No 'Symbol' or 'Ticker' column found in CSV")
+                    st.info("Available columns: " + ", ".join(df.columns.tolist()))
+                    
+            except Exception as e:
+                st.error(f"❌ Error reading CSV: {str(e)}")
+    
+    st.write("")
     
     col1, col2, col3 = st.columns([2, 1, 1])
     
