@@ -1284,6 +1284,9 @@ elif page == "CSP Dashboard":
         with col2:
             if st.button("🟢 Conservative", use_container_width=True, key="csp_preset_conservative", 
                        help=f"Δ {st.session_state.csp_conservative_delta_min}-{st.session_state.csp_conservative_delta_max}, DTE {st.session_state.csp_conservative_dte_min}-{st.session_state.csp_conservative_dte_max}, OI ≥{st.session_state.csp_conservative_oi_min}, Weekly ≥{st.session_state.csp_conservative_weekly_min}%"):
+                # Track active preset for Delta formatting
+                st.session_state.csp_active_preset = 'conservative'
+                
                 # Clear all first
                 st.session_state.csp_opportunities['Select'] = False
                 st.session_state.csp_opportunities['Qty'] = 1
@@ -1310,6 +1313,9 @@ elif page == "CSP Dashboard":
         with col3:
             if st.button("🟡 Medium", use_container_width=True, key="csp_preset_medium",
                        help=f"Δ {st.session_state.csp_medium_delta_min}-{st.session_state.csp_medium_delta_max}, DTE {st.session_state.csp_medium_dte_min}-{st.session_state.csp_medium_dte_max}, OI ≥{st.session_state.csp_medium_oi_min}, Weekly ≥{st.session_state.csp_medium_weekly_min}%"):
+                # Track active preset for Delta formatting
+                st.session_state.csp_active_preset = 'medium'
+                
                 # Clear all first
                 st.session_state.csp_opportunities['Select'] = False
                 st.session_state.csp_opportunities['Qty'] = 1
@@ -1336,6 +1342,9 @@ elif page == "CSP Dashboard":
         with col4:
             if st.button("🔴 Aggressive", use_container_width=True, key="csp_preset_aggressive",
                        help=f"Δ {st.session_state.csp_aggressive_delta_min}-{st.session_state.csp_aggressive_delta_max}, DTE {st.session_state.csp_aggressive_dte_min}-{st.session_state.csp_aggressive_dte_max}, OI ≥{st.session_state.csp_aggressive_oi_min}, Weekly ≥{st.session_state.csp_aggressive_weekly_min}%"):
+                # Track active preset for Delta formatting
+                st.session_state.csp_active_preset = 'aggressive'
+                
                 # Clear all first
                 st.session_state.csp_opportunities['Select'] = False
                 st.session_state.csp_opportunities['Qty'] = 1
@@ -1568,7 +1577,55 @@ elif page == "CSP Dashboard":
             else:  # >3% spread
                 return f"🔴 {val:.1f}%"  # Red = Wide spread (bad)
         
+        # Format Delta with emoji indicators (dynamic based on active preset)
+        def format_delta(val):
+            # Skip if already formatted (contains emoji)
+            if isinstance(val, str) and any(emoji in val for emoji in ['🟢', '🟡', '🔴']):
+                return val
+            # Handle None or NaN
+            if val is None or (isinstance(val, float) and val != val):
+                return "N/A"
+            # Convert to float if string
+            if isinstance(val, str):
+                try:
+                    val = float(val)
+                except (ValueError, TypeError):
+                    return "N/A"
+            
+            # Get active preset range (if any)
+            if 'csp_active_preset' in st.session_state:
+                preset = st.session_state.csp_active_preset
+                
+                if preset == 'conservative':
+                    delta_min = st.session_state.csp_conservative_delta_min
+                    delta_max = st.session_state.csp_conservative_delta_max
+                elif preset == 'medium':
+                    delta_min = st.session_state.csp_medium_delta_min
+                    delta_max = st.session_state.csp_medium_delta_max
+                elif preset == 'aggressive':
+                    delta_min = st.session_state.csp_aggressive_delta_min
+                    delta_max = st.session_state.csp_aggressive_delta_max
+                else:
+                    # No preset active, return plain value
+                    return f"{val:.2f}"
+                
+                # Apply dynamic color coding based on preset range
+                abs_val = abs(val)
+                tolerance = 0.05  # ±0.05 for yellow zone
+                
+                if delta_min <= abs_val <= delta_max:
+                    return f"🟢 {val:.2f}"  # Green = Within range
+                elif (delta_min - tolerance) <= abs_val <= (delta_max + tolerance):
+                    return f"🟡 {val:.2f}"  # Yellow = Close to range
+                else:
+                    return f"🔴 {val:.2f}"  # Red = Outside range
+            else:
+                # No preset active, return plain value
+                return f"{val:.2f}"
+        
         # Apply formatting to display columns
+        if 'Delta' in display_df.columns:
+            display_df['Delta'] = display_df['Delta'].apply(format_delta)
         if 'IV Rank' in display_df.columns:
             display_df['IV Rank'] = display_df['IV Rank'].apply(format_iv_rank)
         if 'Spread %' in display_df.columns:
