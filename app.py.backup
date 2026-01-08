@@ -399,153 +399,48 @@ page_mapping = {
 page = page_mapping.get(page, page)
 
 # Main content area
-# Premium Home Page CSS
-st.markdown("""
-<style>
-    .premium-metric-card {
-        background: linear-gradient(135deg, #1a1d23 0%, #0f1419 100%);
-        border: 1px solid #d4af37;
-        border-radius: 12px;
-        padding: 1.5rem;
-        box-shadow: 0 0 20px rgba(212, 175, 55, 0.15);
-        margin-bottom: 1rem;
-    }
-    
-    .metric-label {
-        color: #9ca3af;
-        font-size: 13px;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        margin-bottom: 0.5rem;
-    }
-    
-    .metric-value {
-        color: #ffffff;
-        font-size: 32px;
-        font-weight: 600;
-        margin-bottom: 0.3rem;
-    }
-    
-    .metric-value-positive {
-        color: #10b981;
-    }
-    
-    .metric-change {
-        color: #10b981;
-        font-size: 14px;
-    }
-    
-    .section-header {
-        color: #d4af37;
-        font-size: 12px;
-        font-weight: 600;
-        letter-spacing: 2px;
-        text-transform: uppercase;
-        margin: 2rem 0 1rem 0;
-        border-bottom: 1px solid #d4af37;
-        padding-bottom: 0.5rem;
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# Main content area
 if page == "Home":
-    # Premium Header
-    st.markdown('<h1 style="color: #ffffff; font-size: 36px; font-weight: 600; margin-bottom: 0.5rem;">🏠 Dashboard</h1>', unsafe_allow_html=True)
-    st.markdown(f'<p style="color: #9ca3af; font-size: 14px; margin-bottom: 2rem;">Welcome back to your premium trading platform</p>', unsafe_allow_html=True)
+    st.title("🏠 Home Dashboard")
     
     if selected_account:
-        # Get account balances first
+        # Monthly Premium Summary at the top
+        from utils.monthly_premium import render_monthly_premium_summary
+        render_monthly_premium_summary(api, selected_account)
+        
+        st.subheader(f"Account: {selected_display}")
+        
+        # Get account balances
         balances = api.get_account_balances(selected_account)
         
         if balances:
+            col1, col2, col3 = st.columns(3)
+            
             nlv = float(balances.get('net-liquidating-value', 0))
             cash = float(balances.get('cash-balance', 0))
             buying_power = float(balances.get('derivative-buying-power', 0))
             
-            # Premium Metric Cards Row
-            col1, col2, col3 = st.columns(3)
-            
             with col1:
-                st.markdown(f"""
-                <div class="premium-metric-card">
-                    <div class="metric-label">Net Liquidating Value</div>
-                    <div class="metric-value">${nlv:,.0f}</div>
-                    <div class="metric-change">↗ +2.3%</div>
-                </div>
-                """, unsafe_allow_html=True)
-            
+                st.metric("Net Liquidating Value", f"${nlv:,.2f}")
             with col2:
-                st.markdown(f"""
-                <div class="premium-metric-card">
-                    <div class="metric-label">Cash Balance</div>
-                    <div class="metric-value">${cash:,.0f}</div>
-                </div>
-                """, unsafe_allow_html=True)
-            
+                st.metric("Cash Balance", f"${cash:,.2f}")
             with col3:
-                st.markdown(f"""
-                <div class="premium-metric-card">
-                    <div class="metric-label">Buying Power</div>
-                    <div class="metric-value metric-value-positive">${buying_power:,.0f}</div>
-                </div>
-                """, unsafe_allow_html=True)
+                st.metric("Buying Power", f"${buying_power:,.2f}")
         
-        # Monthly Premium Summary Section
-        st.markdown('<div class="section-header">💰 Monthly Premium Performance</div>', unsafe_allow_html=True)
-        from utils.monthly_premium import render_monthly_premium_summary
-        render_monthly_premium_summary(api, selected_account)
+        st.divider()
         
-        # Quick Actions Section
-        st.markdown('<div class="section-header">⚡ Quick Actions</div>', unsafe_allow_html=True)
-        action_col1, action_col2, action_col3, action_col4 = st.columns(4)
-        
-        with action_col1:
-            if st.button("💰 Scan CSPs", use_container_width=True):
-                st.session_state.nav_page = "💰 CSP Dashboard"
-                st.rerun()
-        
-        with action_col2:
-            if st.button("📞 Scan CCs", use_container_width=True):
-                st.session_state.nav_page = "📞 Covered Calls"
-                st.rerun()
-        
-        with action_col3:
-            if st.button("📈 View Performance", use_container_width=True):
-                st.session_state.nav_page = "📈 Performance"
-                st.rerun()
-        
-        with action_col4:
-            if st.button("🔄 Refresh Data", use_container_width=True):
-                st.rerun()
-        
-        # CSP Ladder Manager Section
-        st.markdown('<div class="section-header">📅 Weekly CSP Ladder</div>', unsafe_allow_html=True)
+        # CSP Ladder Manager
         render_csp_ladder_manager(api, selected_account)
         
-        # Current Positions Section
-        st.markdown('<div class="section-header">📊 Current Positions</div>', unsafe_allow_html=True)
+        st.divider()
+        
+        # Get positions
+        st.subheader("📊 Current Positions")
         positions = api.get_positions(selected_account)
         
         if positions:
-            # Count position types
-            short_puts = len([p for p in positions if p.get('instrument-type') == 'Equity Option' and 'PUT' in p.get('symbol', '') and p.get('quantity', 0) < 0])
-            short_calls = len([p for p in positions if p.get('instrument-type') == 'Equity Option' and 'CALL' in p.get('symbol', '') and p.get('quantity', 0) < 0])
-            stocks = len([p for p in positions if p.get('instrument-type') == 'Equity'])
-            
-            pos_col1, pos_col2, pos_col3, pos_col4 = st.columns(4)
-            
-            with pos_col1:
-                st.metric("Total Positions", len(positions))
-            with pos_col2:
-                st.metric("Short Puts (CSPs)", short_puts)
-            with pos_col3:
-                st.metric("Short Calls (CCs)", short_calls)
-            with pos_col4:
-                st.metric("Stock Positions", stocks)
+            st.write(f"You have {len(positions)} open positions")
         else:
-            st.info("📊 No open positions. Start by scanning for CSP or CC opportunities!")
-
+            st.info("No open positions")
 
 elif page == "CSP Dashboard":
     st.title("💰 Cash-Secured Puts Dashboard")
