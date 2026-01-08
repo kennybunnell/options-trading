@@ -2224,7 +2224,9 @@ elif page == "CSP Dashboard":
                                 try:
                                     # Build option symbol (OCC format)
                                     exp_date = datetime.strptime(row['Expiration'], '%Y-%m-%d')
-                                    option_symbol = f"{row['Symbol']}{exp_date.strftime('%y%m%d')}P{int(row['Strike']*1000):08d}"
+                                    # Build OCC symbol with proper 6-character ticker padding
+                                    ticker_padded = row['Symbol'].ljust(6)  # Pad to 6 chars with spaces
+                                    option_symbol = f"{ticker_padded}{exp_date.strftime('%y%m%d')}P{int(row['Strike']*1000):08d}"
                                     qty = int(row['Qty'])  # Get quantity from row
                                     
                                     if dry_run:
