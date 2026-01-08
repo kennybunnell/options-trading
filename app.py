@@ -1717,7 +1717,7 @@ elif page == "Performance":
             option_positions = len([p for p in positions if p.get('instrument-type') == 'Equity Option']) if positions else 0
             
             # Calculate total P/L from positions
-            total_pl = sum([float(p.get('realized-day-gain-effect', 0)) for p in positions]) if positions else 0
+            total_pl = sum([float(p.get('realized-day-gain-effect', 0) or 0) for p in positions]) if positions else 0
             
             # Premium Metric Cards Row
             col1, col2, col3, col4 = st.columns(4)
