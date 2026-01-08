@@ -141,6 +141,19 @@ def render_working_orders_monitor(api, account_number, order_type='all'):
         
         st.write("")
         
+        # Add Select All / Deselect All buttons
+        col1, col2, col3 = st.columns([1, 1, 3])
+        with col1:
+            if st.button("✅ Select All", use_container_width=True, key=f"select_all_{order_type}"):
+                df['Select'] = True
+                st.rerun()
+        with col2:
+            if st.button("⬜ Deselect All", use_container_width=True, key=f"deselect_all_{order_type}"):
+                df['Select'] = False
+                st.rerun()
+        
+        st.write("")
+        
         # Format display
         display_df = df[['Select', 'Symbol', 'Type', 'Action', 'Qty', 'Limit Price', 'Status', 'Time', 'TIF']].copy()
         display_df['Limit Price'] = display_df['Limit Price'].apply(lambda x: f"${x:.2f}")
