@@ -69,6 +69,10 @@ if page == "Home":
     st.title("🏠 Home Dashboard")
     
     if selected_account:
+        # Monthly Premium Summary at the top
+        from utils.monthly_premium import render_monthly_premium_summary
+        render_monthly_premium_summary(api, selected_account)
+        
         st.subheader(f"Account: {selected_display}")
         
         # Get account balances
@@ -2703,6 +2707,11 @@ elif page == "CC Dashboard":
 
 elif page == "Performance":
     st.title("📊 Performance Dashboard")
+    
+    # Monthly Premium Summary at the top
+    from utils.monthly_premium import render_monthly_premium_summary
+    if selected_account:
+        render_monthly_premium_summary(api, selected_account)
     
     from utils.performance_dashboard import (
         render_active_positions,
