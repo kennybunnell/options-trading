@@ -984,7 +984,7 @@ elif page == "CSP Dashboard":
             'final_opportunities': 0
         }
         
-        with st.status(f"Fetching opportunities for {len(watchlist)} symbols...", expanded=True) as status:
+        with st.status(f"Fetching opportunities for {len(watchlist)} symbols...", expanded=False) as status:
             opportunities = []
             progress_bar = st.progress(0)
             
