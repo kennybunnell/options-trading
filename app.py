@@ -933,25 +933,7 @@ elif page == "CSP Dashboard":
     
     st.divider()
     
-    # Max orders setting
-    st.subheader("⚙️ Order Submission Settings")
-    
-    col8, col9 = st.columns([1, 3])
-    with col8:
-        max_orders = st.number_input(
-            "📊 Max Orders Per Submission",
-            min_value=1,
-            max_value=100,
-            value=st.session_state.get('csp_max_orders', 10),
-            step=1,
-            help="Maximum number of DIFFERENT options you can submit at once (not total contracts)"
-        )
-        st.session_state.csp_max_orders = max_orders
-    
-    with col9:
-        st.info(f"💡 **Current Limit:** You can submit up to **{max_orders} different options** per submission. Each option can have multiple contracts (adjust with Qty column). This limit is checked during validation before order submission.")
-    
-    # Set default filter values for fetching (no UI, just defaults)
+    # Max orders sett    # Order Submission Settings section removed - no artificial limits on order countfault filter values for fetching (no UI, just defaults)
     min_delta = 0.05
     max_delta = 0.50
     min_volume = 0
@@ -1958,18 +1940,7 @@ elif page == "CSP Dashboard":
                 
                 st.divider()
                 
-                # VALIDATION 5: Order Limit Safety
-                st.subheader("5️⃣ Order Limit Validation")
-                
-                max_orders = st.session_state.get('csp_max_orders', 10)  # Get from settings
-                if num_different_options <= max_orders:
-                    st.success(f"✅ Order count ({num_different_options} different options) within limit ({max_orders})")
-                    validation_results.append(("Order Limit", True, f"{num_different_options}/{max_orders}"))
-                else:
-                    st.error(f"❌ Too many orders! {num_different_options} different options selected, max {max_orders} allowed")
-                    st.info("💡 Reduce selection or increase 'Max Orders Per Submission' in filter settings")
-                    validation_results.append(("Order Limit", False, f"{num_different_options} > {max_orders}"))
-                    all_passed = False
+                # Order limit validation removed - no artificial limits on order count
                 
                 st.divider()
                 
