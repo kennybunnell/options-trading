@@ -167,6 +167,12 @@ elif page == "CSP Dashboard":
     
     st.divider()
     
+    # Working Orders Monitor
+    from utils.working_orders import render_working_orders_monitor
+    render_working_orders_monitor(api, selected_account, order_type='csp')
+    
+    st.divider()
+    
     # Read watchlist
     try:
         with open('watchlist.txt', 'r') as f:
@@ -1748,17 +1754,20 @@ elif page == "CSP Dashboard":
                                     option_symbol = f"{ticker_padded}{exp_date.strftime('%y%m%d')}P{int(row['Strike']*1000):08d}"
                                     qty = int(row['Qty'])  # Get quantity from row
                                     
+                                    # Calculate midpoint price
+                                    mid_price = (row['Bid'] + row['Ask']) / 2
+                                    
                                     if dry_run:
                                         # DRY RUN - Just simulate
-                                        st.write(f"🧪 [DRY RUN] Would submit: {qty}x {option_symbol} @ ${row['Bid']:.2f}")
+                                        st.write(f"🧪 [DRY RUN] Would submit: {qty}x {option_symbol} @ ${mid_price:.2f} (midpoint)")
                                         success_count += 1
                                     else:
-                                        # LIVE - Actually submit
+                                        # LIVE - Actually submit at midpoint
                                         result = api.submit_csp_order(
                                             account_number=selected_account,
                                             symbol=option_symbol,
                                             quantity=qty,  # Use quantity from row
-                                            price=row['Bid']
+                                            price=mid_price  # Use midpoint instead of bid
                                         )
                                         
                                         if result:
@@ -1899,6 +1908,12 @@ elif page == "CC Dashboard":
         st.session_state.cc_eligible_holdings = []
     if 'cc_breakdown' not in st.session_state:
         st.session_state.cc_breakdown = {}
+    
+    # Working Orders Monitor
+    from utils.working_orders import render_working_orders_monitor
+    render_working_orders_monitor(api, selected_account, order_type='cc')
+    
+    st.divider()
     
     # Step 1: Fetch Positions Button
     st.write("")
