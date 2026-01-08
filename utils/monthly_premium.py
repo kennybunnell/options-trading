@@ -261,14 +261,16 @@ def render_monthly_premium_summary(api, account_number: str):
             # Show metric with delta
             if is_current:
                 st.metric(
-                    label="",
-                    value=f"${net_premium:,.0f}"
+                    label="Net Premium",
+                    value=f"${net_premium:,.0f}",
+                    label_visibility="collapsed"
                 )
             else:
                 st.metric(
-                    label="",
+                    label="Net Premium",
                     value=f"${net_premium:,.0f}",
-                    delta=f"{pct_change:+.0f}%" if idx > 0 else None
+                    delta=f"{pct_change:+.0f}%" if idx > 0 else None,
+                    label_visibility="collapsed"
                 )
             
             # Breakdown
