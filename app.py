@@ -757,9 +757,14 @@ elif page == "CC Dashboard":
     from utils.market_hours import get_market_status
     market_status = get_market_status()
     
+    # Premium Header
+    st.markdown('<h1 style="color: #ffffff; font-size: 36px; font-weight: 600; margin-bottom: 0.5rem;">📞 Covered Calls</h1>', unsafe_allow_html=True)
+    st.markdown('<p style="color: #9ca3af; font-size: 14px; margin-bottom: 1.5rem;">Generate income from your stock positions</p>', unsafe_allow_html=True)
+    
+    # Market Status in top right
     col1, col2 = st.columns([3, 1])
     with col1:
-        st.title("📞 Covered Calls Dashboard")
+        st.write("")  # Spacer
     with col2:
         if market_status['status'] == 'open':
             st.success(f"{market_status['icon']} {market_status['message']}")
@@ -801,7 +806,8 @@ elif page == "CC Dashboard":
     if 'cc_breakdown' not in st.session_state:
         st.session_state.cc_breakdown = {}
     
-    # Working Orders Monitor
+    # Working Orders Monitor Section
+    st.markdown('<div class="section-header">📋 Working Orders Monitor</div>', unsafe_allow_html=True)
     from utils.working_orders import render_working_orders_monitor
     render_working_orders_monitor(api, selected_account, order_type='cc')
     
@@ -841,23 +847,48 @@ elif page == "CC Dashboard":
         st.write("")
         st.write("---")
         
-        # Position Breakdown Metrics
-        st.write("### 📊 Position Summary")
+        # Position Summary Section
+        st.markdown('<div class="section-header">📊 Position Summary</div>', unsafe_allow_html=True)
         
         # Calculate total eligible contracts (shares / 100)
         total_eligible_contracts = sum([h.get('max_contracts', 0) for h in holdings])
         
         col1, col2, col3, col4, col5 = st.columns(5)
         with col1:
-            st.metric("Total Positions", breakdown.get('total_positions', 0))
+            st.markdown(f"""
+            <div class="premium-metric-card">
+                <div class="metric-label">Total Positions</div>
+                <div class="metric-value">{breakdown.get('total_positions', 0)}</div>
+            </div>
+            """, unsafe_allow_html=True)
         with col2:
-            st.metric("Stock Positions", breakdown.get('stock_positions', 0))
+            st.markdown(f"""
+            <div class="premium-metric-card">
+                <div class="metric-label">Stock Positions</div>
+                <div class="metric-value">{breakdown.get('stock_positions', 0)}</div>
+            </div>
+            """, unsafe_allow_html=True)
         with col3:
-            st.metric("Existing Calls", breakdown.get('existing_calls', 0))
+            st.markdown(f"""
+            <div class="premium-metric-card">
+                <div class="metric-label">Existing Calls</div>
+                <div class="metric-value">{breakdown.get('existing_calls', 0)}</div>
+            </div>
+            """, unsafe_allow_html=True)
         with col4:
-            st.metric("Eligible for CC", breakdown.get('eligible_positions', 0))
+            st.markdown(f"""
+            <div class="premium-metric-card">
+                <div class="metric-label">Eligible for CC</div>
+                <div class="metric-value metric-value-positive">{breakdown.get('eligible_positions', 0)}</div>
+            </div>
+            """, unsafe_allow_html=True)
         with col5:
-            st.metric("💼 Eligible Contracts", total_eligible_contracts)
+            st.markdown(f"""
+            <div class="premium-metric-card">
+                <div class="metric-label">💼 Eligible Contracts</div>
+                <div class="metric-value metric-value-positive">{total_eligible_contracts}</div>
+            </div>
+            """, unsafe_allow_html=True)
         
         st.write("")
         
@@ -869,7 +900,7 @@ elif page == "CC Dashboard":
 
         # TABLE 2: Eligible Positions (Selectable)
         if holdings:
-            st.write("### ✅ Table 2: Eligible Positions for New Covered Calls")
+            st.markdown('<div class="section-header">✅ Eligible Positions for New Covered Calls</div>', unsafe_allow_html=True)
             st.write("Select stocks to scan for covered call opportunities")
             
             # Create dataframe
@@ -1663,6 +1694,8 @@ elif page == "CC Dashboard":
     
     else:
         st.info("👆 Click 'Fetch Portfolio Positions' to get started")
+
+
 
 elif page == "Performance":
     st.title("📊 Performance Dashboard")
