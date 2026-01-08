@@ -232,8 +232,11 @@ def render_monthly_premium_summary(api, account_number: str):
     
     st.subheader("💰 Monthly Premium Summary (Net of Buybacks)")
     
+    # Debug toggle
+    debug_mode = st.checkbox("🔍 Enable Debug Mode (Show Transaction Details)", value=debug)
+    
     # Get data
-    months_data = get_monthly_premium_data(api, account_number, months=6)
+    months_data = get_monthly_premium_data(api, account_number, months=6, debug=debug_mode)
     
     if not months_data:
         st.warning("⚠️ No premium data available. Please upload your activity file in the 'Import Data' tab.")
