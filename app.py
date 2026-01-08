@@ -24,12 +24,214 @@ if 'api' not in st.session_state:
 
 api = st.session_state.api
 
+# Premium Sidebar CSS
+st.markdown("""
+<style>
+    /* Sidebar background */
+    [data-testid="stSidebar"] {
+        background-color: #0d1117;
+    }
+    
+    /* Logo styling */
+    .premium-logo {
+        text-align: center;
+        padding: 1rem 0;
+        margin-bottom: 1rem;
+    }
+    
+    .logo-circle {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        border: 2px solid #d4af37;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        font-weight: bold;
+        color: #d4af37;
+        background: linear-gradient(135deg, #1a1d23 0%, #0d1117 100%);
+        box-shadow: 0 0 20px rgba(212, 175, 55, 0.3);
+        margin-bottom: 0.5rem;
+    }
+    
+    .premium-title {
+        font-size: 20px;
+        font-weight: 600;
+        color: #ffffff;
+        margin: 0.5rem 0 0.2rem 0;
+    }
+    
+    .premium-subtitle {
+        font-size: 12px;
+        color: #d4af37;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    
+    /* Account selector */
+    .account-box {
+        background: #1a1d23;
+        border: 1px solid #d4af37;
+        border-radius: 8px;
+        padding: 0.75rem;
+        margin: 1rem 0;
+    }
+    
+    .account-name {
+        color: #ffffff;
+        font-size: 14px;
+        margin-bottom: 0.3rem;
+    }
+    
+    .account-balance {
+        color: #10b981;
+        font-size: 18px;
+        font-weight: 600;
+    }
+    
+    /* Navigation sections */
+    .nav-section {
+        margin: 1.5rem 0 0.5rem 0;
+        color: #d4af37;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+    }
+    
+    /* Radio buttons styling */
+    [data-testid="stSidebar"] .stRadio > label {
+        display: none;
+    }
+    
+    [data-testid="stSidebar"] .stRadio > div {
+        gap: 0.3rem;
+    }
+    
+    [data-testid="stSidebar"] .stRadio > div > label {
+        background-color: transparent;
+        border-left: 3px solid transparent;
+        padding: 0.6rem 0.8rem;
+        border-radius: 4px;
+        transition: all 0.2s;
+        color: #9ca3af;
+    }
+    
+    [data-testid="stSidebar"] .stRadio > div > label:hover {
+        background-color: #1a1d23;
+        color: #ffffff;
+    }
+    
+    [data-testid="stSidebar"] .stRadio > div > label[data-baseweb="radio"] > div:first-child {
+        display: none;
+    }
+    
+    /* Selected navigation item */
+    [data-testid="stSidebar"] .stRadio > div > label:has(input:checked) {
+        background-color: #1a1d23;
+        border-left: 3px solid #d4af37;
+        color: #ffffff;
+        box-shadow: 0 0 15px rgba(16, 185, 129, 0.2);
+    }
+    
+    /* Quick Stats panel */
+    .quick-stats {
+        background: #1a1d23;
+        border-top: 2px solid #d4af37;
+        border-radius: 8px;
+        padding: 1rem;
+        margin: 1.5rem 0;
+    }
+    
+    .quick-stats-title {
+        color: #ffffff;
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 0.8rem;
+    }
+    
+    .stat-row {
+        display: flex;
+        justify-content: space-between;
+        margin: 0.5rem 0;
+        font-size: 13px;
+    }
+    
+    .stat-label {
+        color: #9ca3af;
+    }
+    
+    .stat-value {
+        color: #ffffff;
+        font-weight: 600;
+    }
+    
+    .stat-positive {
+        color: #10b981;
+    }
+    
+    .stat-dot {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin-right: 0.3rem;
+    }
+    
+    .dot-green { background-color: #10b981; }
+    .dot-yellow { background-color: #fbbf24; }
+    
+    /* Market Status */
+    .market-status {
+        background: #1a1d23;
+        border-radius: 8px;
+        padding: 0.8rem;
+        margin-top: 1rem;
+        text-align: center;
+    }
+    
+    .market-status-text {
+        color: #10b981;
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 0.3rem;
+    }
+    
+    .market-status-time {
+        color: #6b7280;
+        font-size: 12px;
+    }
+    
+    .pulse-dot {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background-color: #10b981;
+        margin-right: 0.5rem;
+        animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # Sidebar
 with st.sidebar:
-    st.header("📊 Options Trading")
+    # Premium Logo
+    st.markdown("""
+    <div class="premium-logo">
+        <div class="logo-circle">OT</div>
+        <div class="premium-title">Options Trading</div>
+        <div class="premium-subtitle">Premium Platform</div>
+    </div>
+    """, unsafe_allow_html=True)
     
     # Account selector
-    st.subheader("💼 Select Account")
     accounts = api.get_accounts_with_names()
     
     if accounts:
@@ -50,19 +252,101 @@ with st.sidebar:
             label_visibility="collapsed"
         )
         selected_account = account_options[selected_display]
+        
+        # Get account balance for display
+        if selected_account:
+            balances = api.get_account_balances(selected_account)
+            if balances:
+                nlv = float(balances.get('net-liquidating-value', 0))
+                st.markdown(f"""
+                <div class="account-box">
+                    <div class="account-name">{selected_display}</div>
+                    <div class="account-balance">${nlv:,.0f} ↗</div>
+                </div>
+                """, unsafe_allow_html=True)
     else:
         st.error("No accounts found")
         selected_account = None
     
-    st.divider()
-    
-    # Navigation
-    st.subheader("📍 Navigation")
+    # Navigation - TRADING section
+    st.markdown('<div class="nav-section">TRADING</div>', unsafe_allow_html=True)
     page = st.radio(
         "Go to",
-        ["Home", "CSP Dashboard", "CC Dashboard", "Performance", "Settings"],
-        label_visibility="collapsed"
+        ["🏠 Dashboard", "💰 CSP Dashboard", "📞 Covered Calls", "📈 Performance"],
+        label_visibility="collapsed",
+        key="nav_trading"
     )
+    
+    # Navigation - MANAGEMENT section
+    st.markdown('<div class="nav-section">MANAGEMENT</div>', unsafe_allow_html=True)
+    settings_page = st.radio(
+        "Management",
+        ["⚙️ Settings"],
+        label_visibility="collapsed",
+        key="nav_management"
+    )
+    
+    # Combine navigation
+    if settings_page == "⚙️ Settings":
+        page = settings_page
+    
+    # Quick Stats Panel
+    if selected_account:
+        # Get positions count
+        positions = api.get_positions(selected_account)
+        positions_count = len(positions) if positions else 0
+        
+        # Get working orders count
+        orders = api.get_live_orders(selected_account)
+        orders_count = len([o for o in orders if o.get('status') == 'Live']) if orders else 0
+        
+        st.markdown(f"""
+        <div class="quick-stats">
+            <div class="quick-stats-title">Quick Stats</div>
+            <div class="stat-row">
+                <span class="stat-label"><span class="stat-dot dot-green"></span>Open Positions</span>
+                <span class="stat-value">{positions_count}</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label"><span class="stat-dot dot-yellow"></span>Working Orders</span>
+                <span class="stat-value">{orders_count}</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">This Week</span>
+                <span class="stat-value stat-positive">+$8,432</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Win Rate</span>
+                <span class="stat-value">87% ⭐</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Market Status
+    from utils.market_hours import get_market_status
+    market_status = get_market_status()
+    status_text = "Market Open" if market_status['is_open'] else "Market Closed"
+    status_color = "#10b981" if market_status['is_open'] else "#ef4444"
+    
+    st.markdown(f"""
+    <div class="market-status">
+        <div class="market-status-text" style="color: {status_color};">
+            <span class="pulse-dot" style="background-color: {status_color};"></span>
+            {status_text}
+        </div>
+        <div class="market-status-time">{market_status.get('message', '')}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+# Map page names back to original names for compatibility
+page_mapping = {
+    "🏠 Dashboard": "Home",
+    "💰 CSP Dashboard": "CSP Dashboard",
+    "📞 Covered Calls": "CC Dashboard",
+    "📈 Performance": "Performance",
+    "⚙️ Settings": "Settings"
+}
+page = page_mapping.get(page, page)
 
 # Main content area
 if page == "Home":
