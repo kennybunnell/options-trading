@@ -1632,6 +1632,9 @@ elif page == "CSP Dashboard":
             display_df['Spread %'] = display_df['Spread %'].apply(format_spread)
         
         # Display editable table (but encourage using buttons instead of editing cells)
+        # Use dynamic key based on active preset to force re-render when formatting changes
+        editor_key = f"csp_selector_{st.session_state.get('csp_active_preset', 'none')}"
+        
         edited_df = st.data_editor(
             display_df,
             column_config={
@@ -1650,11 +1653,11 @@ elif page == "CSP Dashboard":
                     format="%d"
                 ),
             },
-            disabled=[col for col in st.session_state.csp_opportunities.columns if col not in ['Select', 'Qty']],
+            disabled=[col for col in display_df.columns if col not in ['Select', 'Qty']],
             hide_index=True,
             use_container_width=True,
             height=600,
-            key="csp_selector"
+            key=editor_key
         )
         
         # Update session state - only copy Select and Qty columns (user-editable)
