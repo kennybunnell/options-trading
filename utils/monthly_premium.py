@@ -205,7 +205,8 @@ def render_monthly_premium_summary(api, account_number: str):
     """
     import streamlit as st
     
-    st.subheader("💰 Monthly Premium Summary (Net of Buybacks)")
+    # Premium section header
+    st.markdown('<div class="section-header">💰 MONTHLY PREMIUM PERFORMANCE</div>', unsafe_allow_html=True)
     
     # Get data
     months_data = get_monthly_premium_data(api, account_number, months=6)
