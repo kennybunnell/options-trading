@@ -1,0 +1,62 @@
+[
+  {
+    "period": "2025-09",
+    "year": 2025,
+    "month": 9,
+    "week": null,
+    "csp_premium": 0.0,
+    "cc_premium": 10024.087000000005,
+    "total_premium": 10024.087000000005,
+    "csp_trades": 0,
+    "cc_trades": 18,
+    "csp_wins": 0,
+    "cc_wins": 18,
+    "assignments": 0,
+    "called_away": 0
+  },
+  {
+    "period": "2025-10",
+    "year": 2025,
+    "month": 10,
+    "week": null,
+    "csp_premium": 0.0,
+    "cc_premium": 25833.14800000001,
+    "total_premium": 25833.14800000001,
+    "csp_trades": 0,
+    "cc_trades": 31,
+    "csp_wins": 0,
+    "cc_wins": 31,
+    "assignments": 0,
+    "called_away": 0
+  },
+  {
+    "period": "2025-11",
+    "year": 2025,
+    "month": 11,
+    "week": null,
+    "csp_premium": 0.0,
+    "cc_premium": 55447.01300000001,
+    "total_premium": 55447.01300000001,
+    "csp_trades": 0,
+    "cc_trades": 47,
+    "csp_wins": 0,
+    "cc_wins": 47,
+    "assignments": 0,
+    "called_away": 0
+  },
+  {
+    "period": "2025-12",
+    "year": 2025,
+    "month": 12,
+    "week": null,
+    "csp_premium": 0.0,
+    "cc_premium": 9831.155999999999,
+    "total_premium": 9831.155999999999,
+    "csp_trades": 0,
+    "cc_trades": 13,
+    "csp_wins": 0,
+    "cc_wins": 13,
+    "assignments": 0,
+    "called_away": 0
+  }
+]

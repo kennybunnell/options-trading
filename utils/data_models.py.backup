@@ -1,0 +1,407 @@
+"""
+Data Models for Wheel Strategy Performance Tracking
+Handles storage and retrieval of trades, stock positions, and premium summaries
+"""
+
+import json
+import os
+from datetime import datetime, timedelta
+from typing import List, Dict, Optional
+from dataclasses import dataclass, asdict
+from pathlib import Path
+
+# Data directory
+DATA_DIR = Path(__file__).parent.parent / 'data'
+DATA_DIR.mkdir(exist_ok=True)
+
+# File paths
+TRADES_FILE = DATA_DIR / 'trades.json'
+POSITIONS_FILE = DATA_DIR / 'stock_positions.json'
+PREMIUM_SUMMARY_FILE = DATA_DIR / 'premium_summary.json'
+
+
+@dataclass
+class Trade:
+    """Represents a single options trade (CSP or CC)"""
+    trade_id: str
+    account_id: str
+    symbol: str
+    trade_type: str  # 'CSP' or 'CC'
+    action: str  # 'STO' (Sell to Open) or 'BTC' (Buy to Close)
+    strike: float
+    expiration: str  # YYYY-MM-DD
+    quantity: int
+    premium_per_contract: float  # Premium per contract (per 100 shares)
+    total_premium: float  # Total premium received/paid
+    trade_date: str  # YYYY-MM-DD
+    status: str  # 'OPEN', 'CLOSED', 'EXPIRED', 'ASSIGNED', 'CALLED_AWAY'
+    close_date: Optional[str] = None
+    close_price: Optional[float] = None
+    realized_pnl: Optional[float] = None
+    tastytrade_order_id: Optional[str] = None
+    notes: Optional[str] = None
+    
+    def to_dict(self) -> dict:
+        return asdict(self)
+    
+    @classmethod
+    def from_dict(cls, data: dict) -> 'Trade':
+        return cls(**data)
+    
+    @property
+    def days_to_expiration(self) -> int:
+        """Calculate days until expiration"""
+        exp_date = datetime.strptime(self.expiration, '%Y-%m-%d')
+        today = datetime.now()
+        return max(0, (exp_date - today).days)
+    
+    @property
+    def is_expired(self) -> bool:
+        """Check if option has expired"""
+        exp_date = datetime.strptime(self.expiration, '%Y-%m-%d')
+        return datetime.now() > exp_date
+
+
+@dataclass
+class StockPosition:
+    """Represents a stock position for covered call tracking"""
+    position_id: str
+    account_id: str
+    symbol: str
+    quantity: int
+    cost_basis_per_share: float
+    total_cost_basis: float
+    acquisition_date: str  # YYYY-MM-DD
+    acquisition_method: str  # 'PURCHASE' or 'ASSIGNMENT'
+    linked_csp_trade_id: Optional[str] = None  # If acquired via CSP assignment
+    total_cc_premium_earned: float = 0.0  # Running total of CC premium
+    current_price: float = 0.0
+    unrealized_pnl: float = 0.0
+    
+    def to_dict(self) -> dict:
+        return asdict(self)
+    
+    @classmethod
+    def from_dict(cls, data: dict) -> 'StockPosition':
+        return cls(**data)
+    
+    @property
+    def total_return(self) -> float:
+        """Calculate total return (stock gain + CC premium)"""
+        return self.unrealized_pnl + self.total_cc_premium_earned
+    
+    @property
+    def total_return_pct(self) -> float:
+        """Calculate total return percentage"""
+        if self.total_cost_basis > 0:
+            return (self.total_return / self.total_cost_basis) * 100
+        return 0.0
+
+
+@dataclass
+class PremiumSummary:
+    """Aggregated premium data for a time period"""
+    period: str  # 'YYYY-MM' for month, 'YYYY-WXX' for week
+    year: int
+    month: int
+    week: Optional[int] = None
+    csp_premium: float = 0.0
+    cc_premium: float = 0.0
+    total_premium: float = 0.0
+    csp_trades: int = 0
+    cc_trades: int = 0
+    csp_wins: int = 0  # Expired or closed profitably
+    cc_wins: int = 0
+    assignments: int = 0  # CSP assignments
+    called_away: int = 0  # CC exercises
+    
+    def to_dict(self) -> dict:
+        return asdict(self)
+    
+    @classmethod
+    def from_dict(cls, data: dict) -> 'PremiumSummary':
+        return cls(**data)
+    
+    @property
+    def csp_win_rate(self) -> float:
+        """Calculate CSP win rate"""
+        total = self.csp_wins + self.assignments
+        return (self.csp_wins / total * 100) if total > 0 else 0.0
+    
+    @property
+    def cc_win_rate(self) -> float:
+        """Calculate CC win rate"""
+        total = self.cc_wins + self.called_away
+        return (self.cc_wins / total * 100) if total > 0 else 0.0
+
+
+class DataStore:
+    """Handles persistence of trading data"""
+    
+    def __init__(self):
+        self._ensure_data_files()
+    
+    def _ensure_data_files(self):
+        """Create data files if they don't exist"""
+        for file_path in [TRADES_FILE, POSITIONS_FILE, PREMIUM_SUMMARY_FILE]:
+            if not file_path.exists():
+                with open(file_path, 'w') as f:
+                    json.dump([], f)
+    
+    # ==================== TRADES ====================
+    
+    def get_all_trades(self) -> List[Trade]:
+        """Get all trades"""
+        with open(TRADES_FILE, 'r') as f:
+            data = json.load(f)
+        return [Trade.from_dict(t) for t in data]
+    
+    def get_trades_by_status(self, status: str) -> List[Trade]:
+        """Get trades filtered by status"""
+        trades = self.get_all_trades()
+        return [t for t in trades if t.status == status]
+    
+    def get_open_trades(self) -> List[Trade]:
+        """Get all open trades"""
+        return self.get_trades_by_status('OPEN')
+    
+    def get_trades_by_type(self, trade_type: str) -> List[Trade]:
+        """Get trades filtered by type (CSP or CC)"""
+        trades = self.get_all_trades()
+        return [t for t in trades if t.trade_type == trade_type]
+    
+    def get_trades_by_symbol(self, symbol: str) -> List[Trade]:
+        """Get trades for a specific symbol"""
+        trades = self.get_all_trades()
+        return [t for t in trades if t.symbol == symbol]
+    
+    def get_trades_by_date_range(self, start_date: str, end_date: str) -> List[Trade]:
+        """Get trades within a date range"""
+        trades = self.get_all_trades()
+        return [t for t in trades if start_date <= t.trade_date <= end_date]
+    
+    def get_trades_by_year(self, year: int) -> List[Trade]:
+        """Get trades for a specific year"""
+        trades = self.get_all_trades()
+        return [t for t in trades if t.trade_date.startswith(str(year))]
+    
+    def get_trades_by_account(self, account_id: str) -> List[Trade]:
+        """Get trades for a specific account"""
+        trades = self.get_all_trades()
+        return [t for t in trades if t.account_id == account_id]
+    
+    def save_trade(self, trade: Trade):
+        """Save a single trade"""
+        trades = self.get_all_trades()
+        # Check if trade already exists (update) or is new (append)
+        existing_idx = next((i for i, t in enumerate(trades) if t.trade_id == trade.trade_id), None)
+        if existing_idx is not None:
+            trades[existing_idx] = trade
+        else:
+            trades.append(trade)
+        self._save_trades(trades)
+    
+    def save_trades(self, trades: List[Trade]):
+        """Save multiple trades (replaces all existing)"""
+        self._save_trades(trades)
+    
+    def _save_trades(self, trades: List[Trade]):
+        """Internal method to save trades to file"""
+        with open(TRADES_FILE, 'w') as f:
+            json.dump([t.to_dict() for t in trades], f, indent=2)
+    
+    def update_trade_status(self, trade_id: str, status: str, 
+                           close_date: str = None, close_price: float = None,
+                           realized_pnl: float = None):
+        """Update a trade's status"""
+        trades = self.get_all_trades()
+        for trade in trades:
+            if trade.trade_id == trade_id:
+                trade.status = status
+                if close_date:
+                    trade.close_date = close_date
+                if close_price is not None:
+                    trade.close_price = close_price
+                if realized_pnl is not None:
+                    trade.realized_pnl = realized_pnl
+                break
+        self._save_trades(trades)
+    
+    def delete_all_trades(self):
+        """Delete all trades (for reimport)"""
+        self._save_trades([])
+    
+    # ==================== STOCK POSITIONS ====================
+    
+    def get_all_positions(self) -> List[StockPosition]:
+        """Get all stock positions"""
+        with open(POSITIONS_FILE, 'r') as f:
+            data = json.load(f)
+        return [StockPosition.from_dict(p) for p in data]
+    
+    def get_position_by_symbol(self, symbol: str) -> Optional[StockPosition]:
+        """Get position for a specific symbol"""
+        positions = self.get_all_positions()
+        return next((p for p in positions if p.symbol == symbol), None)
+    
+    def get_positions_by_account(self, account_id: str) -> List[StockPosition]:
+        """Get positions for a specific account"""
+        positions = self.get_all_positions()
+        return [p for p in positions if p.account_id == account_id]
+    
+    def save_position(self, position: StockPosition):
+        """Save a single position"""
+        positions = self.get_all_positions()
+        existing_idx = next((i for i, p in enumerate(positions) if p.position_id == position.position_id), None)
+        if existing_idx is not None:
+            positions[existing_idx] = position
+        else:
+            positions.append(position)
+        self._save_positions(positions)
+    
+    def save_positions(self, positions: List[StockPosition]):
+        """Save multiple positions (replaces all existing)"""
+        self._save_positions(positions)
+    
+    def _save_positions(self, positions: List[StockPosition]):
+        """Internal method to save positions to file"""
+        with open(POSITIONS_FILE, 'w') as f:
+            json.dump([p.to_dict() for p in positions], f, indent=2)
+    
+    def update_position_cc_premium(self, symbol: str, premium_earned: float):
+        """Add CC premium to a stock position"""
+        positions = self.get_all_positions()
+        for position in positions:
+            if position.symbol == symbol:
+                position.total_cc_premium_earned += premium_earned
+                break
+        self._save_positions(positions)
+    
+    def delete_all_positions(self):
+        """Delete all positions (for reimport)"""
+        self._save_positions([])
+    
+    # ==================== PREMIUM SUMMARY ====================
+    
+    def get_all_summaries(self) -> List[PremiumSummary]:
+        """Get all premium summaries"""
+        with open(PREMIUM_SUMMARY_FILE, 'r') as f:
+            data = json.load(f)
+        return [PremiumSummary.from_dict(s) for s in data]
+    
+    def get_summary_by_period(self, period: str) -> Optional[PremiumSummary]:
+        """Get summary for a specific period"""
+        summaries = self.get_all_summaries()
+        return next((s for s in summaries if s.period == period), None)
+    
+    def get_summaries_by_year(self, year: int) -> List[PremiumSummary]:
+        """Get summaries for a specific year"""
+        summaries = self.get_all_summaries()
+        return [s for s in summaries if s.year == year]
+    
+    def save_summary(self, summary: PremiumSummary):
+        """Save a single summary"""
+        summaries = self.get_all_summaries()
+        existing_idx = next((i for i, s in enumerate(summaries) if s.period == summary.period), None)
+        if existing_idx is not None:
+            summaries[existing_idx] = summary
+        else:
+            summaries.append(summary)
+        self._save_summaries(summaries)
+    
+    def save_summaries(self, summaries: List[PremiumSummary]):
+        """Save multiple summaries (replaces all existing)"""
+        self._save_summaries(summaries)
+    
+    def _save_summaries(self, summaries: List[PremiumSummary]):
+        """Internal method to save summaries to file"""
+        with open(PREMIUM_SUMMARY_FILE, 'w') as f:
+            json.dump([s.to_dict() for s in summaries], f, indent=2)
+    
+    def delete_all_summaries(self):
+        """Delete all summaries (for recalculation)"""
+        self._save_summaries([])
+    
+    # ==================== AGGREGATION ====================
+    
+    def recalculate_summaries(self):
+        """Recalculate all premium summaries from trades"""
+        trades = self.get_all_trades()
+        summaries = {}
+        
+        for trade in trades:
+            # Get month period
+            period = trade.trade_date[:7]  # YYYY-MM
+            year = int(trade.trade_date[:4])
+            month = int(trade.trade_date[5:7])
+            
+            if period not in summaries:
+                summaries[period] = PremiumSummary(
+                    period=period,
+                    year=year,
+                    month=month
+                )
+            
+            summary = summaries[period]
+            
+            # Only count STO trades for premium (not BTC)
+            if trade.action == 'STO':
+                if trade.trade_type == 'CSP':
+                    summary.csp_premium += trade.total_premium
+                    summary.csp_trades += 1
+                elif trade.trade_type == 'CC':
+                    summary.cc_premium += trade.total_premium
+                    summary.cc_trades += 1
+            
+            # Count outcomes
+            if trade.status in ['EXPIRED', 'CLOSED']:
+                if trade.trade_type == 'CSP':
+                    summary.csp_wins += 1
+                elif trade.trade_type == 'CC':
+                    summary.cc_wins += 1
+            elif trade.status == 'ASSIGNED':
+                summary.assignments += 1
+            elif trade.status == 'CALLED_AWAY':
+                summary.called_away += 1
+            
+            # Update total
+            summary.total_premium = summary.csp_premium + summary.cc_premium
+        
+        # Save all summaries
+        self.save_summaries(list(summaries.values()))
+    
+    # ==================== STATISTICS ====================
+    
+    def get_total_premium_ytd(self, year: int = None) -> float:
+        """Get total premium for year to date"""
+        if year is None:
+            year = datetime.now().year
+        summaries = self.get_summaries_by_year(year)
+        return sum(s.total_premium for s in summaries)
+    
+    def get_total_premium_month(self, year: int = None, month: int = None) -> float:
+        """Get total premium for a specific month"""
+        if year is None:
+            year = datetime.now().year
+        if month is None:
+            month = datetime.now().month
+        period = f"{year}-{month:02d}"
+        summary = self.get_summary_by_period(period)
+        return summary.total_premium if summary else 0.0
+    
+    def get_win_rate(self, trade_type: str = None) -> float:
+        """Calculate overall win rate"""
+        trades = self.get_all_trades()
+        if trade_type:
+            trades = [t for t in trades if t.trade_type == trade_type]
+        
+        closed_trades = [t for t in trades if t.status in ['EXPIRED', 'CLOSED', 'ASSIGNED', 'CALLED_AWAY']]
+        if not closed_trades:
+            return 0.0
+        
+        wins = len([t for t in closed_trades if t.status in ['EXPIRED', 'CLOSED']])
+        return (wins / len(closed_trades)) * 100
+
+
+# Global instance
+data_store = DataStore()
