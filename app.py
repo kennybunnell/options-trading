@@ -222,14 +222,19 @@ st.markdown("""
 
 # Sidebar
 with st.sidebar:
-    # Premium Logo
-    st.markdown("""
-    <div class="premium-logo">
-        <div class="logo-circle">OT</div>
-        <div class="premium-title">Options Trading</div>
-        <div class="premium-subtitle">Premium Platform</div>
-    </div>
-    """, unsafe_allow_html=True)
+    # Premium Logo with image
+    logo_col1, logo_col2 = st.columns([1, 3])
+    with logo_col1:
+        st.image("assets/prosper_trading_logo.png", width=70)
+    with logo_col2:
+        st.markdown("""
+        <div style="padding-top: 10px;">
+            <div style="font-size: 18px; font-weight: 600; color: #ffffff; margin-bottom: 2px;">Prosper Trading</div>
+            <div style="font-size: 11px; color: #d4af37; text-transform: uppercase; letter-spacing: 1px;">Premium Platform</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("<div style='margin-bottom: 1rem;'></div>", unsafe_allow_html=True)
     
     # Account selector
     accounts = api.get_accounts_with_names()
@@ -268,27 +273,37 @@ with st.sidebar:
         st.error("No accounts found")
         selected_account = None
     
-    # Navigation - TRADING section
+    # Navigation - Single radio button with all options
     st.markdown('<div class="nav-section">TRADING</div>', unsafe_allow_html=True)
-    page = st.radio(
-        "Go to",
-        ["🏠 Dashboard", "💰 CSP Dashboard", "📞 Covered Calls", "📈 Performance"],
+    
+    # Initialize session state for page if not exists
+    if 'current_page' not in st.session_state:
+        st.session_state.current_page = "🏠 Dashboard"
+    
+    # Trading navigation
+    trading_options = ["🏠 Dashboard", "💰 CSP Dashboard", "📞 Covered Calls", "📈 Performance"]
+    selected_trading = st.radio(
+        "Trading Navigation",
+        trading_options,
+        index=trading_options.index(st.session_state.current_page) if st.session_state.current_page in trading_options else 0,
         label_visibility="collapsed",
         key="nav_trading"
     )
     
-    # Navigation - MANAGEMENT section
+    # Management navigation
     st.markdown('<div class="nav-section">MANAGEMENT</div>', unsafe_allow_html=True)
-    settings_page = st.radio(
-        "Management",
-        ["⚙️ Settings"],
-        label_visibility="collapsed",
-        key="nav_management"
-    )
+    management_options = ["⚙️ Settings"]
     
-    # Combine navigation
-    if settings_page == "⚙️ Settings":
-        page = settings_page
+    # Create a button-style for Settings
+    if st.button("⚙️ Settings", key="settings_btn", use_container_width=True):
+        st.session_state.current_page = "⚙️ Settings"
+        st.rerun()
+    
+    # Update current page
+    if selected_trading != st.session_state.current_page and selected_trading in trading_options:
+        st.session_state.current_page = selected_trading
+    
+    page = st.session_state.current_page
     
     # Quick Stats Panel
     if selected_account:
