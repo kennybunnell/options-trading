@@ -546,3 +546,60 @@ class TastytradeAPI:
                 'success': False,
                 'message': f"Order error: {str(e)}"
             }
+
+    def get_live_orders(self, account_number):
+        """
+        Get all live (working/pending) orders for an account
+        
+        Args:
+            account_number: Account number to fetch orders from
+            
+        Returns:
+            List of order dictionaries, or empty list if error
+        """
+        try:
+            url = f'{self.base_url}/accounts/{account_number}/orders/live'
+            response = requests.get(url, headers=self._get_headers())
+            
+            if response.status_code == 200:
+                data = response.json()
+                return data['data']['items']
+            else:
+                print(f"Error fetching live orders: {response.status_code}")
+                print(f"Response: {response.text}")
+                return []
+                
+        except Exception as e:
+            print(f"Exception in get_live_orders: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return []
+    
+    def cancel_order(self, account_number, order_id):
+        """
+        Cancel a working order
+        
+        Args:
+            account_number: Account number
+            order_id: Order ID to cancel
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            url = f'{self.base_url}/accounts/{account_number}/orders/{order_id}'
+            response = requests.delete(url, headers=self._get_headers())
+            
+            if response.status_code == 204 or response.status_code == 200:
+                print(f"Order {order_id} canceled successfully")
+                return True
+            else:
+                print(f"Error canceling order: {response.status_code}")
+                print(f"Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            print(f"Exception in cancel_order: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return False
