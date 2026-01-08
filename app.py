@@ -273,37 +273,37 @@ with st.sidebar:
         st.error("No accounts found")
         selected_account = None
     
-    # Navigation - Single radio button with all options
+    # Navigation - Combined approach with sections
     st.markdown('<div class="nav-section">TRADING</div>', unsafe_allow_html=True)
     
-    # Initialize session state for page if not exists
-    if 'current_page' not in st.session_state:
-        st.session_state.current_page = "🏠 Dashboard"
+    # All navigation options
+    all_pages = ["🏠 Dashboard", "💰 CSP Dashboard", "📞 Covered Calls", "📈 Performance", "⚙️ Settings"]
+    trading_pages = ["🏠 Dashboard", "💰 CSP Dashboard", "📞 Covered Calls", "📈 Performance"]
     
-    # Trading navigation
-    trading_options = ["🏠 Dashboard", "💰 CSP Dashboard", "📞 Covered Calls", "📈 Performance"]
-    selected_trading = st.radio(
-        "Trading Navigation",
-        trading_options,
-        index=trading_options.index(st.session_state.current_page) if st.session_state.current_page in trading_options else 0,
-        label_visibility="collapsed",
-        key="nav_trading"
-    )
+    # Initialize default page
+    if 'nav_page' not in st.session_state:
+        st.session_state.nav_page = "🏠 Dashboard"
     
-    # Management navigation
+    # Trading section radio buttons
+    for page_option in trading_pages:
+        if st.session_state.nav_page == page_option:
+            st.markdown(f'<div style="background-color: #1a1d23; border-left: 3px solid #d4af37; padding: 0.6rem 0.8rem; border-radius: 4px; color: #ffffff; box-shadow: 0 0 15px rgba(16, 185, 129, 0.2);">{page_option}</div>', unsafe_allow_html=True)
+        else:
+            if st.button(page_option, key=f"nav_{page_option}", use_container_width=True):
+                st.session_state.nav_page = page_option
+                st.rerun()
+    
+    # Management section
     st.markdown('<div class="nav-section">MANAGEMENT</div>', unsafe_allow_html=True)
-    management_options = ["⚙️ Settings"]
     
-    # Create a button-style for Settings
-    if st.button("⚙️ Settings", key="settings_btn", use_container_width=True):
-        st.session_state.current_page = "⚙️ Settings"
-        st.rerun()
+    if st.session_state.nav_page == "⚙️ Settings":
+        st.markdown(f'<div style="background-color: #1a1d23; border-left: 3px solid #d4af37; padding: 0.6rem 0.8rem; border-radius: 4px; color: #ffffff; box-shadow: 0 0 15px rgba(16, 185, 129, 0.2);">⚙️ Settings</div>', unsafe_allow_html=True)
+    else:
+        if st.button("⚙️ Settings", key="nav_settings", use_container_width=True):
+            st.session_state.nav_page = "⚙️ Settings"
+            st.rerun()
     
-    # Update current page
-    if selected_trading != st.session_state.current_page and selected_trading in trading_options:
-        st.session_state.current_page = selected_trading
-    
-    page = st.session_state.current_page
+    page = st.session_state.nav_page
     
     # Quick Stats Panel
     if selected_account:
