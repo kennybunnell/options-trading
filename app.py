@@ -1526,8 +1526,19 @@ elif page == "CSP Dashboard":
         
         # Format IV Rank with emoji indicators
         def format_iv_rank(val):
-            if val is None or (isinstance(val, float) and val != val):  # Check for None or NaN
+            # Skip if already formatted (contains emoji)
+            if isinstance(val, str) and any(emoji in val for emoji in ['🟢', '🟡', '🔴']):
+                return val
+            # Handle None or NaN
+            if val is None or (isinstance(val, float) and val != val):
                 return "N/A"
+            # Convert to float if string
+            if isinstance(val, str):
+                try:
+                    val = float(val)
+                except (ValueError, TypeError):
+                    return "N/A"
+            # Apply color coding
             if val > 75:
                 return f"🟢 {val:.0f}%"  # Green = High IV (good for selling)
             elif val < 25:
@@ -1537,8 +1548,19 @@ elif page == "CSP Dashboard":
         
         # Format Spread % with emoji indicators
         def format_spread(val):
-            if val is None or (isinstance(val, float) and val != val):  # Check for None or NaN
+            # Skip if already formatted (contains emoji)
+            if isinstance(val, str) and any(emoji in val for emoji in ['🟢', '🟡', '🔴']):
+                return val
+            # Handle None or NaN
+            if val is None or (isinstance(val, float) and val != val):
                 return "N/A"
+            # Convert to float if string
+            if isinstance(val, str):
+                try:
+                    val = float(val)
+                except (ValueError, TypeError):
+                    return "N/A"
+            # Apply color coding
             if val <= 1.0:  # ≤1% spread
                 return f"🟢 {val:.1f}%"  # Green = Tight spread (good)
             elif val <= 3.0:  # 1-3% spread
