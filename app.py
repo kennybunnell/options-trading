@@ -24,6 +24,41 @@ if 'api' not in st.session_state:
 
 api = st.session_state.api
 
+# Initialize splash screen state
+if 'splash_shown' not in st.session_state:
+    st.session_state.splash_shown = False
+
+# Show splash screen on first load
+if not st.session_state.splash_shown:
+    # Hide sidebar during splash
+    st.markdown("""<style>[data-testid="stSidebar"] { display: none; }</style>""", unsafe_allow_html=True)
+    
+    # Center content vertically
+    st.markdown("<div style='height: 20vh;'></div>", unsafe_allow_html=True)
+    
+    # Display banner
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.image("assets/prosper_trading_banner.png", use_column_width=True)
+        st.markdown("""
+        <div style='text-align: center; margin-top: 2rem;'>
+            <div style='color: #9ca3af; font-size: 16px; letter-spacing: 3px; text-transform: uppercase;'>
+                Loading Your Premium Trading Platform
+            </div>
+            <div style='margin-top: 2rem; display: flex; justify-content: center; gap: 0.5rem;'>
+                <div style='width: 12px; height: 12px; border-radius: 50%; background: #d4af37;'></div>
+                <div style='width: 12px; height: 12px; border-radius: 50%; background: #d4af37;'></div>
+                <div style='width: 12px; height: 12px; border-radius: 50%; background: #d4af37;'></div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Delay and mark as shown
+    import time
+    time.sleep(2)
+    st.session_state.splash_shown = True
+    st.rerun()
+
 # Premium Sidebar CSS
 st.markdown("""
 <style>
