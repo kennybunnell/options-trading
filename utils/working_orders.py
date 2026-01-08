@@ -199,8 +199,70 @@ def render_working_orders_monitor(api, account_number, order_type='all'):
             
             with col2:
                 if st.button("🔄 Cancel & Resubmit @ Mid", type="primary", use_container_width=True, key=f"resubmit_orders_{order_type}"):
-                    st.info("🚧 Resubmit functionality coming soon! For now, cancel the orders and resubmit from the opportunities table.")
-            
+                    with st.spinner("Canceling and resubmitting orders at midpoint..."):
+                        success_count = 0
+                        failed_count = 0
+                        
+                        for idx, row in selected_orders.iterrows():
+                            try:
+                                # Step 1: Cancel the existing order
+                                cancel_result = api.cancel_order(account_number, row['order_id'])
+                                if not cancel_result:
+                                    st.error(f"❌ Failed to cancel: {row['Symbol']} {row['Type']}")
+                                    failed_count += 1
+                                    continue
+                                
+                                st.success(f"✅ Canceled: {row['Symbol']} {row['Type']}")
+                                
+                                # Step 2: Get current quote for the symbol
+                                full_symbol = row['Full Symbol']
+                                quote = api.get_option_quote(full_symbol)
+                                
+                                if not quote or 'bid' not in quote or 'ask' not in quote:
+                                    st.error(f"❌ Could not get quote for {row['Symbol']}")
+                                    failed_count += 1
+                                    continue
+                                
+                                bid = float(quote['bid'])
+                                ask = float(quote['ask'])
+                                mid_price = round((bid + ask) / 2, 2)
+                                
+                                st.info(f"📊 {row['Symbol']}: Bid=${bid:.2f}, Ask=${ask:.2f}, Mid=${mid_price:.2f}")
+                                
+                                # Step 3: Resubmit at midpoint
+                                if row['Type'] == 'PUT':
+                                    # CSP order
+                                    result = api.submit_csp_order(
+                                        account_number=account_number,
+                                        symbol=full_symbol,
+                                        quantity=int(row['Qty']),
+                                        price=mid_price
+                                    )
+                                else:
+                                    # CC order
+                                    result = api.submit_covered_call_order(
+                                        account_number=account_number,
+                                        symbol=full_symbol,
+                                        quantity=int(row['Qty']),
+                                        price=mid_price
+                                    )
+                                
+                                if result.get('success'):
+                                    success_count += 1
+                                    st.success(f"✅ Resubmitted: {row['Symbol']} @ ${mid_price:.2f}")
+                                else:
+                                    failed_count += 1
+                                    st.error(f"❌ Failed to resubmit {row['Symbol']}: {result.get('message', 'Unknown error')}")
+                                    
+                            except Exception as e:
+                                failed_count += 1
+                                st.error(f"❌ Error with {row['Symbol']}: {str(e)}")
+                        
+                        if success_count > 0:
+                            st.success(f"🎉 Successfully resubmitted {success_count} order(s) at midpoint!")
+                            st.rerun()
+                        if failed_count > 0:
+                            st.warning(f"⚠️ {failed_count} order(s) failed to resubmit")   
             with col3:
                 st.caption("💡 Tip: Cancel orders that aren't filling and resubmit from the opportunities table at midpoint price")
         
