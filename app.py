@@ -2199,6 +2199,9 @@ elif page == "CC Dashboard":
             with col2:
                 if st.button("🟢 Conservative", use_container_width=True, key="cc_preset_conservative", 
                            help="Δ 0.10-0.20, DTE 7-30, OI ≥50, Weekly ≥0.3% | Qty=1 contract"):
+                    # Track active preset for Delta formatting
+                    st.session_state.cc_active_preset = 'conservative'
+                    
                     # Clear all first
                     st.session_state.cc_opportunities['Select'] = False
                     st.session_state.cc_opportunities['Qty'] = 1  # Reset all to 1
@@ -2225,6 +2228,9 @@ elif page == "CC Dashboard":
             with col3:
                 if st.button("🟡 Medium", use_container_width=True, key="cc_preset_medium",
                            help="Δ 0.15-0.30, DTE 7-30, OI ≥50, Weekly ≥0.3% | Qty=50% of shares"):
+                    # Track active preset for Delta formatting
+                    st.session_state.cc_active_preset = 'medium'
+                    
                     # Clear all first
                     st.session_state.cc_opportunities['Select'] = False
                     st.session_state.cc_opportunities['Qty'] = 1  # Reset all to 1
@@ -2251,6 +2257,9 @@ elif page == "CC Dashboard":
             with col4:
                 if st.button("🔴 Aggressive", use_container_width=True, key="cc_preset_aggressive",
                            help="Δ 0.20-0.40, DTE 7-21, OI ≥25, Weekly ≥0.3% | Qty=100% of shares"):
+                    # Track active preset for Delta formatting
+                    st.session_state.cc_active_preset = 'aggressive'
+                    
                     # Clear all first
                     st.session_state.cc_opportunities['Select'] = False
                     st.session_state.cc_opportunities['Qty'] = 1  # Reset all to 1
@@ -2446,7 +2455,7 @@ elif page == "CC Dashboard":
             st.write("---")
             
             # Display dataframe
-            display_opp = opp_df[['Select', 'Qty', 'symbol', 'strike', 'expiration', 'dte', 'delta', 'premium', 'weekly_return_pct', 'rsi', 'iv_rank', 'spread_pct', 'open_interest', 'volume', 'max_contracts']].copy()
+            display_opp = opp_df[['Select', 'Qty', 'symbol', 'current_price', 'strike', 'expiration', 'dte', 'delta', 'premium', 'weekly_return_pct', 'rsi', 'iv_rank', 'spread_pct', 'open_interest', 'volume', 'max_contracts']].copy()
             
             # Calculate Available column (remaining contracts)
             display_opp['Available'] = display_opp['max_contracts'] - display_opp['Qty']
@@ -2461,7 +2470,7 @@ elif page == "CC Dashboard":
             display_opp['Available_Display'] = display_opp['Available'].apply(format_available)
             
             # Rename columns
-            display_opp.columns = ['Select', 'Qty', 'Symbol', 'Strike', 'Expiration', 'DTE', 'Delta', 'Premium', 'Weekly %', 'RSI', 'IV Rank', 'Spread %', 'OI', 'Volume', 'max_contracts', 'Available', 'Available_Display']
+            display_opp.columns = ['Select', 'Qty', 'Symbol', 'Stock Price', 'Strike', 'Expiration', 'DTE', 'Delta', 'Premium', 'Weekly %', 'RSI', 'IV Rank', 'Spread %', 'OI', 'Volume', 'max_contracts', 'Available', 'Available_Display']
             
             # Format RSI with emoji indicators
             def format_rsi(val):
@@ -2496,17 +2505,64 @@ elif page == "CC Dashboard":
                 else:
                     return f"🔴 {val:.1f}%"  # Red = Wide spread (bad)
             
+            # Format Delta with emoji indicators (dynamic based on active preset)
+            def format_delta(val):
+                # Skip if already formatted (contains emoji)
+                if isinstance(val, str) and any(emoji in val for emoji in ['🟢', '🟡', '🔴']):
+                    return val
+                # Handle None or NaN
+                if val is None or (isinstance(val, float) and val != val):
+                    return "N/A"
+                # Convert to float if string
+                if isinstance(val, str):
+                    try:
+                        val = float(val)
+                    except (ValueError, TypeError):
+                        return "N/A"
+                
+                # Get active preset range (if any)
+                if 'cc_active_preset' in st.session_state:
+                    preset = st.session_state.cc_active_preset
+                    
+                    if preset == 'conservative':
+                        delta_min = st.session_state.cc_conservative_delta_min
+                        delta_max = st.session_state.cc_conservative_delta_max
+                    elif preset == 'medium':
+                        delta_min = st.session_state.cc_medium_delta_min
+                        delta_max = st.session_state.cc_medium_delta_max
+                    elif preset == 'aggressive':
+                        delta_min = st.session_state.cc_aggressive_delta_min
+                        delta_max = st.session_state.cc_aggressive_delta_max
+                    else:
+                        # No preset active, return plain value
+                        return f"{val:.3f}"
+                    
+                    # Apply dynamic color coding based on preset range
+                    abs_val = abs(val)
+                    tolerance = 0.05  # ±0.05 for yellow zone
+                    
+                    if delta_min <= abs_val <= delta_max:
+                        return f"🟢 {val:.3f}"  # Green = Within range
+                    elif (delta_min - tolerance) <= abs_val <= (delta_max + tolerance):
+                        return f"🟡 {val:.3f}"  # Yellow = Close to range
+                    else:
+                        return f"🔴 {val:.3f}"  # Red = Outside range
+                else:
+                    # No preset active, return plain value
+                    return f"{val:.3f}"
+            
             # Apply formatting
+            display_opp['Stock Price'] = display_opp['Stock Price'].apply(lambda x: f"${x:.2f}")
             display_opp['Strike'] = display_opp['Strike'].apply(lambda x: f"${x:.2f}")
-            display_opp['Delta'] = display_opp['Delta'].apply(lambda x: f"{x:.3f}")
+            display_opp['Delta'] = display_opp['Delta'].apply(format_delta)
             display_opp['Premium'] = display_opp['Premium'].apply(lambda x: f"${x:.2f}")
             display_opp['Weekly %'] = display_opp['Weekly %'].apply(lambda x: f"{x:.2f}%")
             display_opp['RSI'] = display_opp['RSI'].apply(format_rsi)
             display_opp['IV Rank'] = display_opp['IV Rank'].apply(format_iv_rank)
             display_opp['Spread %'] = display_opp['Spread %'].apply(format_spread)
             
-            # Reorder columns to put Available after Qty (use display version with emoji)
-            display_opp = display_opp[['Select', 'Qty', 'Available_Display', 'Symbol', 'Strike', 'Expiration', 'DTE', 'Delta', 'Premium', 'Weekly %', 'RSI', 'IV Rank', 'Spread %', 'OI', 'Volume']]
+            # Reorder columns to put Available after Qty, Stock Price after Symbol (use display version with emoji)
+            display_opp = display_opp[['Select', 'Qty', 'Available_Display', 'Symbol', 'Stock Price', 'Strike', 'Expiration', 'DTE', 'Delta', 'Premium', 'Weekly %', 'RSI', 'IV Rank', 'Spread %', 'OI', 'Volume']]
             
             edited_opp = st.data_editor(
                 display_opp,
