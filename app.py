@@ -1698,7 +1698,9 @@ elif page == "CC Dashboard":
 
 
 elif page == "Performance":
-    st.title("📊 Performance Dashboard")
+    # Premium Header
+    st.markdown('<h1 style="color: #ffffff; font-size: 36px; font-weight: 600; margin-bottom: 0.5rem;">📊 Performance</h1>', unsafe_allow_html=True)
+    st.markdown('<p style="color: #9ca3af; font-size: 14px; margin-bottom: 2rem;">Track your trading performance and analyze results</p>', unsafe_allow_html=True)
     
     # Monthly Premium Summary at the top
     from utils.monthly_premium import render_monthly_premium_summary
