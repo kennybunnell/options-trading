@@ -105,12 +105,8 @@ if page == "Home":
         
         if positions:
             st.write(f"You have {len(positions)} open positions")
-            # TODO: Display positions in a nice table
         else:
             st.info("No open positions")
-
-# Analysis Dashboard removed - no longer needed
-# Users can now import stocks directly to watchlist via TradingView CSV in CSP Dashboard
 
 elif page == "CSP Dashboard":
     st.title("💰 Cash-Secured Puts Dashboard")

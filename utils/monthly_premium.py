@@ -31,7 +31,7 @@ def parse_option_symbol(symbol: str) -> Dict:
     return None
 
 
-def get_monthly_premium_data(api, account_number: str, months: int = 6, debug: bool = False) -> List[Dict]:
+def get_monthly_premium_data(api, account_number: str, months: int = 6) -> List[Dict]:
     """
     Get monthly premium data for the last N months
     
@@ -90,12 +90,6 @@ def get_monthly_premium_data(api, account_number: str, months: int = 6, debug: b
         'cc_debits': 0.0
     })
     
-    if debug:
-        print(f"\n=== MONTHLY PREMIUM DEBUG ===")
-        print(f"Total transactions fetched: {len(transactions)}")
-        print(f"Date range: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
-        print(f"\n=== PROCESSING TRANSACTIONS ===")
-    
     for txn in transactions:
         # Only process option trades
         if txn.get('transaction-type') not in ['Trade', 'Receive Deliver']:
@@ -120,20 +114,9 @@ def get_monthly_premium_data(api, account_number: str, months: int = 6, debug: b
         # Parse option symbol to determine type
         option_info = parse_option_symbol(symbol)
         if not option_info:
-            if debug and symbol:  # Only log if there's a symbol
-                print(f"  ⚠️  Could not parse symbol: {symbol}")
             continue
         
         option_type = option_info['option_type']
-        
-        # Debug logging for January 2026 transactions
-        if debug and month_key == (1, 2026):
-            print(f"\n  📅 Jan 2026 Transaction:")
-            print(f"     Symbol: {symbol}")
-            print(f"     Type: {option_type}")
-            print(f"     Action: {action}")
-            print(f"     Value: ${abs(value):,.2f}")
-            print(f"     Date: {executed_at}")
         
         # Determine if CSP or CC and credit/debit
         # Sell to Open (STO) = Credit
@@ -143,23 +126,15 @@ def get_monthly_premium_data(api, account_number: str, months: int = 6, debug: b
             # Opening credit
             if option_type == 'PUT':
                 monthly_data[month_key]['csp_credits'] += abs(value)
-                if debug and month_key == (1, 2026):
-                    print(f"     ✅ Added to CSP Credits")
             elif option_type == 'CALL':
                 monthly_data[month_key]['cc_credits'] += abs(value)
-                if debug and month_key == (1, 2026):
-                    print(f"     ✅ Added to CC Credits")
         
         elif action == 'Buy to Close':
             # Closing debit
             if option_type == 'PUT':
                 monthly_data[month_key]['csp_debits'] += abs(value)
-                if debug and month_key == (1, 2026):
-                    print(f"     ❌ Added to CSP Debits")
             elif option_type == 'CALL':
                 monthly_data[month_key]['cc_debits'] += abs(value)
-                if debug and month_key == (1, 2026):
-                    print(f"     ❌ Added to CC Debits")
     
     # Generate list of last N months
     current_date = datetime.now()
@@ -232,11 +207,8 @@ def render_monthly_premium_summary(api, account_number: str):
     
     st.subheader("💰 Monthly Premium Summary (Net of Buybacks)")
     
-    # Debug toggle
-    debug_mode = st.checkbox("🔍 Enable Debug Mode (Show Transaction Details)", value=False)
-    
     # Get data
-    months_data = get_monthly_premium_data(api, account_number, months=6, debug=debug_mode)
+    months_data = get_monthly_premium_data(api, account_number, months=6)
     
     if not months_data:
         st.warning("⚠️ No premium data available. Please upload your activity file in the 'Import Data' tab.")
@@ -309,23 +281,5 @@ def render_monthly_premium_summary(api, account_number: str):
         avg_csp_pct = sum([m['csp_percentage'] for m in months_data]) / len(months_data) if months_data else 0
         avg_cc_pct = 100 - avg_csp_pct
         st.metric("Avg CSP/CC", f"{avg_csp_pct:.0f}% / {avg_cc_pct:.0f}%")
-    
-    # Show January 2026 breakdown if debug mode is on
-    if debug_mode:
-        jan_2026_data = next((m for m in months_data if m['month_year'] == (1, 2026)), None)
-        if jan_2026_data:
-            st.divider()
-            with st.expander("🔍 January 2026 Debug Details", expanded=True):
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.write("**CSP Breakdown:**")
-                    st.write(f"Net: ${jan_2026_data['csp_net']:,.2f}")
-                with col2:
-                    st.write("**CC Breakdown:**")
-                    st.write(f"Net: ${jan_2026_data['cc_net']:,.2f}")
-                with col3:
-                    st.write("**Total:**")
-                    st.write(f"Net: ${jan_2026_data['net_premium']:,.2f}")
-                st.info("📝 Check the terminal/console output for detailed transaction logs")
     
     st.divider()
