@@ -28,6 +28,10 @@ def render_working_orders_monitor(api, account_number, order_type='all'):
             st.info("✅ No working orders - all orders have been filled or canceled!")
             return
         
+        # Debug: Print raw orders to see what we're getting
+        print(f"\n=== Working Orders Debug (filter: {order_type}) ===")
+        print(f"Total orders fetched: {len(orders)}")
+        
         # Parse orders into displayable format
         order_data = []
         for order in orders:
@@ -40,26 +44,47 @@ def render_working_orders_monitor(api, account_number, order_type='all'):
                 # Get legs (option details)
                 legs = order.get('legs', [])
                 if not legs:
+                    print(f"  Skipping order {order_id}: No legs")
                     continue
                 
                 leg = legs[0]  # Assume single-leg orders for now
                 symbol = leg.get('symbol', 'UNKNOWN')
-                action = leg.get('action', 'N/A')  # STO or BTC
+                action = leg.get('action', 'N/A')  # STO, BTO, STC, BTC, etc.
                 quantity = leg.get('quantity', 0)
+                
+                print(f"  Order {order_id}: symbol={symbol}, action={action}, qty={quantity}, status={status}")
                 
                 # Parse symbol to get underlying and option details
                 # Format: TICKER  YYMMDDC########
                 # Example: SOFI  260116P00030000
                 underlying = symbol.split()[0] if ' ' in symbol else symbol[:4]
                 
-                # Determine if PUT or CALL
-                option_type = 'PUT' if 'P' in symbol else 'CALL' if 'C' in symbol else 'UNKNOWN'
+                # Determine if PUT or CALL by looking for P or C in the option symbol
+                # The format is: TICKER YYMMDDC######## where C is P or C
+                import re
+                match = re.search(r'\d{6}([PC])\d{8}', symbol)
+                if match:
+                    option_char = match.group(1)
+                    option_type = 'PUT' if option_char == 'P' else 'CALL'
+                else:
+                    option_type = 'UNKNOWN'
+                    print(f"    Warning: Could not parse option type from symbol: {symbol}")
+                
+                # Normalize action (handle STO, Sell to Open, etc.)
+                action_upper = action.upper()
+                is_sell_to_open = 'STO' in action_upper or 'SELL TO OPEN' in action_upper or action_upper == 'SELL_TO_OPEN'
                 
                 # Filter by order type if specified
-                if order_type == 'csp' and (option_type != 'PUT' or action != 'STO'):
-                    continue
-                elif order_type == 'cc' and (option_type != 'CALL' or action != 'STO'):
-                    continue
+                if order_type == 'csp':
+                    if option_type != 'PUT' or not is_sell_to_open:
+                        print(f"    Filtered out: Not a CSP (type={option_type}, action={action})")
+                        continue
+                elif order_type == 'cc':
+                    if option_type != 'CALL' or not is_sell_to_open:
+                        print(f"    Filtered out: Not a CC (type={option_type}, action={action})")
+                        continue
+                
+                print(f"    ✅ Included: {underlying} {option_type}")
                 
                 # Get price
                 price = order.get('price', 0)
