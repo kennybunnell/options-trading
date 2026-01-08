@@ -259,3 +259,57 @@ class TradierAPI:
         except Exception as e:
             print(f"Error getting IV Rank for {symbol}: {e}")
             return None
+
+    def get_option_quote(self, option_symbol):
+        """
+        Get current quote for an option symbol
+        
+        Args:
+            option_symbol (str): Full option symbol (e.g., 'AAPL  260116C00255000')
+            
+        Returns:
+            dict: Quote data with bid, ask, last, etc.
+        """
+        try:
+            print(f"\n=== DEBUG: Getting option quote (Tradier) ===")
+            print(f"Symbol: {option_symbol}")
+            
+            # Tradier uses a different endpoint for quotes
+            url = f"{self.base_url}/markets/quotes"
+            params = {"symbols": option_symbol, "greeks": "false"}
+            
+            print(f"URL: {url}")
+            print(f"Params: {params}")
+            
+            response = requests.get(url, headers=self.headers, params=params)
+            
+            print(f"Response status: {response.status_code}")
+            
+            if response.status_code == 200:
+                data = response.json()
+                print(f"Response data keys: {data.keys() if data else 'None'}")
+                
+                if 'quotes' in data and 'quote' in data['quotes']:
+                    quote = data['quotes']['quote']
+                    
+                    # Handle single quote vs array of quotes
+                    if isinstance(quote, list):
+                        quote = quote[0] if len(quote) > 0 else None
+                    
+                    if quote:
+                        print(f"Quote keys: {quote.keys()}")
+                        print(f"Bid: {quote.get('bid')}, Ask: {quote.get('ask')}")
+                        return quote
+                
+                print("No quote data in response")
+                return None
+            else:
+                print(f"Get option quote failed: {response.status_code}")
+                print(f"Response text: {response.text[:200]}")
+                return None
+                
+        except Exception as e:
+            print(f"Get option quote error: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return None
