@@ -350,13 +350,17 @@ with st.sidebar:
         orders = api.get_live_orders(selected_account)
         orders_count = len([o for o in orders if o.get('status') == 'Live']) if orders else 0
         
-        # Get real weekly premium
-        from utils.sidebar_stats import get_weekly_premium, get_win_rate
+        # Get real weekly and monthly premium
+        from utils.sidebar_stats import get_weekly_premium, get_monthly_premium, get_win_rate
         weekly_premium = get_weekly_premium(api, selected_account)
+        monthly_premium = get_monthly_premium(api, selected_account)
         win_rate = get_win_rate(api, selected_account)
         
-        premium_class = "stat-positive" if weekly_premium >= 0 else "stat-negative"
-        premium_prefix = "+" if weekly_premium >= 0 else "-"
+        w_premium_class = "stat-positive" if weekly_premium >= 0 else "stat-negative"
+        w_premium_prefix = "+" if weekly_premium >= 0 else "-"
+        
+        m_premium_class = "stat-positive" if monthly_premium >= 0 else "stat-negative"
+        m_premium_prefix = "+" if monthly_premium >= 0 else "-"
         
         st.markdown(f"""
         <div class="quick-stats">
@@ -371,7 +375,11 @@ with st.sidebar:
             </div>
             <div class="stat-row">
                 <span class="stat-label">This Week</span>
-                <span class="stat-value {premium_class}">{premium_prefix}${abs(weekly_premium):,.0f}</span>
+                <span class="stat-value {w_premium_class}">{w_premium_prefix}${abs(weekly_premium):,.0f}</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">This Month</span>
+                <span class="stat-value {m_premium_class}">{m_premium_prefix}${abs(monthly_premium):,.0f}</span>
             </div>
             <div class="stat-row">
                 <span class="stat-label">Win Rate</span>
