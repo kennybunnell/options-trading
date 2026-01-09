@@ -1684,6 +1684,9 @@ elif page == "CC Dashboard":
                                                 st.session_state.cc_eligible_holdings = eligible_holdings
                                                 st.session_state.cc_breakdown = breakdown
                                                 st.success(f"✅ Positions refreshed! {len(eligible_holdings)} eligible holdings found.")
+                                                # Trigger page rerun to update the display
+                                                time.sleep(1)  # Brief pause to show success message
+                                                st.rerun()
                                             except Exception as e:
                                                 st.warning(f"⚠️ Could not auto-refresh positions: {str(e)}. Please manually refresh if needed.")
                                         

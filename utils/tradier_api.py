@@ -143,33 +143,39 @@ class TradierAPI:
 
 
     def get_rsi(self, symbol, period=14):
-        """Get RSI (Relative Strength Index) for a symbol using Tradier timeseries"""
+        """Get RSI (Relative Strength Index) for a symbol using Tradier history endpoint"""
         try:
-            url = f"{self.base_url}/markets/timesales"
+            # Use history endpoint instead of timesales for daily data
+            url = f"{self.base_url}/markets/history"
             params = {
                 "symbol": symbol,
                 "interval": "daily",
-                "start": (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'),
+                "start": (datetime.now() - timedelta(days=60)).strftime('%Y-%m-%d'),  # Get more data for accurate RSI
                 "end": datetime.now().strftime('%Y-%m-%d')
             }
             
             response = requests.get(url, headers=self.headers, params=params, timeout=10)
             
             if response.status_code != 200:
+                print(f"RSI API error for {symbol}: Status {response.status_code}")
                 return None
             
             data = response.json()
             
-            if 'series' not in data or not data['series']:
+            # Tradier history endpoint returns data in 'history' key
+            if 'history' not in data or not data['history']:
+                print(f"RSI: No history data for {symbol}")
                 return None
             
-            series = data['series'].get('data', [])
-            if not series or len(series) < period + 1:
+            history = data['history'].get('day', [])
+            if not history or len(history) < period + 1:
+                print(f"RSI: Insufficient data for {symbol} (got {len(history) if history else 0} days, need {period + 1})")
                 return None
             
             # Calculate RSI
-            closes = [float(d['close']) for d in series if 'close' in d]
+            closes = [float(d['close']) for d in history if 'close' in d]
             if len(closes) < period + 1:
+                print(f"RSI: Insufficient close prices for {symbol}")
                 return None
             
             # Calculate price changes
