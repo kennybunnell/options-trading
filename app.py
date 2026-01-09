@@ -904,9 +904,16 @@ elif page == "CC Dashboard":
             st.markdown('<div class="section-header">✅ Eligible Positions for New Covered Calls</div>', unsafe_allow_html=True)
             st.write("Select stocks to scan for covered call opportunities")
             
+            # Filter out positions with 0 max contracts (all shares already have calls sold)
+            available_holdings = [h for h in holdings if h.get('max_contracts', 0) > 0]
+            
+            if not available_holdings:
+                st.info("📊 All your stock positions already have covered calls sold against them. No additional contracts available.")
+                st.stop()
+            
             # Create dataframe
             import pandas as pd
-            eligible_df = pd.DataFrame(holdings)
+            eligible_df = pd.DataFrame(available_holdings)
             
             # Add selection column
             eligible_df['Select'] = eligible_df['symbol'].isin(st.session_state.cc_selected_stocks)
