@@ -334,6 +334,8 @@ class TastytradeAPI:
             print(f"Symbol: {symbol}")
             print(f"Option Symbol: {option_symbol}")
             print(f"Quantity: {quantity}")
+            print(f"Order Type: {order_type}")
+            print(f"Price: ${price}")
             print(f"============================\n")
             
             # Covered call = Sell to Open (STO) call option
