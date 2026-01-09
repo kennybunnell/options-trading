@@ -3,6 +3,30 @@
 from datetime import datetime
 import re
 
+def parse_option_symbol(symbol: str):
+    """Parse OCC option symbol to extract components"""
+    try:
+        clean_symbol = symbol.replace(' ', '')
+        match = re.match(r'([A-Z]+)(\d{6})([CP])(\d+)', clean_symbol)
+        if match:
+            underlying = match.group(1)
+            date_str = match.group(2)
+            option_type = 'PUT' if match.group(3) == 'P' else 'CALL'
+            strike = int(match.group(4)) / 1000
+            year = 2000 + int(date_str[:2])
+            month = int(date_str[2:4])
+            day = int(date_str[4:6])
+            expiration = f"{year}-{month:02d}-{day:02d}"
+            return {
+                'underlying': underlying,
+                'expiration': expiration,
+                'option_type': option_type,
+                'strike': strike
+            }
+    except Exception as e:
+        pass
+    return None
+
 def get_existing_csp_positions(api, account_number):
     """
     Fetch existing short put positions (cash-secured puts)
@@ -74,8 +98,14 @@ def get_existing_csp_positions(api, account_number):
                         short_puts[underlying] = short_puts.get(underlying, 0) + contracts_sold
                         print(f"  ✅ SHORT PUT: {underlying} - {contracts_sold} contracts")
                         
-                        # Collect details for display
-                        expiration_date = position.get('expiration-date', 'Unknown')
+                        # Parse option symbol to get strike, expiration, etc.
+                        parsed = parse_option_symbol(symbol)
+                        if not parsed:
+                            print(f"  ⚠️ Could not parse option symbol: {symbol}")
+                            continue
+                        
+                        strike = parsed['strike']
+                        expiration_date = parsed['expiration']
                         
                         # Calculate days to expiration
                         try:
@@ -84,10 +114,10 @@ def get_existing_csp_positions(api, account_number):
                         except:
                             dte = 0
                         
-                        # Get premium collected (cost basis)
+                        # Get premium collected (cost basis) from average-open-price
                         try:
-                            cost_effect = float(position.get('cost-effect', 0))
-                            premium_collected = abs(cost_effect) * abs(quantity) * 100  # Per contract
+                            avg_open_price = float(position.get('average-open-price', 0))
+                            premium_collected = avg_open_price * abs(quantity) * 100  # Price per share * contracts * 100
                         except:
                             premium_collected = 0
                         
@@ -115,9 +145,8 @@ def get_existing_csp_positions(api, account_number):
                         pl = premium_collected - current_value_total
                         pct_recognized = (pl / premium_collected * 100) if premium_collected > 0 else 0
                         
-                        # Calculate collateral required (strike * 100 * contracts)
-                        strike = float(position.get('strike-price', 0))
-                        collateral_required = strike * 100 * abs(quantity)
+                        # Collateral = strike * contracts * 100
+                        collateral_required = strike * abs(quantity) * 100
                         
                         short_put_details.append({
                             'symbol': underlying,
