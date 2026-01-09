@@ -176,36 +176,19 @@ class TastytradeAPI:
             if not self._is_token_valid():
                 self._authenticate()
             
-            print(f"\n=== DEBUG: Getting option quote ===")
-            print(f"Symbol: {option_symbol}")
-            
             # Use the market-data endpoint with option symbol
-            url = f'{self.base_url}/market-data/by-type'
-            headers = {'Authorization': self.session_token}
+            url = f"{self.base_url}/market-data/quotes"
+            headers = self._get_headers()
             params = {'option': option_symbol}
-            
-            print(f"URL: {url}")
-            print(f"Params: {params}")
             
             response = requests.get(url, headers=headers, params=params)
             
-            print(f"Response status: {response.status_code}")
-            
             if response.status_code == 200:
                 data = response.json()
-                print(f"Response data keys: {data.keys() if data else 'None'}")
-                if data.get('data'):
-                    print(f"Data length: {len(data['data'])}")
-                    if len(data['data']) > 0:
-                        quote = data['data'][0]
-                        print(f"Quote keys: {quote.keys()}")
-                        print(f"Bid: {quote.get('bid')}, Ask: {quote.get('ask')}")
-                        return quote
-                print("No data in response")
+                if data.get('data') and len(data['data']) > 0:
+                    return data['data'][0]
                 return None
             else:
-                print(f"Get option quote failed: {response.status_code}")
-                print(f"Response text: {response.text[:200]}")
                 return None
                 
         except Exception as e:
@@ -327,16 +310,6 @@ class TastytradeAPI:
             # Build order payload
             url = f'{self.base_url}/accounts/{account_number}/orders'
             headers = self._get_headers()
-            
-            print(f"\n=== ORDER SUBMISSION DEBUG ===")
-            print(f"Account Number: {account_number}")
-            print(f"URL: {url}")
-            print(f"Symbol: {symbol}")
-            print(f"Option Symbol: {option_symbol}")
-            print(f"Quantity: {quantity}")
-            print(f"Order Type: {order_type}")
-            print(f"Price: ${price}")
-            print(f"============================\n")
             
             # Covered call = Sell to Open (STO) call option
             # NOTE: Tastytrade API does NOT support multi-leg covered call orders
@@ -517,15 +490,6 @@ class TastytradeAPI:
             # Build order payload
             url = f'{self.base_url}/accounts/{account_number}/orders'
             headers = self._get_headers()
-            
-            print(f"\n=== CSP ORDER SUBMISSION DEBUG ===")
-            print(f"Account Number: {account_number}")
-            print(f"URL: {url}")
-            print(f"Underlying: {underlying}")
-            print(f"Option Symbol: {symbol}")
-            print(f"Quantity: {quantity}")
-            print(f"Price: {price}")
-            print(f"==================================\n")
             
             # Cash-secured put = Sell to Open (STO) put option
             # Tastytrade will automatically check buying power

@@ -28,10 +28,6 @@ def render_working_orders_monitor(api, account_number, order_type='all'):
             st.info("✅ No working orders - all orders have been filled or canceled!")
             return
         
-        # Debug: Print raw orders to see what we're getting
-        print(f"\n=== Working Orders Debug (filter: {order_type}) ===")
-        print(f"Total orders fetched: {len(orders)}")
-        
         # Parse orders into displayable format
         order_data = []
         for order in orders:
@@ -44,7 +40,6 @@ def render_working_orders_monitor(api, account_number, order_type='all'):
                 # Get legs (option details)
                 legs = order.get('legs', [])
                 if not legs:
-                    print(f"  Skipping order {order_id}: No legs")
                     continue
                 
                 leg = legs[0]  # Assume single-leg orders for now
@@ -52,11 +47,8 @@ def render_working_orders_monitor(api, account_number, order_type='all'):
                 action = leg.get('action', 'N/A')  # STO, BTO, STC, BTC, etc.
                 quantity = leg.get('quantity', 0)
                 
-                print(f"  Order {order_id}: symbol={symbol}, action={action}, qty={quantity}, status={status}")
-                
                 # Filter out non-Live orders (Cancelled, Filled, etc.)
                 if status != 'Live':
-                    print(f"    Filtered out: Status is {status} (not Live)")
                     continue
                 
                 # Parse symbol to get underlying and option details
@@ -73,7 +65,6 @@ def render_working_orders_monitor(api, account_number, order_type='all'):
                     option_type = 'PUT' if option_char == 'P' else 'CALL'
                 else:
                     option_type = 'UNKNOWN'
-                    print(f"    Warning: Could not parse option type from symbol: {symbol}")
                 
                 # Normalize action (handle STO, Sell to Open, etc.)
                 action_upper = action.upper()
@@ -82,14 +73,10 @@ def render_working_orders_monitor(api, account_number, order_type='all'):
                 # Filter by order type if specified
                 if order_type == 'csp':
                     if option_type != 'PUT' or not is_sell_to_open:
-                        print(f"    Filtered out: Not a CSP (type={option_type}, action={action})")
                         continue
                 elif order_type == 'cc':
                     if option_type != 'CALL' or not is_sell_to_open:
-                        print(f"    Filtered out: Not a CC (type={option_type}, action={action})")
                         continue
-                
-                print(f"    ✅ Included: {underlying} {option_type}")
                 
                 # Get price
                 price = order.get('price', 0)

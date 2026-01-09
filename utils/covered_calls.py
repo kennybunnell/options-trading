@@ -46,7 +46,6 @@ def get_eligible_stock_positions(api, account_number):
         short_calls = {}  # Dict: symbol -> number of contracts sold
         short_call_details = []  # For display purposes
         
-        print("\n=== DEBUG: Scanning for existing short calls ===")
         for position in all_positions:
             if position.get('instrument-type') == 'Equity Option':
                 quantity = int(position.get('quantity', 0))
@@ -81,8 +80,6 @@ def get_eligible_stock_positions(api, account_number):
                             elif type_char == 'P':
                                 option_type = 'put'
                 
-                print(f"Found option: {symbol}, Type: {option_type}, Qty: {quantity}, Underlying: {underlying}")
-                
                 # Check if it's a short call (quantity can be positive or negative depending on API)
                 if option_type == 'call':
                     # Tastytrade may return positive quantity for short positions
@@ -93,7 +90,6 @@ def get_eligible_stock_positions(api, account_number):
                     if is_short or quantity > 0:  # Assume positive quantity for options means short
                         contracts_sold = abs(quantity)
                         short_calls[underlying] = short_calls.get(underlying, 0) + contracts_sold
-                        print(f"  ✅ SHORT CALL: {underlying} - {contracts_sold} contracts")
                         
                         # Collect details for display
                         expiration_date = position.get('expiration-date', 'Unknown')
@@ -146,9 +142,6 @@ def get_eligible_stock_positions(api, account_number):
                             'pct_recognized': pct_recognized,
                             'option_symbol': position.get('symbol', '')
                         })
-        
-        print(f"\n=== DEBUG: Total short calls found: {short_calls} ===")
-        print(f"Short call details count: {len(short_call_details)}\n")
         
         # Don't filter out stocks with existing calls - just reduce available shares
         # All stock positions are eligible, but max_contracts will be reduced
@@ -318,7 +311,6 @@ def pre_scan_covered_calls(api, tradier_api, holdings, min_prescan_delta=0.10, m
                     
                     # Filter by DTE range
                     if not (min_dte <= dte <= max_dte):
-                        st.write(f"      ❌ [{symbol}] Expiration {exp_date_str} (DTE {dte}): Outside DTE range {min_dte}-{max_dte}")
                         continue
                     
                     valid_expirations += 1
@@ -355,8 +347,6 @@ def pre_scan_covered_calls(api, tradier_api, holdings, min_prescan_delta=0.10, m
                         call_data = strike_data.get('call')
                         
                         if not call_data:
-                            if otm_count == 1:
-                                st.write(f"      ⚠️ First OTM strike ${strike:.2f} has no call data")
                             continue
                         
                         call_data_count += 1
@@ -373,22 +363,12 @@ def pre_scan_covered_calls(api, tradier_api, holdings, min_prescan_delta=0.10, m
                         volume = int(call_data.get('volume', 0))
                         open_interest = int(call_data.get('open-interest', 0))
                         
-                        # Debug: Show first OTM call for each stock
-                        if call_data_count == 1:  # First one with call data
-                            st.write(f"      🔍 First OTM call: ${strike:.2f} Δ{delta:.3f} bid ${bid:.2f} ask ${ask:.2f}")
-                            st.write(f"      🔍 Delta range check: {min_prescan_delta:.2f} <= {delta:.3f} <= {max_prescan_delta:.2f} = {min_prescan_delta <= delta <= max_prescan_delta}")
-                            st.write(f"      🔍 Bid check: bid {bid:.2f} > 0 = {bid > 0}")
-                        
                         # Filter by pre-scan delta range
                         if not (min_prescan_delta <= delta <= max_prescan_delta):
-                            if call_data_count <= 3:  # Log first few rejections
-                                st.write(f"      ⚠️ ${strike:.2f}: Delta {delta:.3f} outside range {min_prescan_delta:.2f}-{max_prescan_delta:.2f}")
                             continue
                         
                         # Skip if no bid
                         if bid <= 0:
-                            if call_data_count <= 3:  # Log first few
-                                st.write(f"      ⚠️ ${strike:.2f}: No bid price (bid=${bid:.2f})")
                             continue
                         
                         # Calculate metrics
@@ -407,10 +387,6 @@ def pre_scan_covered_calls(api, tradier_api, holdings, min_prescan_delta=0.10, m
                         
                         # Distance OTM
                         distance_otm_pct = ((strike - current_price) / current_price) * 100
-                        
-                        # Log accepted opportunity
-                        if opportunities_found == 0:  # Log first accepted opportunity
-                            st.write(f"      ✅ ${strike:.2f}: ACCEPTED (DTE {dte}, Delta {delta:.3f}, Bid ${bid:.2f})")
                         
                         opportunities.append({
                             'symbol': symbol,
@@ -437,17 +413,13 @@ def pre_scan_covered_calls(api, tradier_api, holdings, min_prescan_delta=0.10, m
                         })
                         
                         opportunities_found += 1
-                        st.write(f"      ✅ ${strike:.2f} Δ{delta:.3f} bid ${bid:.2f} ({weekly_return:.2f}% weekly)")
-                    
-                    # Debug summary for this expiration
-                    st.write(f"      🔍 Debug: {dict_count} valid dicts, {otm_count} OTM, {call_data_count} with call data, {opportunities_found} opportunities")
                 
                 except Exception as e:
                     st.warning(f"    ⚠️ Error parsing expiration {exp_date_str}: {str(e)}")
                     continue
             
-            st.write(f"  📈 {symbol} summary: {valid_expirations} valid expirations, {total_strikes_checked} strikes checked, {opportunities_found} opportunities found")
-            st.write("")
+            if opportunities_found > 0:
+                st.write(f"  ✅ Found {opportunities_found} opportunities")
         
         except Exception as e:
             st.error(f"  ❌ Error scanning {symbol}: {str(e)}")
