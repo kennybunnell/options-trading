@@ -353,7 +353,11 @@ with st.sidebar:
     if selected_account:
         # Aggregate all stats across all accounts
         if 'accounts' in st.session_state and st.session_state.accounts:
-            all_account_numbers = [acc['account-number'] for acc in st.session_state.accounts]
+            all_account_numbers = []
+            for acc in st.session_state.accounts:
+                acc_num = acc.get('account-number') or acc.get('account_number')
+                if acc_num:
+                    all_account_numbers.append(acc_num)
         else:
             all_account_numbers = [selected_account]
         
