@@ -318,6 +318,7 @@ def pre_scan_covered_calls(api, tradier_api, holdings, min_prescan_delta=0.10, m
                     
                     # Filter by DTE range
                     if not (min_dte <= dte <= max_dte):
+                        print(f"[{symbol}] ❌ Filtered out expiration {exp_date_str} (DTE {dte}): Outside DTE range {min_dte}-{max_dte}")
                         continue
                     
                     valid_expirations += 1
@@ -346,6 +347,8 @@ def pre_scan_covered_calls(api, tradier_api, holdings, min_prescan_delta=0.10, m
                         
                         # Only OTM calls (strike > current price)
                         if strike <= current_price:
+                            if otm_count == 0:  # Log only for first strike checked
+                                print(f"[{symbol}] {exp_date_str}: Strike ${strike:.2f} is ITM (current ${current_price:.2f})")
                             continue
                         
                         otm_count += 1
@@ -380,12 +383,15 @@ def pre_scan_covered_calls(api, tradier_api, holdings, min_prescan_delta=0.10, m
                         
                         # Filter by pre-scan delta range
                         if not (min_prescan_delta <= delta <= max_prescan_delta):
+                            if opportunities_found == 0:  # Log first rejection
+                                print(f"[{symbol}] {exp_date_str} ${strike:.2f}: ❌ Delta {delta:.3f} outside range {min_prescan_delta:.2f}-{max_prescan_delta:.2f}")
                             continue
                         
                         # Skip if no bid
                         if bid <= 0:
                             if opportunities_found == 0:
                                 st.write(f"      ⚠️ No bid price available")
+                                print(f"[{symbol}] {exp_date_str} ${strike:.2f}: ❌ No bid price (bid=${bid:.2f})")
                             continue
                         
                         # Calculate metrics
@@ -404,6 +410,10 @@ def pre_scan_covered_calls(api, tradier_api, holdings, min_prescan_delta=0.10, m
                         
                         # Distance OTM
                         distance_otm_pct = ((strike - current_price) / current_price) * 100
+                        
+                        # Log accepted opportunity
+                        if opportunities_found == 0:  # Log first accepted opportunity
+                            print(f"[{symbol}] {exp_date_str} ${strike:.2f}: ✅ ACCEPTED (DTE {dte}, Delta {delta:.3f}, Bid ${bid:.2f})")
                         
                         opportunities.append({
                             'symbol': symbol,
