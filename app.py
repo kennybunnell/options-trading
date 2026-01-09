@@ -342,19 +342,27 @@ with st.sidebar:
     
     # Quick Stats Panel
     if selected_account:
-        # Get positions count
-        positions = api.get_positions(selected_account)
-        positions_count = len(positions) if positions else 0
+        # Aggregate all stats across all accounts
+        all_account_numbers = [acc['account-number'] for acc in st.session_state.accounts]
         
-        # Get working orders count
-        orders = api.get_live_orders(selected_account)
-        orders_count = len([o for o in orders if o.get('status') == 'Live']) if orders else 0
+        # Total positions count
+        total_positions = 0
+        for acc_num in all_account_numbers:
+            positions = api.get_positions(acc_num)
+            total_positions += len(positions) if positions else 0
+            
+        # Total working orders count
+        total_orders = 0
+        for acc_num in all_account_numbers:
+            orders = api.get_live_orders(acc_num)
+            total_orders += len([o for o in orders if o.get('status') == 'Live']) if orders else 0
         
         # Get real weekly and monthly premium (aggregated across all accounts)
         from utils.sidebar_stats import get_weekly_premium, get_monthly_premium, get_win_rate
-        all_account_numbers = [acc['account-number'] for acc in st.session_state.accounts]
         weekly_premium = get_weekly_premium(api, all_account_numbers)
         monthly_premium = get_monthly_premium(api, all_account_numbers)
+        
+        # Win rate (average across accounts or from selected)
         win_rate = get_win_rate(api, selected_account)
         
         w_premium_class = "stat-positive" if weekly_premium >= 0 else "stat-negative"
@@ -368,11 +376,11 @@ with st.sidebar:
             <div class="quick-stats-title">Quick Stats</div>
             <div class="stat-row">
                 <span class="stat-label"><span class="stat-dot dot-green"></span>Open Positions</span>
-                <span class="stat-value">{positions_count}</span>
+                <span class="stat-value">{total_positions}</span>
             </div>
             <div class="stat-row">
                 <span class="stat-label"><span class="stat-dot dot-yellow"></span>Working Orders</span>
-                <span class="stat-value">{orders_count}</span>
+                <span class="stat-value">{total_orders}</span>
             </div>
             <div class="stat-row">
                 <span class="stat-label">This Week</span>
