@@ -2539,8 +2539,6 @@ elif page == "PMCC Dashboard":
     else:
         st.info("📊 No LEAP positions found. Buy a LEAP first, then come back here to sell calls against it!")
 
-'''
-
 
 elif page == "Performance":
     # Premium Header
