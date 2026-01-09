@@ -312,8 +312,8 @@ with st.sidebar:
     st.markdown('<div class="nav-section">TRADING</div>', unsafe_allow_html=True)
     
     # All navigation options
-    all_pages = ["🏠 Dashboard", "💰 CSP Dashboard", "📞 Covered Calls", "📈 Performance", "⚙️ Settings"]
-    trading_pages = ["🏠 Dashboard", "💰 CSP Dashboard", "📞 Covered Calls", "📈 Performance"]
+    all_pages = ["🏠 Dashboard", "💰 CSP Dashboard", "📞 Covered Calls", "🎯 PMCC Dashboard", "📈 Performance", "⚙️ Settings"]
+    trading_pages = ["🏠 Dashboard", "💰 CSP Dashboard", "📞 Covered Calls", "🎯 PMCC Dashboard", "📈 Performance"]
     
     # Initialize default page
     if 'nav_page' not in st.session_state:
@@ -393,6 +393,7 @@ page_mapping = {
     "🏠 Dashboard": "Home",
     "💰 CSP Dashboard": "CSP Dashboard",
     "📞 Covered Calls": "CC Dashboard",
+    "🎯 PMCC Dashboard": "PMCC Dashboard",
     "📈 Performance": "Performance",
     "⚙️ Settings": "Settings"
 }
@@ -1695,6 +1696,416 @@ elif page == "CC Dashboard":
     else:
         st.info("👆 Click 'Fetch Portfolio Positions' to get started")
 
+
+
+
+
+elif page == "PMCC Dashboard":
+    # Premium Header
+    st.markdown('<h1 style="color: #ffffff; font-size: 36px; font-weight: 600; margin-bottom: 0.5rem;">🎯 PMCC Dashboard</h1>', unsafe_allow_html=True)
+    st.markdown('<p style="color: #9ca3af; font-size: 14px; margin-bottom: 2rem;">Poor Man\'s Covered Calls - Buy LEAPs and sell short calls for income</p>', unsafe_allow_html=True)
+    
+    # Initialize session state
+    if 'pmcc_watchlist' not in st.session_state:
+        st.session_state.pmcc_watchlist = []
+    if 'pmcc_leap_positions' not in st.session_state:
+        st.session_state.pmcc_leap_positions = []
+    if 'pmcc_short_calls' not in st.session_state:
+        st.session_state.pmcc_short_calls = []
+    
+    # Working Orders Monitor Section
+    st.markdown('<div class="section-header">📋 Working Orders Monitor</div>', unsafe_allow_html=True)
+    from utils.working_orders import render_working_orders_monitor
+    render_working_orders_monitor(api, selected_account, order_type='pmcc')
+    
+    st.divider()
+    
+    # ========================================
+    # SECTION 1: ACTIVE PMCC POSITIONS
+    # ========================================
+    st.markdown('<div class="section-header">🎯 Active PMCC Positions</div>', unsafe_allow_html=True)
+    
+    # Fetch LEAP positions
+    if st.button("🔍 Refresh PMCC Positions", type="primary", use_container_width=True):
+        try:
+            with st.status("Fetching PMCC positions...", expanded=True) as status:
+                st.write("📊 Fetching LEAP positions...")
+                
+                # Get all positions
+                positions = api.get_positions(selected_account)
+                
+                # Filter for LEAP calls (long calls with DTE > 270 days)
+                leap_positions = []
+                short_call_positions = []
+                
+                for pos in positions:
+                    if pos.get('instrument-type') == 'Equity Option':
+                        quantity = pos.get('quantity', 0)
+                        symbol = pos.get('symbol', '')
+                        
+                        # Parse option symbol to get expiration
+                        # Format: SYMBOL YYMMDD C/P STRIKE
+                        try:
+                            parts = symbol.split()
+                            if len(parts) >= 3:
+                                underlying = parts[0]
+                                exp_date_str = parts[1]
+                                option_type = parts[2][0]  # C or P
+                                strike = float(parts[2][1:]) / 1000  # Strike in cents
+                                
+                                # Calculate DTE
+                                from datetime import datetime
+                                exp_date = datetime.strptime(exp_date_str, '%y%m%d')
+                                dte = (exp_date - datetime.now()).days
+                                
+                                # LEAP: long call with DTE > 270
+                                if quantity > 0 and option_type == 'C' and dte > 270:
+                                    leap_positions.append({
+                                        'symbol': symbol,
+                                        'underlying': underlying,
+                                        'quantity': quantity,
+                                        'strike': strike,
+                                        'expiration': exp_date.strftime('%Y-%m-%d'),
+                                        'dte': dte,
+                                        'cost_basis': pos.get('average-open-price', 0) * 100 * quantity,
+                                        'current_value': pos.get('mark', 0) * 100 * quantity,
+                                        'pl': (pos.get('mark', 0) - pos.get('average-open-price', 0)) * 100 * quantity
+                                    })
+                                
+                                # Short call: negative quantity, call option
+                                elif quantity < 0 and option_type == 'C':
+                                    short_call_positions.append({
+                                        'symbol': symbol,
+                                        'underlying': underlying,
+                                        'quantity': abs(quantity),
+                                        'strike': strike,
+                                        'expiration': exp_date.strftime('%Y-%m-%d'),
+                                        'dte': dte,
+                                        'premium_collected': pos.get('average-open-price', 0) * 100 * abs(quantity),
+                                        'current_value': pos.get('mark', 0) * 100 * abs(quantity),
+                                        'pl': (pos.get('average-open-price', 0) - pos.get('mark', 0)) * 100 * abs(quantity)
+                                    })
+                        except Exception as e:
+                            st.write(f"⚠️ Error parsing {symbol}: {str(e)}")
+                            continue
+                
+                # Store in session state
+                st.session_state.pmcc_leap_positions = leap_positions
+                st.session_state.pmcc_short_calls = short_call_positions
+                
+                status.update(label=f"✅ Found {len(leap_positions)} LEAP(s) and {len(short_call_positions)} short call(s)", state="complete")
+                st.rerun()
+                
+        except Exception as e:
+            st.error(f"Error fetching PMCC positions: {str(e)}")
+            import traceback
+            st.error(traceback.format_exc())
+    
+    # Display LEAP Positions
+    if st.session_state.pmcc_leap_positions:
+        st.write("")
+        st.markdown("### 📈 LEAP Call Positions")
+        
+        leap_df = pd.DataFrame(st.session_state.pmcc_leap_positions)
+        
+        # Format for display
+        display_leap_df = leap_df[[
+            'underlying', 'quantity', 'strike', 'expiration', 'dte',
+            'cost_basis', 'current_value', 'pl'
+        ]].copy()
+        
+        display_leap_df.columns = [
+            'Underlying', 'Contracts', 'Strike', 'Expiration', 'DTE',
+            'Cost Basis', 'Current Value', 'P/L'
+        ]
+        
+        # Format currency
+        display_leap_df['Strike'] = display_leap_df['Strike'].apply(lambda x: f"${x:.2f}")
+        display_leap_df['Cost Basis'] = display_leap_df['Cost Basis'].apply(lambda x: f"${x:,.0f}")
+        display_leap_df['Current Value'] = display_leap_df['Current Value'].apply(lambda x: f"${x:,.0f}")
+        display_leap_df['P/L'] = display_leap_df['P/L'].apply(lambda x: f"${x:,.0f}")
+        
+        st.dataframe(display_leap_df, use_container_width=True, hide_index=True)
+        
+        # Summary metrics
+        total_cost = sum([p['cost_basis'] for p in st.session_state.pmcc_leap_positions])
+        total_value = sum([p['current_value'] for p in st.session_state.pmcc_leap_positions])
+        total_pl = sum([p['pl'] for p in st.session_state.pmcc_leap_positions])
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.markdown(f"""
+            <div class="premium-metric-card">
+                <div class="metric-label">Total LEAP Cost</div>
+                <div class="metric-value">${total_cost:,.0f}</div>
+            </div>
+            """, unsafe_allow_html=True)
+        with col2:
+            st.markdown(f"""
+            <div class="premium-metric-card">
+                <div class="metric-label">Current Value</div>
+                <div class="metric-value">${total_value:,.0f}</div>
+            </div>
+            """, unsafe_allow_html=True)
+        with col3:
+            pl_color = "metric-value-positive" if total_pl >= 0 else "metric-value"
+            st.markdown(f"""
+            <div class="premium-metric-card">
+                <div class="metric-label">LEAP P/L</div>
+                <div class="{pl_color}">${total_pl:,.0f}</div>
+            </div>
+            """, unsafe_allow_html=True)
+    else:
+        st.info("📊 No LEAP positions found. Start by scanning for LEAP opportunities below!")
+    
+    # Display Short Call Positions
+    if st.session_state.pmcc_short_calls:
+        st.write("")
+        st.markdown("### 📞 Short Calls Against LEAPs")
+        
+        short_df = pd.DataFrame(st.session_state.pmcc_short_calls)
+        
+        # Format for display
+        display_short_df = short_df[[
+            'underlying', 'quantity', 'strike', 'expiration', 'dte',
+            'premium_collected', 'current_value', 'pl'
+        ]].copy()
+        
+        display_short_df.columns = [
+            'Underlying', 'Contracts', 'Strike', 'Expiration', 'DTE',
+            'Premium Collected', 'Current Value', 'P/L'
+        ]
+        
+        # Format currency
+        display_short_df['Strike'] = display_short_df['Strike'].apply(lambda x: f"${x:.2f}")
+        display_short_df['Premium Collected'] = display_short_df['Premium Collected'].apply(lambda x: f"${x:,.0f}")
+        display_short_df['Current Value'] = display_short_df['Current Value'].apply(lambda x: f"${x:,.0f}")
+        display_short_df['P/L'] = display_short_df['P/L'].apply(lambda x: f"${x:,.0f}")
+        
+        st.dataframe(display_short_df, use_container_width=True, hide_index=True)
+        
+        # Summary metrics
+        total_premium = sum([p['premium_collected'] for p in st.session_state.pmcc_short_calls])
+        total_current = sum([p['current_value'] for p in st.session_state.pmcc_short_calls])
+        total_short_pl = sum([p['pl'] for p in st.session_state.pmcc_short_calls])
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.markdown(f"""
+            <div class="premium-metric-card">
+                <div class="metric-label">Premium Collected</div>
+                <div class="metric-value metric-value-positive">${total_premium:,.0f}</div>
+            </div>
+            """, unsafe_allow_html=True)
+        with col2:
+            st.markdown(f"""
+            <div class="premium-metric-card">
+                <div class="metric-label">Current Value</div>
+                <div class="metric-value">${total_current:,.0f}</div>
+            </div>
+            """, unsafe_allow_html=True)
+        with col3:
+            pl_color = "metric-value-positive" if total_short_pl >= 0 else "metric-value"
+            st.markdown(f"""
+            <div class="premium-metric-card">
+                <div class="metric-label">Short Call P/L</div>
+                <div class="{pl_color}">${total_short_pl:,.0f}</div>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    st.divider()
+    
+    # ========================================
+    # SECTION 2: TRADINGVIEW IMPORT & WATCHLIST
+    # ========================================
+    st.markdown('<div class="section-header">📝 Watchlist Management</div>', unsafe_allow_html=True)
+    
+    # Read watchlist
+    try:
+        with open('pmcc_watchlist.txt', 'r') as f:
+            watchlist = [line.strip() for line in f if line.strip()]
+    except:
+        watchlist = []
+    
+    # CSV Import Section
+    with st.expander("📥 Import from TradingView", expanded=False):
+        st.markdown("""
+        **Quick Import from TradingView:**
+        1. Export your TradingView watchlist as CSV
+        2. Upload it here to automatically add tickers
+        """)
+        
+        uploaded_file = st.file_uploader("Upload CSV", type=['csv'], key="pmcc_csv_upload")
+        
+        if uploaded_file is not None:
+            try:
+                df = pd.read_csv(uploaded_file)
+                
+                # Try to find ticker column
+                ticker_col = None
+                for col in df.columns:
+                    if 'symbol' in col.lower() or 'ticker' in col.lower():
+                        ticker_col = col
+                        break
+                
+                if ticker_col:
+                    new_tickers = df[ticker_col].str.upper().str.strip().tolist()
+                    
+                    # Add to watchlist file
+                    with open('pmcc_watchlist.txt', 'a') as f:
+                        for ticker in new_tickers:
+                            if ticker and ticker not in watchlist:
+                                f.write(f"{ticker}\\n")
+                    
+                    st.success(f"✅ Added {len(new_tickers)} tickers to watchlist!")
+                    st.rerun()
+                else:
+                    st.error("❌ Could not find ticker/symbol column in CSV")
+            except Exception as e:
+                st.error(f"Error reading CSV: {str(e)}")
+    
+    # Manual ticker addition
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        new_ticker = st.text_input("Add ticker manually", placeholder="AAPL", key="pmcc_manual_ticker")
+    with col2:
+        st.write("")
+        st.write("")
+        if st.button("➕ Add", use_container_width=True, key="pmcc_add_ticker"):
+            if new_ticker:
+                ticker = new_ticker.upper().strip()
+                if ticker not in watchlist:
+                    with open('pmcc_watchlist.txt', 'a') as f:
+                        f.write(f"{ticker}\\n")
+                    st.success(f"✅ Added {ticker}")
+                    st.rerun()
+                else:
+                    st.warning(f"{ticker} already in watchlist")
+    
+    # Display current watchlist
+    if watchlist:
+        st.write("")
+        st.markdown(f"**Current Watchlist ({len(watchlist)} tickers):**")
+        st.write(", ".join(watchlist))
+        
+        if st.button("🗑️ Clear Watchlist", key="pmcc_clear_watchlist"):
+            with open('pmcc_watchlist.txt', 'w') as f:
+                f.write("")
+            st.success("✅ Watchlist cleared!")
+            st.rerun()
+    else:
+        st.info("📝 No tickers in watchlist. Add some to get started!")
+    
+    st.divider()
+    
+    # ========================================
+    # SECTION 3: LEAP SCANNER
+    # ========================================
+    st.markdown('<div class="section-header">🔍 LEAP Scanner</div>', unsafe_allow_html=True)
+    
+    st.markdown("**Scan for LEAP call options (9-15 months out, deep ITM for PMCC strategy)**")
+    
+    # Filter controls
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        dte_min = st.number_input("Min DTE (days)", min_value=180, max_value=730, value=270, step=30, key="pmcc_dte_min")
+        dte_max = st.number_input("Max DTE (days)", min_value=180, max_value=730, value=450, step=30, key="pmcc_dte_max")
+    
+    with col2:
+        delta_min = st.number_input("Min Delta", min_value=0.5, max_value=1.0, value=0.70, step=0.05, key="pmcc_delta_min")
+        delta_max = st.number_input("Max Delta", min_value=0.5, max_value=1.0, value=0.90, step=0.05, key="pmcc_delta_max")
+    
+    with col3:
+        min_oi = st.number_input("Min Open Interest", min_value=0, max_value=1000, value=50, step=10, key="pmcc_min_oi")
+        st.write("")
+    
+    # Preset filter buttons
+    st.write("")
+    preset_col1, preset_col2, preset_col3 = st.columns(3)
+    
+    with preset_col1:
+        if st.button("🔥 Aggressive", use_container_width=True, key="pmcc_aggressive"):
+            st.session_state.pmcc_dte_min = 360
+            st.session_state.pmcc_dte_max = 450
+            st.session_state.pmcc_delta_min = 0.85
+            st.session_state.pmcc_delta_max = 0.95
+            st.session_state.pmcc_min_oi = 100
+            st.rerun()
+    
+    with preset_col2:
+        if st.button("⚖️ Medium", use_container_width=True, key="pmcc_medium"):
+            st.session_state.pmcc_dte_min = 300
+            st.session_state.pmcc_dte_max = 390
+            st.session_state.pmcc_delta_min = 0.75
+            st.session_state.pmcc_delta_max = 0.85
+            st.session_state.pmcc_min_oi = 50
+            st.rerun()
+    
+    with preset_col3:
+        if st.button("🛡️ Conservative", use_container_width=True, key="pmcc_conservative"):
+            st.session_state.pmcc_dte_min = 270
+            st.session_state.pmcc_dte_max = 330
+            st.session_state.pmcc_delta_min = 0.70
+            st.session_state.pmcc_delta_max = 0.80
+            st.session_state.pmcc_min_oi = 25
+            st.rerun()
+    
+    st.write("")
+    
+    # Scan button
+    if st.button("🔍 Scan for LEAPs", type="primary", use_container_width=True, key="pmcc_scan"):
+        if not watchlist:
+            st.warning("⚠️ Please add tickers to your watchlist first!")
+        else:
+            st.info("🚧 LEAP scanning functionality coming soon! This will scan all watchlist tickers for LEAP opportunities matching your filters.")
+            # TODO: Implement LEAP scanning logic
+    
+    st.divider()
+    
+    # ========================================
+    # SECTION 4: SHORT CALL OPPORTUNITY SCANNER
+    # ========================================
+    st.markdown('<div class="section-header">💰 Sell Calls Against LEAPs</div>', unsafe_allow_html=True)
+    
+    if st.session_state.pmcc_leap_positions:
+        st.markdown("**Select a LEAP position to find short call opportunities:**")
+        
+        # Create dropdown of LEAP positions
+        leap_options = [f"{pos['underlying']} ${pos['strike']:.2f} exp {pos['expiration']}" 
+                       for pos in st.session_state.pmcc_leap_positions]
+        
+        selected_leap_idx = st.selectbox(
+            "Select LEAP Position",
+            range(len(leap_options)),
+            format_func=lambda x: leap_options[x],
+            key="pmcc_selected_leap"
+        )
+        
+        if selected_leap_idx is not None:
+            selected_leap = st.session_state.pmcc_leap_positions[selected_leap_idx]
+            
+            st.write("")
+            st.markdown(f"**Scanning for short calls on {selected_leap['underlying']}...**")
+            
+            # Short call filters
+            col1, col2 = st.columns(2)
+            with col1:
+                short_dte_min = st.number_input("Min DTE", min_value=7, max_value=90, value=30, step=7, key="pmcc_short_dte_min")
+                short_dte_max = st.number_input("Max DTE", min_value=7, max_value=90, value=45, step=7, key="pmcc_short_dte_max")
+            
+            with col2:
+                short_delta_max = st.number_input("Max Delta", min_value=0.1, max_value=0.5, value=0.30, step=0.05, key="pmcc_short_delta_max")
+                min_premium = st.number_input("Min Premium ($)", min_value=0, max_value=1000, value=50, step=10, key="pmcc_min_premium")
+            
+            st.write("")
+            if st.button("🔍 Scan Short Calls", type="primary", use_container_width=True, key="pmcc_scan_short"):
+                st.info("🚧 Short call scanning functionality coming soon! This will find optimal short calls to sell against your LEAP.")
+                # TODO: Implement short call scanning logic
+    else:
+        st.info("📊 No LEAP positions found. Buy a LEAP first, then come back here to sell calls against it!")
+
+'''
 
 
 elif page == "Performance":
