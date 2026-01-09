@@ -66,6 +66,13 @@ def fetch_and_save_cc_premiums(api, lookback_days=365):
         
         print(f"  Found {len(transactions)} transactions")
         
+        # Debug: Show first transaction structure
+        if transactions and len(transactions) > 0:
+            print(f"\n  DEBUG: First transaction structure:")
+            first_txn = transactions[0]
+            for key in ['transaction-type', 'transaction-sub-type', 'action', 'symbol', 'underlying-symbol', 'instrument-type', 'value', 'quantity']:
+                print(f"    {key}: {first_txn.get(key, 'NOT FOUND')}")
+        
         # Process transactions
         for txn in transactions:
             # Look for option trades
@@ -125,11 +132,16 @@ def fetch_and_save_cc_premiums(api, lookback_days=365):
     
     premium_file = '/home/ubuntu/premium_summary.json'
     try:
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(premium_file), exist_ok=True)
+        
         with open(premium_file, 'w') as f:
             json.dump(premium_data, f, indent=2)
         print(f"\n✅ Saved premium data to {premium_file}")
     except Exception as e:
         print(f"\n❌ Error saving premium data: {e}")
+        import traceback
+        traceback.print_exc()
         return None
     
     return premium_data
