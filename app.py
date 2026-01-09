@@ -1686,6 +1686,7 @@ elif page == "CC Dashboard":
                                             # Auto-fetch positions to update available contracts
                                             st.info("🔄 Refreshing positions to update available contracts...")
                                             try:
+                                                import time
                                                 from utils.covered_calls import get_eligible_stock_positions
                                                 eligible_holdings, breakdown = get_eligible_stock_positions(api, account_number)
                                                 st.session_state.cc_eligible_holdings = eligible_holdings
