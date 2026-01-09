@@ -1676,10 +1676,16 @@ elif page == "CC Dashboard":
                                             if success_count == len(results):
                                                 st.balloons()
                                             
-                                            # Clear scan results to force re-fetch before next submission
-                                            st.session_state.cc_opportunities = []
-                                            st.session_state.cc_eligible_holdings = []
-                                            st.warning("⚠️ Scan results cleared. Please re-fetch positions before submitting more orders to ensure accurate available contracts.")
+                                            # Auto-fetch positions to update available contracts
+                                            st.info("🔄 Refreshing positions to update available contracts...")
+                                            try:
+                                                from utils.covered_calls import get_eligible_stock_positions
+                                                eligible_holdings, breakdown = get_eligible_stock_positions(api, account_number)
+                                                st.session_state.cc_eligible_holdings = eligible_holdings
+                                                st.session_state.cc_breakdown = breakdown
+                                                st.success(f"✅ Positions refreshed! {len(eligible_holdings)} eligible holdings found.")
+                                            except Exception as e:
+                                                st.warning(f"⚠️ Could not auto-refresh positions: {str(e)}. Please manually refresh if needed.")
                                         
                                         if fail_count > 0:
                                             st.error(f"❌ {fail_count} order(s) failed")
