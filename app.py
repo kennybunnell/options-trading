@@ -1619,7 +1619,7 @@ elif page == "CC Dashboard":
                         st.caption(f"This will simulate {int(total_contracts)} covered call order(s) without submitting to Tastytrade.")
                     else:
                         st.write("📤 **Ready to submit REAL orders to Tastytrade?**")
-                        st.caption(f"This will submit {int(total_contracts)} covered call order(s) as limit orders at the current bid price.")
+                        st.caption(f"This will submit {int(total_contracts)} covered call order(s) as limit orders at the mid price (between bid/ask).")
                 with col2:
                     button_label = "🧪 Run Dry Run Test" if dry_run else "🚀 Submit REAL Orders"
                     if st.button(button_label, type="primary", use_container_width=True, key="submit_cc_orders"):
@@ -1658,7 +1658,7 @@ elif page == "CC Dashboard":
                                                 'strike': row['strike'],
                                                 'expiration': row['expiration'],
                                                 'quantity': int(row['Qty']),
-                                                'price': row['premium']  # Use current bid as limit price
+                                                'price': row['premium'] / 100  # Convert from per-contract ($) to per-share price
                                             })
                                         
                                         # Submit batch
