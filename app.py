@@ -1658,7 +1658,7 @@ elif page == "CC Dashboard":
                                                 'strike': row['strike'],
                                                 'expiration': row['expiration'],
                                                 'quantity': int(row['Qty']),
-                                                'price': row['premium'] / 100  # Convert from per-contract ($) to per-share price
+                                                'price': round(row['premium'] / 100, 2)  # Convert to per-share and round to $0.01
                                             })
                                         
                                         # Submit batch
