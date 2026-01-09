@@ -1777,10 +1777,9 @@ elif page == "Performance":
         except Exception as e:
             st.error(f"Error loading performance metrics: {str(e)}")
     
-    # Monthly Premium Summary
+    # Monthly Premium Summary (ALL ACCOUNTS - not filtered by dropdown)
     from utils.monthly_premium import render_monthly_premium_summary
-    if selected_account:
-        render_monthly_premium_summary(api, selected_account)
+    render_monthly_premium_summary(api, all_accounts=True)
     
     from utils.performance_dashboard import (
         render_active_positions,
