@@ -24,6 +24,15 @@ if 'api' not in st.session_state:
 
 api = st.session_state.api
 
+# Initialize accounts at the top so they are available for the sidebar
+if 'accounts' not in st.session_state:
+    try:
+        accounts_data = api.get_accounts()
+        if accounts_data:
+            st.session_state.accounts = accounts_data
+    except:
+        st.session_state.accounts = []
+
 # Initialize splash screen state
 if 'splash_shown' not in st.session_state:
     st.session_state.splash_shown = False
@@ -341,9 +350,12 @@ with st.sidebar:
     page = st.session_state.nav_page
     
     # Quick Stats Panel
-    if selected_account and 'accounts' in st.session_state:
+    if selected_account:
         # Aggregate all stats across all accounts
-        all_account_numbers = [acc['account-number'] for acc in st.session_state.accounts]
+        if 'accounts' in st.session_state and st.session_state.accounts:
+            all_account_numbers = [acc['account-number'] for acc in st.session_state.accounts]
+        else:
+            all_account_numbers = [selected_account]
         
         # Total positions count
         total_positions = 0
