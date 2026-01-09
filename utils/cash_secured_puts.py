@@ -7,12 +7,18 @@ def get_existing_csp_positions(api, account_number):
     """
     Fetch existing short put positions (cash-secured puts)
     
+    Args:
+        api: TastytradeAPI instance for position data
+        account_number: Account number to fetch positions from
+    
     Returns:
         Dict: {
             'short_puts': {symbol: contracts_sold},
             'short_put_details': [list of position details]
         }
     """
+    from utils.tradier_api import TradierAPI
+    tradier = TradierAPI()
     try:
         all_positions = api.get_positions(account_number)
         
@@ -76,13 +82,28 @@ def get_existing_csp_positions(api, account_number):
                         except:
                             premium_collected = 0
                         
-                        # Get current option price to calculate P/L
+                        # Get current option price to calculate P/L using Tradier API
                         try:
-                            option_symbol = position.get('symbol', '')
-                            option_quote = api.get_quote(option_symbol) if option_symbol else None
-                            current_value = float(option_quote.get('last', 0)) if option_quote else 0
-                            current_value_total = current_value * abs(quantity) * 100
-                        except:
+                            option_symbol = position.get('symbol', '').strip()
+                            if option_symbol:
+                                # Use Tradier API for option quotes (better option market data)
+                                option_quote = tradier.get_option_quote(option_symbol)
+                                if option_quote:
+                                    # Try 'last' first, fallback to 'bid' if last is 0
+                                    current_value = float(option_quote.get('last', 0))
+                                    if current_value == 0:
+                                        current_value = float(option_quote.get('bid', 0))
+                                    current_value_total = current_value * abs(quantity) * 100
+                                    print(f"  ✅ Got quote for {underlying}: last=${current_value:.2f}, total=${current_value_total:.2f}")
+                                else:
+                                    current_value = 0
+                                    current_value_total = 0
+                                    print(f"  ⚠️ No quote data returned for {option_symbol}")
+                            else:
+                                current_value = 0
+                                current_value_total = 0
+                        except Exception as e:
+                            print(f"  ⚠️ Error getting quote for {option_symbol}: {str(e)}")
                             current_value = 0
                             current_value_total = 0
                         
