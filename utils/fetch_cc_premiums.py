@@ -8,12 +8,14 @@ from collections import defaultdict
 
 
 def parse_option_symbol(symbol: str):
-    """Parse OCC option symbol to extract underlying"""
+    """Parse OCC option symbol to extract underlying and option type"""
     try:
         clean_symbol = symbol.replace(' ', '')
         match = re.match(r'([A-Z]+)(\d{6})([CP])(\d+)', clean_symbol)
         if match:
-            return match.group(1)  # Return underlying symbol
+            underlying = match.group(1)
+            option_type = 'CALL' if match.group(3) == 'C' else 'PUT'
+            return {'underlying': underlying, 'option_type': option_type}
     except:
         pass
     return None
@@ -83,17 +85,19 @@ def fetch_and_save_cc_premiums(api, lookback_days=365):
             if txn_type == 'Trade' and txn_sub_type == 'Sell to Open':
                 # Get transaction details
                 symbol = txn.get('symbol', '')
-                underlying = txn.get('underlying-symbol', '')
+                instrument_type = txn.get('instrument-type', '')
                 
-                # Parse underlying from option symbol if not provided
-                if not underlying and symbol:
-                    underlying = parse_option_symbol(symbol)
-                
-                if not underlying:
+                # Only process Equity Options
+                if instrument_type != 'Equity Option':
                     continue
                 
-                # Get option type (PUT or CALL)
-                option_type = txn.get('option-type', '').upper()
+                # Parse option symbol to get underlying and type
+                parsed = parse_option_symbol(symbol)
+                if not parsed:
+                    continue
+                
+                underlying = parsed['underlying']
+                option_type = parsed['option_type']
                 
                 # Get premium (value should be positive for credit received)
                 value = float(txn.get('value', 0))
@@ -130,11 +134,9 @@ def fetch_and_save_cc_premiums(api, lookback_days=365):
         'lookback_days': lookback_days
     }
     
-    premium_file = '/home/ubuntu/premium_summary.json'
+    # Use current working directory for Codespace compatibility
+    premium_file = 'premium_summary.json'
     try:
-        # Ensure directory exists
-        os.makedirs(os.path.dirname(premium_file), exist_ok=True)
-        
         with open(premium_file, 'w') as f:
             json.dump(premium_data, f, indent=2)
         print(f"\n✅ Saved premium data to {premium_file}")

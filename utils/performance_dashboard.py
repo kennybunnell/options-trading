@@ -87,7 +87,7 @@ def get_recommendation(premium_realized: float, dte: int) -> str:
 
 def load_premium_data() -> Dict:
     """Load premium data from saved JSON"""
-    premium_file = '/home/ubuntu/premium_summary.json'
+    premium_file = 'premium_summary.json'
     if os.path.exists(premium_file):
         try:
             with open(premium_file, 'r') as f:
