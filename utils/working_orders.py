@@ -229,8 +229,8 @@ def render_working_orders_monitor(api, account_number, order_type='all'):
                             st.warning(f"⚠️ {failed_count} order(s) failed to cancel")
             
             with col2:
-                if st.button("🔄 Cancel & Resubmit @ Mid", type="primary", use_container_width=True, key=f"resubmit_orders_{order_type}"):
-                    with st.spinner("Canceling and resubmitting orders at midpoint..."):
+                if st.button("🔄 Cancel & Resubmit @ Bid", type="primary", use_container_width=True, key=f"resubmit_orders_{order_type}"):
+                    with st.spinner("Canceling and resubmitting orders at bid price..."):
                         success_count = 0
                         failed_count = 0
                         
@@ -256,18 +256,18 @@ def render_working_orders_monitor(api, account_number, order_type='all'):
                                 
                                 bid = float(quote['bid'])
                                 ask = float(quote['ask'])
-                                mid_price = round((bid + ask) / 2, 2)
+                                bid_price = round(bid, 2)
                                 
-                                st.info(f"📊 {row['Symbol']}: Bid=${bid:.2f}, Ask=${ask:.2f}, Mid=${mid_price:.2f}")
+                                st.info(f"📊 {row['Symbol']}: Bid=${bid:.2f}, Ask=${ask:.2f}, Resubmitting @ ${bid_price:.2f}")
                                 
-                                # Step 3: Resubmit at midpoint
+                                # Step 3: Resubmit at bid price
                                 if row['Type'] == 'PUT':
                                     # CSP order
                                     result = api.submit_csp_order(
                                         account_number=account_number,
                                         symbol=full_symbol,
                                         quantity=int(row['Qty']),
-                                        price=mid_price
+                                        price=bid_price
                                     )
                                 else:
                                     # CC order
@@ -275,12 +275,12 @@ def render_working_orders_monitor(api, account_number, order_type='all'):
                                         account_number=account_number,
                                         symbol=full_symbol,
                                         quantity=int(row['Qty']),
-                                        price=mid_price
+                                        price=bid_price
                                     )
                                 
                                 if result.get('success'):
                                     success_count += 1
-                                    st.success(f"✅ Resubmitted: {row['Symbol']} @ ${mid_price:.2f}")
+                                    st.success(f"✅ Resubmitted: {row['Symbol']} @ ${bid_price:.2f}")
                                 else:
                                     failed_count += 1
                                     st.error(f"❌ Failed to resubmit {row['Symbol']}: {result.get('message', 'Unknown error')}")
