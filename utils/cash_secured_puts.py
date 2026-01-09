@@ -16,9 +16,11 @@ def get_existing_csp_positions(api, account_number):
             'short_puts': {symbol: contracts_sold},
             'short_put_details': [list of position details]
         }
+    
+    Note:
+        All data comes from Tastytrade API (positions, cost basis, current value).
+        Does NOT use Tradier API for quotes.
     """
-    from utils.tradier_api import TradierAPI
-    tradier = TradierAPI()
     try:
         all_positions = api.get_positions(account_number)
         
@@ -52,6 +54,13 @@ def get_existing_csp_positions(api, account_number):
                         elif type_char == 'C':
                             option_type = 'call'
                 
+                # DEBUG: Print all available fields in position (only for first put found)
+                if option_type == 'put' and len(short_put_details) == 0:
+                    print(f"\n=== DEBUG: All available fields in Tastytrade position ===")
+                    for key, value in position.items():
+                        print(f"  {key}: {value}")
+                    print(f"=== END DEBUG ===")
+                
                 print(f"Found option: {symbol}, Type: {option_type}, Qty: {quantity}, Underlying: {underlying}")
                 
                 # Check if it's a short put
@@ -82,29 +91,24 @@ def get_existing_csp_positions(api, account_number):
                         except:
                             premium_collected = 0
                         
-                        # Get current option price to calculate P/L using Tradier API
+                        # Get current market value from Tastytrade position data
+                        # Tastytrade provides the current value in the position object
                         try:
-                            option_symbol = position.get('symbol', '').strip()
-                            if option_symbol:
-                                # Use Tradier API for option quotes (better option market data)
-                                option_quote = tradier.get_option_quote(option_symbol)
-                                if option_quote:
-                                    # Try 'last' first, fallback to 'bid' if last is 0
-                                    current_value = float(option_quote.get('last', 0))
-                                    if current_value == 0:
-                                        current_value = float(option_quote.get('bid', 0))
-                                    current_value_total = current_value * abs(quantity) * 100
-                                    print(f"  ✅ Got quote for {underlying}: last=${current_value:.2f}, total=${current_value_total:.2f}")
-                                else:
-                                    current_value = 0
-                                    current_value_total = 0
-                                    print(f"  ⚠️ No quote data returned for {option_symbol}")
-                            else:
-                                current_value = 0
-                                current_value_total = 0
+                            # Try different possible field names for current price
+                            current_price_per_contract = (
+                                float(position.get('mark', 0)) or
+                                float(position.get('mark-price', 0)) or
+                                float(position.get('close-price', 0)) or
+                                float(position.get('last-price', 0)) or
+                                0
+                            )
+                            
+                            # Total current value = price per share * contracts * 100 shares per contract
+                            current_value_total = current_price_per_contract * abs(quantity) * 100
+                            
+                            print(f"  ✅ Got value from Tastytrade for {underlying}: ${current_price_per_contract:.2f}/contract, total=${current_value_total:.2f}")
                         except Exception as e:
-                            print(f"  ⚠️ Error getting quote for {option_symbol}: {str(e)}")
-                            current_value = 0
+                            print(f"  ⚠️ Error getting value from position data: {str(e)}")
                             current_value_total = 0
                         
                         # Calculate P/L and % recognized
