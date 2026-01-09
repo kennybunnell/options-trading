@@ -341,7 +341,7 @@ with st.sidebar:
     page = st.session_state.nav_page
     
     # Quick Stats Panel
-    if selected_account:
+    if selected_account and 'accounts' in st.session_state:
         # Aggregate all stats across all accounts
         all_account_numbers = [acc['account-number'] for acc in st.session_state.accounts]
         
