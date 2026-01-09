@@ -1675,6 +1675,12 @@ elif page == "CC Dashboard":
                                             st.success(f"✅ {success_count} order(s) submitted successfully!")
                                             if success_count == len(results):
                                                 st.balloons()
+                                            
+                                            # Clear scan results to force re-fetch before next submission
+                                            st.session_state.cc_opportunities = []
+                                            st.session_state.cc_eligible_holdings = []
+                                            st.warning("⚠️ Scan results cleared. Please re-fetch positions before submitting more orders to ensure accurate available contracts.")
+                                        
                                         if fail_count > 0:
                                             st.error(f"❌ {fail_count} order(s) failed")
                                         
