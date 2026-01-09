@@ -832,12 +832,22 @@ def render_stock_basis(api=None):
         st.session_state.stock_basis_cache = None
         st.session_state.stock_basis_last_updated = None
     
-    # Refresh button
-    col1, col2 = st.columns([1, 4])
+    # Refresh buttons
+    col1, col2, col3 = st.columns([1, 1, 3])
     with col1:
         if st.button("🔄 Refresh Data", type="primary", key="refresh_stock_basis"):
             st.session_state.stock_basis_cache = None
             st.rerun()
+    with col2:
+        if st.button("💰 Fetch Premium Data", key="fetch_premium_data"):
+            with st.spinner("Fetching CC premiums from transaction history..."):
+                from utils.fetch_cc_premiums import fetch_and_save_cc_premiums
+                result = fetch_and_save_cc_premiums(api, lookback_days=365)
+                if result:
+                    st.success(f"✅ Fetched ${result['total_cc']:,.2f} in CC premiums from {len(result['cc_premiums'])} symbols")
+                    st.rerun()
+                else:
+                    st.error("❌ Failed to fetch premium data")
     
     # Fetch positions
     if st.session_state.stock_basis_cache is None:

@@ -621,3 +621,46 @@ class TastytradeAPI:
             import traceback
             traceback.print_exc()
             return False
+
+    def get_transactions(self, account_number, start_date=None, end_date=None):
+        """
+        Get transaction history for an account
+        
+        Args:
+            account_number: Account number
+            start_date: Start date in YYYY-MM-DD format (optional, defaults to 1 year ago)
+            end_date: End date in YYYY-MM-DD format (optional, defaults to today)
+            
+        Returns:
+            List of transactions
+        """
+        try:
+            from datetime import datetime, timedelta
+            
+            # Default to last year if not specified
+            if not start_date:
+                start_date = (datetime.now() - timedelta(days=365)).strftime('%Y-%m-%d')
+            if not end_date:
+                end_date = datetime.now().strftime('%Y-%m-%d')
+            
+            url = f'{self.base_url}/accounts/{account_number}/transactions'
+            params = {
+                'start-date': start_date,
+                'end-date': end_date
+            }
+            
+            response = requests.get(url, headers=self._get_headers(), params=params)
+            
+            if response.status_code == 200:
+                data = response.json()
+                return data.get('data', {}).get('items', [])
+            else:
+                print(f"Error fetching transactions: {response.status_code}")
+                print(f"Response: {response.text[:200]}")
+                return []
+                
+        except Exception as e:
+            print(f"Exception in get_transactions: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return []
