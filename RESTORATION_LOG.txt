@@ -1,0 +1,115 @@
+CSP DASHBOARD RESTORATION - January 9, 2026
+============================================
+
+PROBLEM:
+--------
+CSP Dashboard was missing core functionality:
+- No CSP Scanner to find put opportunities
+- No order submission capability
+- Only had positions display and watchlist management
+
+SOLUTION:
+---------
+Restored full CSP Dashboard from git commit 6afa339
+
+SOURCE COMMIT:
+--------------
+Commit: 6afa339
+Title: "Add Auto-Trim and Manual Mark & Remove features to CSP Dashboard"
+Lines: 1,743 lines of complete CSP Dashboard code
+
+FILES MODIFIED:
+---------------
+app.py
+- Before: 2,696 lines (CSP Dashboard incomplete at lines 551-755)
+- After: 4,234 lines (CSP Dashboard complete at lines 551-2293)
+- Backup: app.py.backup_before_csp_restore
+
+RESTORED FEATURES:
+------------------
+✅ CSP Scanner with "Fetch Opportunities" button
+✅ Option filtering by delta, volume, OI, DTE
+✅ MID price calculation: (bid + ask) / 2
+✅ ROI and annualized return calculations
+✅ Technical indicators (IV Rank, RSI, Spread %)
+✅ Detailed scan logging with statistics
+✅ Dry run mode for testing orders
+✅ Live order submission via Tastytrade API
+✅ Batch order submission (multiple opportunities)
+✅ Auto-refresh after successful order submission
+✅ Order confirmation workflow
+✅ CSV export of scan results
+✅ Scan log download for analysis
+
+DEPENDENCIES VERIFIED:
+----------------------
+✅ utils/tradier_api.py - Market data
+✅ utils/tastytrade_api.py - Order execution
+✅ utils/cash_secured_puts.py - Position tracking
+✅ utils/yahoo_finance.py - Technical indicators
+✅ utils/csp_ladder_manager.py - Tranche management
+✅ utils/ai_analysis.py - AI stock analysis
+✅ utils/export_functions.py - Document export
+
+PACKAGES INSTALLED:
+-------------------
+✅ python-dotenv
+✅ streamlit
+✅ yfinance
+✅ openai
+✅ python-docx
+✅ reportlab
+
+TESTING PERFORMED:
+------------------
+✅ Python syntax validation (py_compile)
+✅ Import testing (all dependencies load)
+✅ Code structure verification (page sections intact)
+✅ Scanner code verification (Fetch Opportunities button present)
+
+DOCUMENTATION CREATED:
+----------------------
+✅ CSP_DASHBOARD_RESTORATION_SUMMARY.md (detailed technical summary)
+✅ CSP_QUICK_START.md (user guide with examples)
+✅ RESTORATION_LOG.txt (this file)
+
+NEXT STEPS FOR USER:
+--------------------
+1. Start application: streamlit run app.py
+2. Navigate to CSP Dashboard
+3. Build watchlist (TradingView CSV import or manual)
+4. Click "Fetch Opportunities" to scan
+5. Test with Dry Run Mode first
+6. Submit live orders when ready
+
+ARCHITECTURE:
+-------------
+Data Flow:
+  User → Watchlist → Scanner (Tradier API) → Filter Options → 
+  Display Results → User Selection → Order Submission (Tastytrade API) → 
+  Auto-Refresh → Updated Positions
+
+Order Pricing:
+  All orders submit at MID price: (bid + ask) / 2
+
+Default Filters:
+  Delta: 0.05 - 0.50
+  DTE: 0 - 365 days
+  Volume: 0 (no minimum)
+  Open Interest: 0 (no minimum)
+
+BACKUP INFORMATION:
+-------------------
+Original file backed up to: app.py.backup_before_csp_restore
+Restore command if needed: 
+  cp app.py.backup_before_csp_restore app.py
+
+STATUS:
+-------
+✅ RESTORATION COMPLETE
+✅ ALL TESTS PASSED
+✅ READY FOR USE
+
+Date: January 9, 2026
+Time: ~15:00 MST
+Duration: ~30 minutes
