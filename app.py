@@ -2053,13 +2053,110 @@ elif page == "PMCC Dashboard":
     
     st.write("")
     
+    # Initialize session state for scan results
+    if 'pmcc_leap_scan_results' not in st.session_state:
+        st.session_state.pmcc_leap_scan_results = []
+    
     # Scan button
     if st.button("🔍 Scan for LEAPs", type="primary", use_container_width=True, key="pmcc_scan"):
         if not watchlist:
             st.warning("⚠️ Please add tickers to your watchlist first!")
         else:
-            st.info("🚧 LEAP scanning functionality coming soon! This will scan all watchlist tickers for LEAP opportunities matching your filters.")
-            # TODO: Implement LEAP scanning logic
+            try:
+                with st.status("Scanning for LEAP opportunities...", expanded=True) as status:
+                    from utils.pmcc_scanner import scan_leap_options
+                    from utils.tradier_api import TradierAPI
+                    
+                    tradier = TradierAPI()
+                    
+                    st.write(f"🔍 Scanning {len(watchlist)} symbols...")
+                    st.write(f"🎯 Filters: DTE {dte_min}-{dte_max}, Delta {delta_min:.2f}-{delta_max:.2f}, Min OI {min_oi}")
+                    
+                    # Scan for LEAPs
+                    results = scan_leap_options(
+                        tradier,
+                        watchlist,
+                        dte_min=dte_min,
+                        dte_max=dte_max,
+                        delta_min=delta_min,
+                        delta_max=delta_max,
+                        min_oi=min_oi
+                    )
+                    
+                    st.session_state.pmcc_leap_scan_results = results
+                    
+                    status.update(label=f"✅ Found {len(results)} LEAP opportunities!", state="complete")
+                    st.rerun()
+                    
+            except Exception as e:
+                st.error(f"Error scanning for LEAPs: {str(e)}")
+                import traceback
+                st.error(traceback.format_exc())
+    
+    # Display scan results
+    if st.session_state.pmcc_leap_scan_results:
+        st.write("")
+        st.markdown(f"### 📊 LEAP Scan Results ({len(st.session_state.pmcc_leap_scan_results)} opportunities)")
+        
+        results_df = pd.DataFrame(st.session_state.pmcc_leap_scan_results)
+        
+        # Format for display
+        display_df = results_df[[
+            'symbol', 'underlying_price', 'strike', 'expiration', 'dte',
+            'delta', 'price', 'cost_per_contract', 'open_interest', 'volume'
+        ]].copy()
+        
+        display_df.columns = [
+            'Symbol', 'Stock Price', 'Strike', 'Expiration', 'DTE',
+            'Delta', 'Premium', 'Cost/Contract', 'Open Int', 'Volume'
+        ]
+        
+        # Format columns
+        display_df['Stock Price'] = display_df['Stock Price'].apply(lambda x: f"${x:.2f}")
+        display_df['Strike'] = display_df['Strike'].apply(lambda x: f"${x:.2f}")
+        display_df['Delta'] = display_df['Delta'].apply(lambda x: f"{x:.3f}")
+        display_df['Premium'] = display_df['Premium'].apply(lambda x: f"${x:.2f}")
+        display_df['Cost/Contract'] = display_df['Cost/Contract'].apply(lambda x: f"${x:,.0f}")
+        
+        st.dataframe(display_df, use_container_width=True, hide_index=True)
+        
+        # Add action buttons for each LEAP
+        st.write("")
+        st.markdown("**Select a LEAP to purchase:**")
+        
+        # Create selection dropdown
+        leap_options = [f"{r['symbol']} ${r['strike']:.2f} exp {r['expiration']} (${r['cost_per_contract']:,.0f})" 
+                       for r in st.session_state.pmcc_leap_scan_results]
+        
+        selected_leap_idx = st.selectbox(
+            "Choose LEAP",
+            range(len(leap_options)),
+            format_func=lambda x: leap_options[x],
+            key="pmcc_selected_leap_to_buy"
+        )
+        
+        if selected_leap_idx is not None:
+            selected_leap = st.session_state.pmcc_leap_scan_results[selected_leap_idx]
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                num_contracts = st.number_input(
+                    "Number of Contracts",
+                    min_value=1,
+                    max_value=10,
+                    value=1,
+                    step=1,
+                    key="pmcc_num_contracts"
+                )
+            
+            with col2:
+                total_cost = selected_leap['cost_per_contract'] * num_contracts
+                st.metric("Total Cost", f"${total_cost:,.0f}")
+            
+            st.write("")
+            if st.button("💰 Buy LEAP (Submit Order)", type="primary", use_container_width=True, key="pmcc_buy_leap"):
+                st.info("🚧 Order submission functionality coming next! This will submit a buy-to-open order via Tastytrade API.")
+                # TODO: Implement order submission via Tastytrade API
     
     st.divider()
     
@@ -2098,10 +2195,116 @@ elif page == "PMCC Dashboard":
                 short_delta_max = st.number_input("Max Delta", min_value=0.1, max_value=0.5, value=0.30, step=0.05, key="pmcc_short_delta_max")
                 min_premium = st.number_input("Min Premium ($)", min_value=0, max_value=1000, value=50, step=10, key="pmcc_min_premium")
             
+            # Initialize session state for short call scan results
+            if 'pmcc_short_call_scan_results' not in st.session_state:
+                st.session_state.pmcc_short_call_scan_results = []
+            
             st.write("")
             if st.button("🔍 Scan Short Calls", type="primary", use_container_width=True, key="pmcc_scan_short"):
-                st.info("🚧 Short call scanning functionality coming soon! This will find optimal short calls to sell against your LEAP.")
-                # TODO: Implement short call scanning logic
+                try:
+                    with st.status("Scanning for short call opportunities...", expanded=True) as status:
+                        from utils.pmcc_scanner import scan_short_call_opportunities
+                        from utils.tradier_api import TradierAPI
+                        
+                        tradier = TradierAPI()
+                        
+                        st.write(f"🔍 Scanning {selected_leap['underlying']}...")
+                        st.write(f"🎯 Filters: DTE {short_dte_min}-{short_dte_max}, Max Delta {short_delta_max:.2f}, Min Premium ${min_premium}")
+                        st.write(f"⚠️ Strike must be above LEAP strike ${selected_leap['strike']:.2f}")
+                        
+                        # Scan for short calls
+                        results = scan_short_call_opportunities(
+                            tradier,
+                            selected_leap['underlying'],
+                            selected_leap['strike'],
+                            dte_min=short_dte_min,
+                            dte_max=short_dte_max,
+                            delta_max=short_delta_max,
+                            min_premium=min_premium
+                        )
+                        
+                        st.session_state.pmcc_short_call_scan_results = results
+                        
+                        status.update(label=f"✅ Found {len(results)} short call opportunities!", state="complete")
+                        st.rerun()
+                        
+                except Exception as e:
+                    st.error(f"Error scanning for short calls: {str(e)}")
+                    import traceback
+                    st.error(traceback.format_exc())
+            
+            # Display short call scan results
+            if st.session_state.pmcc_short_call_scan_results:
+                st.write("")
+                st.markdown(f"### 📊 Short Call Opportunities ({len(st.session_state.pmcc_short_call_scan_results)} found)")
+                
+                results_df = pd.DataFrame(st.session_state.pmcc_short_call_scan_results)
+                
+                # Format for display
+                display_df = results_df[[
+                    'strike', 'expiration', 'dte', 'delta',
+                    'premium_per_contract', 'distance_from_price_pct', 'distance_from_leap',
+                    'open_interest', 'volume'
+                ]].copy()
+                
+                display_df.columns = [
+                    'Strike', 'Expiration', 'DTE', 'Delta',
+                    'Premium', 'Distance %', 'Above LEAP',
+                    'Open Int', 'Volume'
+                ]
+                
+                # Format columns
+                display_df['Strike'] = display_df['Strike'].apply(lambda x: f"${x:.2f}")
+                display_df['Delta'] = display_df['Delta'].apply(lambda x: f"{x:.3f}")
+                display_df['Premium'] = display_df['Premium'].apply(lambda x: f"${x:.0f}")
+                display_df['Distance %'] = display_df['Distance %'].apply(lambda x: f"{x:.1f}%")
+                display_df['Above LEAP'] = display_df['Above LEAP'].apply(lambda x: f"${x:.2f}")
+                
+                st.dataframe(display_df, use_container_width=True, hide_index=True)
+                
+                # Add action to sell short call
+                st.write("")
+                st.markdown("**Select a short call to sell:**")
+                
+                # Create selection dropdown
+                short_call_options = [f"${r['strike']:.2f} exp {r['expiration']} (${r['premium_per_contract']:.0f} premium)" 
+                                     for r in st.session_state.pmcc_short_call_scan_results]
+                
+                selected_short_idx = st.selectbox(
+                    "Choose Short Call",
+                    range(len(short_call_options)),
+                    format_func=lambda x: short_call_options[x],
+                    key="pmcc_selected_short_to_sell"
+                )
+                
+                if selected_short_idx is not None:
+                    selected_short = st.session_state.pmcc_short_call_scan_results[selected_short_idx]
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        num_short_contracts = st.number_input(
+                            "Number of Contracts",
+                            min_value=1,
+                            max_value=selected_leap['quantity'],
+                            value=1,
+                            step=1,
+                            key="pmcc_num_short_contracts",
+                            help=f"Max {selected_leap['quantity']} (limited by LEAP position)"
+                        )
+                    
+                    with col2:
+                        total_premium = selected_short['premium_per_contract'] * num_short_contracts
+                        st.metric("Total Premium", f"${total_premium:,.0f}")
+                    
+                    # Calculate ROI if this short call is sold
+                    from utils.pmcc_scanner import calculate_pmcc_roi
+                    current_roi = calculate_pmcc_roi(selected_leap['cost_basis'], total_premium)
+                    
+                    st.info(f"📊 This trade would contribute **{current_roi:.1f}% ROI** on your LEAP cost basis")
+                    
+                    st.write("")
+                    if st.button("💰 Sell Short Call (Submit Order)", type="primary", use_container_width=True, key="pmcc_sell_short"):
+                        st.info("🚧 Order submission functionality coming next! This will submit a sell-to-open order via Tastytrade API.")
     else:
         st.info("📊 No LEAP positions found. Buy a LEAP first, then come back here to sell calls against it!")
 
