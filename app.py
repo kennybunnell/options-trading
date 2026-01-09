@@ -1658,7 +1658,7 @@ elif page == "CC Dashboard":
                                                 'strike': row['strike'],
                                                 'expiration': row['expiration'],
                                                 'quantity': int(row['Qty']),
-                                                'price': round(row['premium'] / 100, 2)  # Convert to per-share and round to $0.01
+                                                'price': round(row['bid'], 2)  # Use bid price for reliable fills
                                             })
                                         
                                         # Submit batch
