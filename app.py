@@ -350,10 +350,11 @@ with st.sidebar:
         orders = api.get_live_orders(selected_account)
         orders_count = len([o for o in orders if o.get('status') == 'Live']) if orders else 0
         
-        # Get real weekly and monthly premium
+        # Get real weekly and monthly premium (aggregated across all accounts)
         from utils.sidebar_stats import get_weekly_premium, get_monthly_premium, get_win_rate
-        weekly_premium = get_weekly_premium(api, selected_account)
-        monthly_premium = get_monthly_premium(api, selected_account)
+        all_account_numbers = [acc['account-number'] for acc in st.session_state.accounts]
+        weekly_premium = get_weekly_premium(api, all_account_numbers)
+        monthly_premium = get_monthly_premium(api, all_account_numbers)
         win_rate = get_win_rate(api, selected_account)
         
         w_premium_class = "stat-positive" if weekly_premium >= 0 else "stat-negative"
