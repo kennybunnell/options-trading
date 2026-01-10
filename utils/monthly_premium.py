@@ -123,12 +123,18 @@ def get_live_monthly_premium_data(api, account_number: str, months: int = 6) -> 
                 monthly_data[month_key]['cc_debits'] += abs(value)
 
     
-    # Generate list of last N months
-    current_date = datetime.now()
+    # Generate list of last N months using proper calendar math
+    now = datetime.now()
     month_list = []
+    
     for i in range(months - 1, -1, -1):
-        target_date = current_date - timedelta(days=i * 31)
-        month_key = (target_date.month, target_date.year)
+        # Calculate the year and month correctly
+        m = now.month - i
+        y = now.year
+        while m <= 0:
+            m += 12
+            y -= 1
+        month_key = (m, y)
         month_list.append(month_key)
     
     # Build result list
@@ -139,7 +145,7 @@ def get_live_monthly_premium_data(api, account_number: str, months: int = 6) -> 
         csp_net = data['csp_credits'] - data['csp_debits']
         cc_net = data['cc_credits'] - data['cc_debits']
         total_net = csp_net + cc_net
-        is_current = (month == current_date.month and year == current_date.year)
+        is_current = (month == now.month and year == now.year)
         month_name = datetime(year, month, 1).strftime('%b %Y')
         
         results.append({
