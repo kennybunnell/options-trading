@@ -158,8 +158,7 @@ def get_live_monthly_premium_data(api, account_number: str, months: int = 6) -> 
         })
     return results
 
-@st.cache_data(ttl=3600)
-def get_monthly_premium_data(_api, account_number: str, months: int = 6, force_refresh: bool = False) -> List[Dict]:
+def get_monthly_premium_data(api, account_number: str, months: int = 6) -> List[Dict]:
     """
     Get monthly premium data for the last N months
     
@@ -381,7 +380,7 @@ def render_monthly_premium_summary(api, account_number: str = None, all_accounts
             account_num = account.get('account', {}).get('account-number')
             if account_num:
                 # Get the raw 6-month data for this account
-                account_months = get_monthly_premium_data(api, account_num, months=6, force_refresh=True)
+                account_months = get_monthly_premium_data(api, account_num, months=6)
                 for month_data in account_months:
                     # Use the month_year tuple (month, year) as the unique key for aggregation
                     # This prevents December data from being mixed into January
@@ -453,7 +452,7 @@ def render_monthly_premium_summary(api, account_number: str = None, all_accounts
             print(f"DEBUG DASHBOARD FINAL: {month_name} | is_current={is_current} | total={total_net}")
             prev_net = total_net
     else:
-        months_data = get_monthly_premium_data(api, account_number, months=6, force_refresh=True)
+        months_data = get_monthly_premium_data(api, account_number, months=6)
     
     if not months_data:
         st.warning("⚠️ No premium data available. Please upload your activity file in the 'Import Data' tab.")
