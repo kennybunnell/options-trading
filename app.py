@@ -4265,9 +4265,39 @@ elif page == "Performance":
         render_performance_overview,
         render_positions_view
     )
+    from utils.projections import render_projections_tab
+    
+    # Get all account numbers for projections
+    all_account_numbers_perf = []
+    try:
+        accounts_list_perf = api.get_accounts()
+        if accounts_list_perf:
+            for acc in accounts_list_perf:
+                if isinstance(acc, dict):
+                    if 'account' in acc and isinstance(acc['account'], dict):
+                        acc_num = acc['account'].get('account-number')
+                    else:
+                        acc_num = acc.get('account-number') or acc.get('account_number')
+                    if acc_num:
+                        all_account_numbers_perf.append(acc_num)
+    except:
+        pass
+    if not all_account_numbers_perf and selected_account:
+        all_account_numbers_perf = [selected_account]
+    
+    # Get portfolio value for projections
+    portfolio_value_perf = 0
+    for acc_num in all_account_numbers_perf:
+        try:
+            balances = api.get_account_balances(acc_num)
+            if balances:
+                nlv = float(balances.get('net-liquidating-value', 0) or 0)
+                portfolio_value_perf += nlv
+        except:
+            pass
     
     # Create tabs
-    tab1, tab2, tab3, tab4 = st.tabs(["Positions", "Active Positions", "Stock Basis & Returns", "Performance Overview"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Positions", "Active Positions", "Stock Basis & Returns", "Performance Overview", "📊 Projections"])
     
     with tab1:
         render_positions_view(api, selected_account)
@@ -4280,6 +4310,9 @@ elif page == "Performance":
     
     with tab4:
         render_performance_overview()
+    
+    with tab5:
+        render_projections_tab(api, all_account_numbers_perf, portfolio_value_perf)
 
 elif page == "Settings":
     st.title("⚙️ Settings")
