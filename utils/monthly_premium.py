@@ -71,14 +71,17 @@ def get_live_monthly_premium_data(api, account_number: str, months: int = 6) -> 
         'cc_debits': 0.0
     })
     
+    total_processed = 0
     for txn in transactions:
-        if txn.get('transaction-type') not in ['Trade', 'Receive Deliver']:
-            continue
-        
+        # DEBUG: Log every transaction to find the missing $2,172
+        t_type = txn.get('transaction-type')
         symbol = txn.get('symbol', '')
         action = txn.get('action', '')
         value = float(txn.get('value', 0))
         executed_at = txn.get('executed-at', '')
+        
+        if t_type not in ['Trade', 'Receive Deliver']:
+            continue
         
         if not executed_at:
             continue
@@ -98,13 +101,17 @@ def get_live_monthly_premium_data(api, account_number: str, months: int = 6) -> 
         if action == 'Sell to Open':
             if option_type == 'PUT':
                 monthly_data[month_key]['csp_credits'] += abs(value)
+                print(f"DEBUG SIDEBAR: {executed_at} | {symbol} | CSP STO | +${abs(value)}")
             elif option_type == 'CALL':
                 monthly_data[month_key]['cc_credits'] += abs(value)
+                print(f"DEBUG SIDEBAR: {executed_at} | {symbol} | CC STO | +${abs(value)}")
         elif action == 'Buy to Close':
             if option_type == 'PUT':
                 monthly_data[month_key]['csp_debits'] += abs(value)
+                print(f"DEBUG SIDEBAR: {executed_at} | {symbol} | CSP BTC | -${abs(value)}")
             elif option_type == 'CALL':
                 monthly_data[month_key]['cc_debits'] += abs(value)
+                print(f"DEBUG SIDEBAR: {executed_at} | {symbol} | CC BTC | -${abs(value)}")
     
     # Generate list of last N months
     current_date = datetime.now()
