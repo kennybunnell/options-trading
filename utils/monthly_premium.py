@@ -197,8 +197,8 @@ def get_monthly_premium_data(api, account_number: str, months: int = 6) -> List[
     
     # Get transactions from Tastytrade API
     try:
-        url = f'{_api.base_url}/accounts/{account_number}/transactions'
-        headers = _api._get_headers()
+        url = f'{api.base_url}/accounts/{account_number}/transactions'
+        headers = api._get_headers()
         
         params = {
             'start-date': start_date.strftime('%Y-%m-%d'),
