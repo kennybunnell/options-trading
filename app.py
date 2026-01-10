@@ -385,7 +385,6 @@ with st.sidebar:
             all_account_numbers = [selected_account]
         
         # Debug: Log which accounts are being used for sidebar stats
-        print(f"DEBUG SIDEBAR: Using {len(all_account_numbers)} accounts for stats: {all_account_numbers}")
         
         # Total positions count
         total_positions = 0

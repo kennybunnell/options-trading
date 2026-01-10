@@ -83,7 +83,6 @@ def get_live_monthly_premium_data(api, account_number: str, months: int = 6) -> 
     
     total_processed = 0
     for txn in transactions:
-        # DEBUG: Log every transaction to find the missing $2,172
         t_type = txn.get('transaction-type')
         symbol = txn.get('symbol', '')
         action = txn.get('action', '')
@@ -196,7 +195,6 @@ def get_monthly_premium_data(api, account_number: str, months: int = 6) -> List[
     end_date = now
     
     # Get transactions from Tastytrade API
-    print(f"DEBUG get_monthly_premium_data: Fetching for account {account_number}")
     try:
         url = f'{api.base_url}/accounts/{account_number}/transactions'
         headers = api._get_headers()
@@ -215,7 +213,6 @@ def get_monthly_premium_data(api, account_number: str, months: int = 6) -> List[
         
         data = response.json()
         transactions = data.get('data', {}).get('items', [])
-        print(f"DEBUG get_monthly_premium_data: Account {account_number} returned {len(transactions)} transactions")
         
     except Exception as e:
         print(f"Error fetching transactions: {str(e)}")
@@ -336,11 +333,6 @@ def get_monthly_premium_data(api, account_number: str, months: int = 6) -> List[
         
         prev_net = total_net
     
-    # Debug: Print the January total for this account
-    for r in results:
-        if r['is_current_month']:
-            print(f"DEBUG get_monthly_premium_data: Account {account_number} | Jan total = {r['net_premium']}")
-    
     return results
 
 
@@ -381,7 +373,6 @@ def render_monthly_premium_summary(api, account_number: str = None, all_accounts
         # Get current month/year for strict filtering
         now = datetime.now()
         current_month_key = (now.month, now.year)
-        print(f"DEBUG DASHBOARD: Current month key = {current_month_key}")
         
         for account in accounts:
             account_num = account.get('account', {}).get('account-number')
@@ -408,7 +399,6 @@ def render_monthly_premium_summary(api, account_number: str = None, all_accounts
                     aggregated_data[month_name]['net_premium'] += month_data['net_premium']
                     aggregated_data[month_name]['csp_net'] += month_data['csp_net']
                     aggregated_data[month_name]['cc_net'] += month_data['cc_net']
-                    print(f"DEBUG DASHBOARD: Account {account_num} | Month {month_name} | m_year_key={m_year_key} | Premium={month_data['net_premium']}")
         
         # Convert to list format
         months_data = []
@@ -456,7 +446,6 @@ def render_monthly_premium_summary(api, account_number: str = None, all_accounts
                 'cc_percentage': cc_pct,
                 'pct_change': pct_change
             })
-            print(f"DEBUG DASHBOARD FINAL: {month_name} | is_current={is_current} | total={total_net}")
             prev_net = total_net
     else:
         months_data = get_monthly_premium_data(api, account_number, months=6)
@@ -484,11 +473,8 @@ def render_monthly_premium_summary(api, account_number: str = None, all_accounts
             net_premium = month_data['net_premium']
             pct_change = month_data['pct_change']
             
-            # DEBUG: Print what's being rendered
-            print(f"DEBUG UI RENDER: {month_name} | is_current={is_current} | net_premium={net_premium}")
             
             # Show metric with delta
-            print(f"DEBUG UI RENDER [{call_id}]: {month_name} | is_current={is_current} | net_premium={net_premium}")
             if is_current:
                 st.metric(
                     label="Net Premium",
