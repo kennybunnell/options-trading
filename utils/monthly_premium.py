@@ -337,7 +337,7 @@ def get_monthly_premium_data(api, account_number: str, months: int = 6) -> List[
     return results
 
 
-def render_monthly_premium_summary(api, account_number: str = None, all_accounts: bool = False):
+def render_monthly_premium_summary(api, account_number: str = None, all_accounts: bool = False, call_id: str = "default"):
     """
     Render the Monthly Premium Summary component in Streamlit
     
@@ -480,15 +480,15 @@ def render_monthly_premium_summary(api, account_number: str = None, all_accounts
             # DEBUG: Print what's being rendered
             print(f"DEBUG UI RENDER: {month_name} | is_current={is_current} | net_premium={net_premium}")
             
-            # Show metric with delta - use unique key to force re-render
-            import time
-            unique_key = f"premium_{month_name}_{int(time.time() * 1000)}_{idx}"
+            # Show metric with delta - use call_id to create unique keys
+            metric_key = f"premium_{call_id}_{month_name}_{idx}"
+            print(f"DEBUG UI RENDER [{call_id}]: {month_name} | is_current={is_current} | net_premium={net_premium} | key={metric_key}")
             if is_current:
                 st.metric(
                     label="Net Premium",
                     value=f"${net_premium:,.0f}",
                     label_visibility="collapsed",
-                    key=unique_key
+                    key=metric_key
                 )
             else:
                 st.metric(
@@ -496,7 +496,7 @@ def render_monthly_premium_summary(api, account_number: str = None, all_accounts
                     value=f"${net_premium:,.0f}",
                     delta=f"{pct_change:+.0f}%" if idx > 0 else None,
                     label_visibility="collapsed",
-                    key=f"premium_{month_name}_{idx}"
+                    key=metric_key
                 )
             
             # Breakdown

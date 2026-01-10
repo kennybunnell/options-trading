@@ -558,7 +558,7 @@ if page == "Home":
         # Monthly Premium Summary Section
         st.markdown('<div class="section-header">💰 Monthly Premium Performance</div>', unsafe_allow_html=True)
         from utils.monthly_premium import render_monthly_premium_summary
-        render_monthly_premium_summary(api, selected_account)
+        render_monthly_premium_summary(api, selected_account, call_id="main_dashboard")
         
         # Quick Actions Section
         st.markdown('<div class="section-header">⚡ Quick Actions</div>', unsafe_allow_html=True)
@@ -4247,7 +4247,7 @@ elif page == "Performance":
     
     # Monthly Premium Summary (ALL ACCOUNTS - not filtered by dropdown)
     from utils.monthly_premium import render_monthly_premium_summary
-    render_monthly_premium_summary(api, all_accounts=True)
+    render_monthly_premium_summary(api, all_accounts=True, call_id="performance_dashboard")
     
     from utils.performance_dashboard import (
         render_active_positions,
