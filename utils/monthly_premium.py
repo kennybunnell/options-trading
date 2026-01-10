@@ -34,7 +34,7 @@ def parse_option_symbol(symbol: str) -> Dict:
 import streamlit as st
 
 @st.cache_data(ttl=3600)
-def get_monthly_premium_data(api, account_number: str, months: int = 6, force_refresh: bool = False) -> List[Dict]:
+def get_monthly_premium_data(_api, account_number: str, months: int = 6, force_refresh: bool = False) -> List[Dict]:
     """
     Get monthly premium data for the last N months
     
@@ -63,8 +63,8 @@ def get_monthly_premium_data(api, account_number: str, months: int = 6, force_re
     
     # Get transactions from Tastytrade API
     try:
-        url = f'{api.base_url}/accounts/{account_number}/transactions'
-        headers = api._get_headers()
+        url = f'{_api.base_url}/accounts/{account_number}/transactions'
+        headers = _api._get_headers()
         
         params = {
             'start-date': start_date.strftime('%Y-%m-%d'),
@@ -235,7 +235,7 @@ def render_monthly_premium_summary(api, account_number: str = None, all_accounts
         for account in accounts:
             account_num = account.get('account', {}).get('account-number')
             if account_num:
-                account_months = get_monthly_premium_data(api, account_num, months=6)
+                account_months = get_monthly_premium_data(api, account_num, months=6, force_refresh=False)
                 for month_data in account_months:
                     month_key = month_data['month_name']
                     aggregated_data[month_key]['net_premium'] += month_data['net_premium']
@@ -280,7 +280,7 @@ def render_monthly_premium_summary(api, account_number: str = None, all_accounts
             })
             prev_net = total_net
     else:
-        months_data = get_monthly_premium_data(api, account_number, months=6)
+        months_data = get_monthly_premium_data(api, account_number, months=6, force_refresh=False)
     
     if not months_data:
         st.warning("⚠️ No premium data available. Please upload your activity file in the 'Import Data' tab.")
