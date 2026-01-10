@@ -369,6 +369,7 @@ def render_monthly_premium_summary(api, account_number: str = None, all_accounts
         # Get current month/year for strict filtering
         now = datetime.now()
         current_month_key = (now.month, now.year)
+        print(f"DEBUG DASHBOARD: Current month key = {current_month_key}")
         
         for account in accounts:
             account_num = account.get('account', {}).get('account-number')
@@ -395,6 +396,7 @@ def render_monthly_premium_summary(api, account_number: str = None, all_accounts
                     aggregated_data[month_name]['net_premium'] += month_data['net_premium']
                     aggregated_data[month_name]['csp_net'] += month_data['csp_net']
                     aggregated_data[month_name]['cc_net'] += month_data['cc_net']
+                    print(f"DEBUG DASHBOARD: Account {account_num} | Month {month_name} | m_year_key={m_year_key} | Premium={month_data['net_premium']}")
         
         # Convert to list format
         months_data = []
@@ -442,6 +444,7 @@ def render_monthly_premium_summary(api, account_number: str = None, all_accounts
                 'cc_percentage': cc_pct,
                 'pct_change': pct_change
             })
+            print(f"DEBUG DASHBOARD FINAL: {month_name} | is_current={is_current} | total={total_net}")
             prev_net = total_net
     else:
         months_data = get_monthly_premium_data(api, account_number, months=6, force_refresh=True)
