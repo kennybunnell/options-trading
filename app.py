@@ -352,26 +352,48 @@ with st.sidebar:
     # Quick Stats Panel
     if selected_account:
         # Aggregate all stats across all accounts
-        if 'accounts' in st.session_state and st.session_state.accounts:
-            all_account_numbers = []
-            for acc in st.session_state.accounts:
+        all_account_numbers = []
+        
+        # Try to get accounts from session state first
+        accounts_list = st.session_state.get('accounts', [])
+        
+        # If session state is empty, try to fetch them directly
+        if not accounts_list:
+            try:
+                accounts_list = api.get_accounts()
+                if accounts_list:
+                    st.session_state.accounts = accounts_list
+            except:
+                pass
+        
+        # Extract account numbers robustly
+        if accounts_list:
+            for acc in accounts_list:
                 acc_num = acc.get('account-number') or acc.get('account_number')
                 if acc_num:
                     all_account_numbers.append(acc_num)
-        else:
+        
+        # Fallback to selected account if still empty
+        if not all_account_numbers:
             all_account_numbers = [selected_account]
         
         # Total positions count
         total_positions = 0
         for acc_num in all_account_numbers:
-            positions = api.get_positions(acc_num)
-            total_positions += len(positions) if positions else 0
+            try:
+                positions = api.get_positions(acc_num)
+                total_positions += len(positions) if positions else 0
+            except:
+                pass
             
         # Total working orders count
         total_orders = 0
         for acc_num in all_account_numbers:
-            orders = api.get_live_orders(acc_num)
-            total_orders += len([o for o in orders if o.get('status') == 'Live']) if orders else 0
+            try:
+                orders = api.get_live_orders(acc_num)
+                total_orders += len([o for o in orders if o.get('status') == 'Live']) if orders else 0
+            except:
+                pass
         
         # Get real weekly and monthly premium (aggregated across all accounts)
         from utils.sidebar_stats import get_weekly_premium, get_monthly_premium, get_win_rate
