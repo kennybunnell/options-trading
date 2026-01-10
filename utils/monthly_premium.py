@@ -394,8 +394,17 @@ def render_monthly_premium_summary(api, account_number: str = None, all_accounts
         # Convert to list format
         months_data = []
         prev_net = None
-        for month_name in sorted(aggregated_data.keys(), key=lambda x: aggregated_data[x]['month_year']):
+        
+        # Get current month/year for strict display labeling
+        now = datetime.now()
+        current_month_key = (now.month, now.year)
+        
+        # Sort by month_year to ensure chronological order
+        sorted_months = sorted(aggregated_data.keys(), key=lambda x: aggregated_data[x]['month_year'])
+        
+        for month_name in sorted_months:
             data = aggregated_data[month_name]
+            m_year_key = data['month_year']
             total_net = data['net_premium']
             csp_net = data['csp_net']
             cc_net = data['cc_net']
@@ -414,10 +423,13 @@ def render_monthly_premium_summary(api, account_number: str = None, all_accounts
             else:
                 pct_change = 0
             
+            # STRICT CALENDAR MONTH CHECK FOR DISPLAY
+            is_current = (m_year_key == current_month_key)
+            
             months_data.append({
                 'month_name': month_name,
-                'month_year': data['month_year'],
-                'is_current_month': data['is_current_month'],
+                'month_year': m_year_key,
+                'is_current_month': is_current,
                 'net_premium': total_net,
                 'csp_net': csp_net,
                 'cc_net': cc_net,
