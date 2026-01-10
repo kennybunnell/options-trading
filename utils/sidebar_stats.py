@@ -1,7 +1,7 @@
 """Sidebar statistics calculation"""
 
 from datetime import datetime, timedelta
-from utils.monthly_premium import get_monthly_premium_data, parse_option_symbol
+from utils.monthly_premium import get_live_monthly_premium_data, parse_option_symbol
 import requests
 
 
@@ -11,13 +11,13 @@ def get_weekly_premium(api, account_numbers):
         account_numbers = [account_numbers]
         
     total_premium = 0
-    from utils.monthly_premium import get_monthly_premium_data
+    
     
     for acc_num in account_numbers:
         try:
             # Force refresh by passing a unique value to the force_refresh parameter
             # This bypasses the Streamlit cache and ensures we get the latest $12,671 total
-            monthly_data = get_monthly_premium_data(api, acc_num, months=1, force_refresh=True)
+            monthly_data = get_live_monthly_premium_data(api, acc_num, months=1)
             if monthly_data:
                 current_month_data = monthly_data[-1]
                 if current_month_data.get('is_current_month'):
@@ -32,12 +32,12 @@ def get_monthly_premium(api, account_numbers):
         account_numbers = [account_numbers]
         
     total_premium = 0
-    from utils.monthly_premium import get_monthly_premium_data
+    
     
     for acc_num in account_numbers:
         try:
             # Use the exact same logic as Performance Dashboard with forced refresh
-            monthly_data = get_monthly_premium_data(api, acc_num, months=1, force_refresh=True)
+            monthly_data = get_live_monthly_premium_data(api, acc_num, months=1)
             if monthly_data:
                 current_month_data = monthly_data[-1]
                 if current_month_data.get('is_current_month'):

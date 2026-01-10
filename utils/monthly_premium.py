@@ -33,6 +33,108 @@ def parse_option_symbol(symbol: str) -> Dict:
 
 import streamlit as st
 
+def get_live_monthly_premium_data(api, account_number: str, months: int = 6) -> List[Dict]:
+    """
+    NON-CACHED version of premium data retrieval for sidebar accuracy.
+    """
+    # Calculate date range
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=months * 31)  # Approximate
+    
+    # Get transactions from Tastytrade API
+    try:
+        url = f'{api.base_url}/accounts/{account_number}/transactions'
+        headers = api._get_headers()
+        
+        params = {
+            'start-date': start_date.strftime('%Y-%m-%d'),
+            'end-date': end_date.strftime('%Y-%m-%d'),
+            'per-page': 1000  # Get all transactions
+        }
+        
+        response = requests.get(url, headers=headers, params=params)
+        
+        if response.status_code != 200:
+            return []
+        
+        data = response.json()
+        transactions = data.get('data', {}).get('items', [])
+        
+    except Exception as e:
+        return []
+    
+    # Group transactions by month and calculate net premium
+    monthly_data = defaultdict(lambda: {
+        'csp_credits': 0.0,
+        'csp_debits': 0.0,
+        'cc_credits': 0.0,
+        'cc_debits': 0.0
+    })
+    
+    for txn in transactions:
+        if txn.get('transaction-type') not in ['Trade', 'Receive Deliver']:
+            continue
+        
+        symbol = txn.get('symbol', '')
+        action = txn.get('action', '')
+        value = float(txn.get('value', 0))
+        executed_at = txn.get('executed-at', '')
+        
+        if not executed_at:
+            continue
+        
+        try:
+            txn_date = datetime.fromisoformat(executed_at.replace('Z', '+00:00'))
+            month_key = (txn_date.month, txn_date.year)
+        except:
+            continue
+        
+        option_info = parse_option_symbol(symbol)
+        if not option_info:
+            continue
+        
+        option_type = option_info['option_type']
+        
+        if action == 'Sell to Open':
+            if option_type == 'PUT':
+                monthly_data[month_key]['csp_credits'] += abs(value)
+            elif option_type == 'CALL':
+                monthly_data[month_key]['cc_credits'] += abs(value)
+        elif action == 'Buy to Close':
+            if option_type == 'PUT':
+                monthly_data[month_key]['csp_debits'] += abs(value)
+            elif option_type == 'CALL':
+                monthly_data[month_key]['cc_debits'] += abs(value)
+    
+    # Generate list of last N months
+    current_date = datetime.now()
+    month_list = []
+    for i in range(months - 1, -1, -1):
+        target_date = current_date - timedelta(days=i * 31)
+        month_key = (target_date.month, target_date.year)
+        month_list.append(month_key)
+    
+    # Build result list
+    results = []
+    for month_key in month_list:
+        month, year = month_key
+        data = monthly_data[month_key]
+        csp_net = data['csp_credits'] - data['csp_debits']
+        cc_net = data['cc_credits'] - data['cc_debits']
+        total_net = csp_net + cc_net
+        is_current = (month == current_date.month and year == current_date.year)
+        month_name = datetime(year, month, 1).strftime('%b %Y')
+        
+        results.append({
+            'month_name': month_name,
+            'month_year': month_key,
+            'is_current_month': is_current,
+            'net_premium': total_net,
+            'csp_net': csp_net,
+            'cc_net': cc_net
+        })
+    return results
+
 @st.cache_data(ttl=3600)
 def get_monthly_premium_data(_api, account_number: str, months: int = 6, force_refresh: bool = False) -> List[Dict]:
     """
