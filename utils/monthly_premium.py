@@ -31,7 +31,10 @@ def parse_option_symbol(symbol: str) -> Dict:
     return None
 
 
-def get_monthly_premium_data(api, account_number: str, months: int = 6) -> List[Dict]:
+import streamlit as st
+
+@st.cache_data(ttl=3600)
+def get_monthly_premium_data(api, account_number: str, months: int = 6, force_refresh: bool = False) -> List[Dict]:
     """
     Get monthly premium data for the last N months
     

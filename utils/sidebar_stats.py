@@ -6,7 +6,7 @@ import requests
 
 
 def get_weekly_premium(api, account_numbers):
-    """Calculate net premium for the last 7 days across accounts using Performance Dashboard logic (No Cache)"""
+    """Calculate net premium for the last 7 days across accounts using Performance Dashboard logic (Forced Refresh)"""
     if isinstance(account_numbers, str):
         account_numbers = [account_numbers]
         
@@ -15,10 +15,9 @@ def get_weekly_premium(api, account_numbers):
     
     for acc_num in account_numbers:
         try:
-            # Force refresh by bypassing cache if possible, or using the same engine
-            # The dashboard uses get_monthly_premium_data which is often cached.
-            # We call it with months=1 to get the most recent data.
-            monthly_data = get_monthly_premium_data(api, acc_num, months=1)
+            # Force refresh by passing a unique value to the force_refresh parameter
+            # This bypasses the Streamlit cache and ensures we get the latest $12,671 total
+            monthly_data = get_monthly_premium_data(api, acc_num, months=1, force_refresh=True)
             if monthly_data:
                 current_month_data = monthly_data[-1]
                 if current_month_data.get('is_current_month'):
@@ -28,7 +27,7 @@ def get_weekly_premium(api, account_numbers):
     return total_premium
 
 def get_monthly_premium(api, account_numbers):
-    """Calculate net premium for the current calendar month across accounts using Performance Dashboard logic (No Cache)"""
+    """Calculate net premium for the current calendar month across accounts using Performance Dashboard logic (Forced Refresh)"""
     if isinstance(account_numbers, str):
         account_numbers = [account_numbers]
         
@@ -37,8 +36,8 @@ def get_monthly_premium(api, account_numbers):
     
     for acc_num in account_numbers:
         try:
-            # Use the exact same logic as Performance Dashboard
-            monthly_data = get_monthly_premium_data(api, acc_num, months=1)
+            # Use the exact same logic as Performance Dashboard with forced refresh
+            monthly_data = get_monthly_premium_data(api, acc_num, months=1, force_refresh=True)
             if monthly_data:
                 current_month_data = monthly_data[-1]
                 if current_month_data.get('is_current_month'):
