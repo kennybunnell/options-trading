@@ -268,13 +268,18 @@ def get_monthly_premium_data(_api, account_number: str, months: int = 6, force_r
             elif option_type == 'CALL':
                 monthly_data[month_key]['cc_debits'] += abs(value)
     
-    # Generate list of last N months
-    current_date = datetime.now()
+    # Generate list of last N months using proper calendar math
+    now = datetime.now()
     month_list = []
     
     for i in range(months - 1, -1, -1):
-        target_date = current_date - timedelta(days=i * 31)
-        month_key = (target_date.month, target_date.year)
+        # Calculate the year and month correctly
+        m = now.month - i
+        y = now.year
+        while m <= 0:
+            m += 12
+            y -= 1
+        month_key = (m, y)
         month_list.append(month_key)
     
     # Build result list
