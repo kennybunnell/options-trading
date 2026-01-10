@@ -37,9 +37,19 @@ def get_live_monthly_premium_data(api, account_number: str, months: int = 6) -> 
     """
     NON-CACHED version of premium data retrieval for sidebar accuracy.
     """
-    # Calculate date range
-    end_date = datetime.now()
-    start_date = end_date - timedelta(days=months * 31)  # Approximate
+    # Calculate date range - Align to the 1st of the month for strict calendar tracking
+    now = datetime.now()
+    # Go back to the 1st of the current month, then subtract N months
+    first_of_current = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    
+    # Calculate start date by going back N months
+    start_month = now.month - months + 1
+    start_year = now.year
+    while start_month <= 0:
+        start_month += 12
+        start_year -= 1
+    start_date = datetime(start_year, start_month, 1)
+    end_date = now
     
     # Get transactions from Tastytrade API
     try:
@@ -166,9 +176,19 @@ def get_monthly_premium_data(_api, account_number: str, months: int = 6, force_r
         - pct_change: float (vs previous month)
     """
     
-    # Calculate date range
-    end_date = datetime.now()
-    start_date = end_date - timedelta(days=months * 31)  # Approximate
+    # Calculate date range - Align to the 1st of the month for strict calendar tracking
+    now = datetime.now()
+    # Go back to the 1st of the current month, then subtract N months
+    first_of_current = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    
+    # Calculate start date by going back N months
+    start_month = now.month - months + 1
+    start_year = now.year
+    while start_month <= 0:
+        start_month += 12
+        start_year -= 1
+    start_date = datetime(start_year, start_month, 1)
+    end_date = now
     
     # Get transactions from Tastytrade API
     try:
@@ -284,8 +304,8 @@ def get_monthly_premium_data(_api, account_number: str, months: int = 6, force_r
         else:
             pct_change = 0
         
-        # Check if current month
-        is_current = (month == current_date.month and year == current_date.year)
+        # Check if current month - STRICT CALENDAR CHECK
+        is_current = (month == now.month and year == now.year)
         
         # Month name
         month_name = datetime(year, month, 1).strftime('%b %Y')
