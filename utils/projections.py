@@ -553,18 +553,79 @@ def render_projections_tab(api, account_numbers: List[str], portfolio_value: flo
     fig = go.Figure()
     
     colors = {'conservative': '#EF4444', 'expected': '#F59E0B', 'optimistic': '#10B981'}
+    milestone_months = [6, 12, 18, 24]
     
+    # Get data for confidence band (area between conservative and optimistic)
+    conservative_data = scenarios['conservative']['projections']
+    optimistic_data = scenarios['optimistic']['projections']
+    
+    # Add confidence band (shaded area between conservative and optimistic)
+    fig.add_trace(go.Scatter(
+        x=[p['month'] for p in conservative_data] + [p['month'] for p in optimistic_data][::-1],
+        y=[p['portfolio_value'] for p in conservative_data] + [p['portfolio_value'] for p in optimistic_data][::-1],
+        fill='toself',
+        fillcolor='rgba(249, 158, 11, 0.15)',
+        line=dict(color='rgba(255,255,255,0)'),
+        hoverinfo='skip',
+        showlegend=True,
+        name='Projection Range'
+    ))
+    
+    # Add lines for each scenario with enhanced tooltips
     for scenario_name, scenario in scenarios.items():
         months = [p['month'] for p in scenario['projections']]
         values = [p['portfolio_value'] for p in scenario['projections']]
+        incomes = [p['cumulative_income'] for p in scenario['projections']]
+        
+        # Create custom hover text
+        hover_text = [
+            f"<b>{scenario['description']}</b><br>" +
+            f"Month: {m}<br>" +
+            f"Portfolio: ${v:,.0f}<br>" +
+            f"Cumulative Income: ${inc:,.0f}"
+            for m, v, inc in zip(months, values, incomes)
+        ]
+        
+        # Determine line style
+        if scenario_name == 'expected':
+            line_width = 3
+            line_dash = None
+        else:
+            line_width = 2
+            line_dash = 'dot' if scenario_name == 'conservative' else 'dash'
         
         fig.add_trace(go.Scatter(
             x=months,
             y=values,
             mode='lines',
             name=scenario['description'],
-            line=dict(color=colors[scenario_name], width=2)
+            line=dict(color=colors[scenario_name], width=line_width, dash=line_dash),
+            hovertemplate='%{text}<extra></extra>',
+            text=hover_text
         ))
+    
+    # Add markers at milestone months (6, 12, 18, 24) for the Expected scenario
+    expected_data = scenarios['expected']['projections']
+    milestone_values = []
+    milestone_labels = []
+    
+    for month in milestone_months:
+        if month <= len(expected_data):
+            proj = expected_data[month - 1]
+            milestone_values.append(proj['portfolio_value'])
+            milestone_labels.append(f"${proj['portfolio_value']/1000000:.1f}M")
+    
+    fig.add_trace(go.Scatter(
+        x=milestone_months[:len(milestone_values)],
+        y=milestone_values,
+        mode='markers+text',
+        marker=dict(size=12, color='#F59E0B', symbol='circle', line=dict(width=2, color='white')),
+        text=milestone_labels,
+        textposition='top center',
+        textfont=dict(size=11, color='white'),
+        name='Milestones (Expected)',
+        hoverinfo='skip'
+    ))
     
     fig.update_layout(
         title="Projected Portfolio Value Over Time",
@@ -572,14 +633,20 @@ def render_projections_tab(api, account_numbers: List[str], portfolio_value: flo
         yaxis_title="Portfolio Value ($)",
         yaxis_tickformat="$,.0f",
         template="plotly_dark",
-        height=400,
+        height=450,
         legend=dict(
             orientation="h",
             yanchor="bottom",
             y=1.02,
             xanchor="right",
             x=1
-        )
+        ),
+        xaxis=dict(
+            tickmode='array',
+            tickvals=[1, 6, 12, 18, 24],
+            ticktext=['1', '6', '12', '18', '24']
+        ),
+        hovermode='x unified'
     )
     
     st.plotly_chart(fig, use_container_width=True)
