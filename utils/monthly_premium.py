@@ -101,17 +101,17 @@ def get_live_monthly_premium_data(api, account_number: str, months: int = 6) -> 
         if action == 'Sell to Open':
             if option_type == 'PUT':
                 monthly_data[month_key]['csp_credits'] += abs(value)
-                print(f"DEBUG SIDEBAR: {executed_at} | {symbol} | CSP STO | +${abs(value)}")
+
             elif option_type == 'CALL':
                 monthly_data[month_key]['cc_credits'] += abs(value)
-                print(f"DEBUG SIDEBAR: {executed_at} | {symbol} | CC STO | +${abs(value)}")
+
         elif action == 'Buy to Close':
             if option_type == 'PUT':
                 monthly_data[month_key]['csp_debits'] += abs(value)
-                print(f"DEBUG SIDEBAR: {executed_at} | {symbol} | CSP BTC | -${abs(value)}")
+
             elif option_type == 'CALL':
                 monthly_data[month_key]['cc_debits'] += abs(value)
-                print(f"DEBUG SIDEBAR: {executed_at} | {symbol} | CC BTC | -${abs(value)}")
+
     
     # Generate list of last N months
     current_date = datetime.now()
@@ -341,17 +341,27 @@ def render_monthly_premium_summary(api, account_number: str = None, all_accounts
             'pct_change': 0
         })
         
+        # Get current month/year for strict filtering
+        now = datetime.now()
+        current_month_key = (now.month, now.year)
+        
         for account in accounts:
             account_num = account.get('account', {}).get('account-number')
             if account_num:
                 account_months = get_monthly_premium_data(api, account_num, months=6, force_refresh=False)
                 for month_data in account_months:
                     month_key = month_data['month_name']
+                    m_year_key = month_data['month_year']
+                    
+                    # Aggregate data
                     aggregated_data[month_key]['net_premium'] += month_data['net_premium']
                     aggregated_data[month_key]['csp_net'] += month_data['csp_net']
                     aggregated_data[month_key]['cc_net'] += month_data['cc_net']
-                    aggregated_data[month_key]['is_current_month'] = month_data['is_current_month']
-                    aggregated_data[month_key]['month_year'] = month_data['month_year']
+                    aggregated_data[month_key]['month_year'] = m_year_key
+                    
+                    # STRICT CALENDAR MONTH CHECK:
+                    # Only mark as current month if it actually matches today's month/year
+                    aggregated_data[month_key]['is_current_month'] = (m_year_key == current_month_key)
         
         # Convert to list format
         months_data = []
