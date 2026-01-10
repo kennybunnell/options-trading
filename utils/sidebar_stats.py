@@ -15,7 +15,7 @@ def get_weekly_premium(api, account_numbers):
     for acc_num in account_numbers:
         try:
             # Use the LIVE non-cached function to ensure $12,671 is shown
-            monthly_data = get_live_monthly_premium_data(api, acc_num, months=1)
+            monthly_data = get_live_monthly_premium_data(api, acc_num, months=6)
             if monthly_data:
                 current_month_data = monthly_data[-1]
                 if current_month_data.get('is_current_month'):
@@ -37,7 +37,7 @@ def get_monthly_premium(api, account_numbers):
     for acc_num in account_numbers:
         try:
             # Use the LIVE non-cached function to ensure $12,671 is shown
-            monthly_data = get_live_monthly_premium_data(api, acc_num, months=1)
+            monthly_data = get_live_monthly_premium_data(api, acc_num, months=6)
             if monthly_data:
                 current_month_data = monthly_data[-1]
                 if current_month_data.get('is_current_month'):
