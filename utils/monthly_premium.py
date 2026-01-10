@@ -477,6 +477,9 @@ def render_monthly_premium_summary(api, account_number: str = None, all_accounts
             net_premium = month_data['net_premium']
             pct_change = month_data['pct_change']
             
+            # DEBUG: Print what's being rendered
+            print(f"DEBUG UI RENDER: {month_name} | is_current={is_current} | net_premium={net_premium}")
+            
             # Show metric with delta
             if is_current:
                 st.metric(
