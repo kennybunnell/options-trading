@@ -196,6 +196,7 @@ def get_monthly_premium_data(api, account_number: str, months: int = 6) -> List[
     end_date = now
     
     # Get transactions from Tastytrade API
+    print(f"DEBUG get_monthly_premium_data: Fetching for account {account_number}")
     try:
         url = f'{api.base_url}/accounts/{account_number}/transactions'
         headers = api._get_headers()
@@ -214,6 +215,7 @@ def get_monthly_premium_data(api, account_number: str, months: int = 6) -> List[
         
         data = response.json()
         transactions = data.get('data', {}).get('items', [])
+        print(f"DEBUG get_monthly_premium_data: Account {account_number} returned {len(transactions)} transactions")
         
     except Exception as e:
         print(f"Error fetching transactions: {str(e)}")
@@ -333,6 +335,11 @@ def get_monthly_premium_data(api, account_number: str, months: int = 6) -> List[
         })
         
         prev_net = total_net
+    
+    # Debug: Print the January total for this account
+    for r in results:
+        if r['is_current_month']:
+            print(f"DEBUG get_monthly_premium_data: Account {account_number} | Jan total = {r['net_premium']}")
     
     return results
 
