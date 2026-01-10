@@ -348,20 +348,28 @@ def render_monthly_premium_summary(api, account_number: str = None, all_accounts
         for account in accounts:
             account_num = account.get('account', {}).get('account-number')
             if account_num:
+                # Get the raw 6-month data for this account
                 account_months = get_monthly_premium_data(api, account_num, months=6, force_refresh=True)
                 for month_data in account_months:
-                    month_key = month_data['month_name']
+                    # Use the month_year tuple (month, year) as the unique key for aggregation
+                    # This prevents December data from being mixed into January
                     m_year_key = month_data['month_year']
+                    month_name = month_data['month_name']
                     
-                    # Aggregate data
-                    aggregated_data[month_key]['net_premium'] += month_data['net_premium']
-                    aggregated_data[month_key]['csp_net'] += month_data['csp_net']
-                    aggregated_data[month_key]['cc_net'] += month_data['cc_net']
-                    aggregated_data[month_key]['month_year'] = m_year_key
+                    # Initialize if not exists
+                    if month_name not in aggregated_data:
+                        aggregated_data[month_name] = {
+                            'net_premium': 0,
+                            'csp_net': 0,
+                            'cc_net': 0,
+                            'month_year': m_year_key,
+                            'is_current_month': (m_year_key == current_month_key)
+                        }
                     
-                    # STRICT CALENDAR MONTH CHECK:
-                    # Only mark as current month if it actually matches today's month/year
-                    aggregated_data[month_key]['is_current_month'] = (m_year_key == current_month_key)
+                    # Aggregate data into the correct calendar month bucket
+                    aggregated_data[month_name]['net_premium'] += month_data['net_premium']
+                    aggregated_data[month_name]['csp_net'] += month_data['csp_net']
+                    aggregated_data[month_name]['cc_net'] += month_data['cc_net']
         
         # Convert to list format
         months_data = []
