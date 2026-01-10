@@ -59,10 +59,23 @@ def get_weekly_premium(api, account_numbers):
     return get_premium_for_range(api, account_numbers, days=7)
 
 def get_monthly_premium(api, account_numbers):
-    """Calculate net premium for the current calendar month across accounts"""
-    now = datetime.now()
-    first_day_of_month = datetime(now.year, now.month, 1)
-    return get_premium_for_range(api, account_numbers, start_date=first_day_of_month)
+    """Calculate net premium for the current calendar month across accounts using Performance Dashboard logic"""
+    if isinstance(account_numbers, str):
+        account_numbers = [account_numbers]
+        
+    total_premium = 0
+    for acc_num in account_numbers:
+        try:
+            # Use the exact same logic as Performance Dashboard
+            monthly_data = get_monthly_premium_data(api, acc_num, months=1)
+            if monthly_data:
+                # Get the current month's data (last item in the list)
+                current_month_data = monthly_data[-1]
+                if current_month_data.get('is_current_month'):
+                    total_premium += current_month_data.get('net_premium', 0)
+        except:
+            continue
+    return total_premium
 
 
 def get_win_rate(api, account_number):
