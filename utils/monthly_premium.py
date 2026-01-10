@@ -480,19 +480,23 @@ def render_monthly_premium_summary(api, account_number: str = None, all_accounts
             # DEBUG: Print what's being rendered
             print(f"DEBUG UI RENDER: {month_name} | is_current={is_current} | net_premium={net_premium}")
             
-            # Show metric with delta
+            # Show metric with delta - use unique key to force re-render
+            import time
+            unique_key = f"premium_{month_name}_{int(time.time() * 1000)}_{idx}"
             if is_current:
                 st.metric(
                     label="Net Premium",
                     value=f"${net_premium:,.0f}",
-                    label_visibility="collapsed"
+                    label_visibility="collapsed",
+                    key=unique_key
                 )
             else:
                 st.metric(
                     label="Net Premium",
                     value=f"${net_premium:,.0f}",
                     delta=f"{pct_change:+.0f}%" if idx > 0 else None,
-                    label_visibility="collapsed"
+                    label_visibility="collapsed",
+                    key=f"premium_{month_name}_{idx}"
                 )
             
             # Breakdown
