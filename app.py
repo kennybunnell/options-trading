@@ -366,16 +366,26 @@ with st.sidebar:
             except:
                 pass
         
-        # Extract account numbers robustly
+        # Extract account numbers robustly - handle nested structure from API
         if accounts_list:
             for acc in accounts_list:
-                acc_num = acc.get('account-number') or acc.get('account_number')
+                # Try nested structure first (from get_accounts API response)
+                acc_num = None
+                if isinstance(acc, dict):
+                    if 'account' in acc and isinstance(acc['account'], dict):
+                        acc_num = acc['account'].get('account-number')
+                    # Fallback to flat structure
+                    if not acc_num:
+                        acc_num = acc.get('account-number') or acc.get('account_number')
                 if acc_num:
                     all_account_numbers.append(acc_num)
         
         # Fallback to selected account if still empty
         if not all_account_numbers:
             all_account_numbers = [selected_account]
+        
+        # Debug: Log which accounts are being used for sidebar stats
+        print(f"DEBUG SIDEBAR: Using {len(all_account_numbers)} accounts for stats: {all_account_numbers}")
         
         # Total positions count
         total_positions = 0
