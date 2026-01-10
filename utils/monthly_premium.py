@@ -348,7 +348,7 @@ def render_monthly_premium_summary(api, account_number: str = None, all_accounts
         for account in accounts:
             account_num = account.get('account', {}).get('account-number')
             if account_num:
-                account_months = get_monthly_premium_data(api, account_num, months=6, force_refresh=False)
+                account_months = get_monthly_premium_data(api, account_num, months=6, force_refresh=True)
                 for month_data in account_months:
                     month_key = month_data['month_name']
                     m_year_key = month_data['month_year']
@@ -399,7 +399,7 @@ def render_monthly_premium_summary(api, account_number: str = None, all_accounts
             })
             prev_net = total_net
     else:
-        months_data = get_monthly_premium_data(api, account_number, months=6, force_refresh=False)
+        months_data = get_monthly_premium_data(api, account_number, months=6, force_refresh=True)
     
     if not months_data:
         st.warning("⚠️ No premium data available. Please upload your activity file in the 'Import Data' tab.")
