@@ -1,6 +1,8 @@
 import os
 import requests
+import math
 from datetime import datetime, timedelta
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 class TradierAPI:
     def __init__(self):
@@ -18,6 +20,15 @@ class TradierAPI:
             "Authorization": f"Bearer {self.api_key}",
             "Accept": "application/json"
         }
+        
+        # Cache for RSI and IV Rank data (persists for session)
+        self._indicators_cache = {}
+        self._quotes_cache = {}
+    
+    def clear_cache(self):
+        """Clear all cached data"""
+        self._indicators_cache = {}
+        self._quotes_cache = {}
     
     def get_option_chains(self, symbol, min_dte=0, max_dte=60):
         """Get option chains for a symbol within a DTE range"""
@@ -84,17 +95,19 @@ class TradierAPI:
             if not all_options:
                 return None
             
-            # Get underlying price
-            quote_url = f"{self.base_url}/markets/quotes"
-            quote_params = {"symbols": symbol}
-            quote_response = requests.get(quote_url, headers=self.headers, params=quote_params)
-            
-            underlying_price = None
-            if quote_response.status_code == 200:
-                quote_data = quote_response.json()
-                if 'quotes' in quote_data and 'quote' in quote_data['quotes']:
-                    quote = quote_data['quotes']['quote']
-                    underlying_price = quote.get('last', 0)
+            # Get underlying price from cache or fetch
+            underlying_price = self._quotes_cache.get(symbol)
+            if underlying_price is None:
+                quote_url = f"{self.base_url}/markets/quotes"
+                quote_params = {"symbols": symbol}
+                quote_response = requests.get(quote_url, headers=self.headers, params=quote_params)
+                
+                if quote_response.status_code == 200:
+                    quote_data = quote_response.json()
+                    if 'quotes' in quote_data and 'quote' in quote_data['quotes']:
+                        quote = quote_data['quotes']['quote']
+                        underlying_price = quote.get('last', 0)
+                        self._quotes_cache[symbol] = underlying_price
             
             return {
                 'options': all_options,
@@ -137,77 +150,22 @@ class TradierAPI:
         
         return filtered
 
-
-
-
-
-
-    def get_rsi(self, symbol, period=14):
-        """Get RSI (Relative Strength Index) for a symbol using Tradier history endpoint"""
-        try:
-            # Use history endpoint instead of timesales for daily data
-            url = f"{self.base_url}/markets/history"
-            params = {
-                "symbol": symbol,
-                "interval": "daily",
-                "start": (datetime.now() - timedelta(days=60)).strftime('%Y-%m-%d'),  # Get more data for accurate RSI
-                "end": datetime.now().strftime('%Y-%m-%d')
-            }
-            
-            response = requests.get(url, headers=self.headers, params=params, timeout=10)
-            
-            if response.status_code != 200:
-                print(f"RSI API error for {symbol}: Status {response.status_code}")
-                return None
-            
-            data = response.json()
-            
-            # Tradier history endpoint returns data in 'history' key
-            if 'history' not in data or not data['history']:
-                print(f"RSI: No history data for {symbol}")
-                return None
-            
-            history = data['history'].get('day', [])
-            if not history or len(history) < period + 1:
-                print(f"RSI: Insufficient data for {symbol} (got {len(history) if history else 0} days, need {period + 1})")
-                return None
-            
-            # Calculate RSI
-            closes = [float(d['close']) for d in history if 'close' in d]
-            if len(closes) < period + 1:
-                print(f"RSI: Insufficient close prices for {symbol}")
-                return None
-            
-            # Calculate price changes
-            deltas = [closes[i] - closes[i-1] for i in range(1, len(closes))]
-            
-            # Separate gains and losses
-            gains = [d if d > 0 else 0 for d in deltas]
-            losses = [-d if d < 0 else 0 for d in deltas]
-            
-            # Calculate average gain and loss
-            avg_gain = sum(gains[-period:]) / period
-            avg_loss = sum(losses[-period:]) / period
-            
-            if avg_loss == 0:
-                return 100  # No losses = overbought
-            
-            rs = avg_gain / avg_loss
-            rsi = 100 - (100 / (1 + rs))
-            
-            return round(rsi, 2)
-            
-        except Exception as e:
-            print(f"Error getting RSI for {symbol}: {e}")
-            return None
-    
-    def get_iv_rank(self, symbol):
+    def get_indicators(self, symbol, rsi_period=14):
         """
-        Calculate IV Rank: where current IV sits relative to 52-week high/low
-        IV Rank = (Current IV - 52w Low IV) / (52w High IV - 52w Low IV) * 100
+        Get both RSI and IV Rank with a SINGLE API call (365 days of history).
+        Results are cached for the session.
+        
+        Returns:
+            dict: {'rsi': float, 'iv_rank': float} or {'rsi': None, 'iv_rank': None}
         """
+        # Check cache first
+        if symbol in self._indicators_cache:
+            return self._indicators_cache[symbol]
+        
+        result = {'rsi': None, 'iv_rank': None}
+        
         try:
-            # Get historical volatility data from Tradier
+            # Single API call for 365 days of history (enough for both RSI and IV Rank)
             url = f"{self.base_url}/markets/history"
             params = {
                 "symbol": symbol,
@@ -219,52 +177,176 @@ class TradierAPI:
             response = requests.get(url, headers=self.headers, params=params, timeout=10)
             
             if response.status_code != 200:
-                return None
+                self._indicators_cache[symbol] = result
+                return result
             
             data = response.json()
             
             if 'history' not in data or not data['history']:
-                return None
+                self._indicators_cache[symbol] = result
+                return result
             
             history = data['history'].get('day', [])
-            if not history or len(history) < 30:
-                return None
+            if not history:
+                self._indicators_cache[symbol] = result
+                return result
             
-            # Calculate historical volatility for each day
+            # Extract close prices
             closes = [float(d['close']) for d in history if 'close' in d]
-            if len(closes) < 30:
-                return None
             
-            # Calculate daily returns
-            returns = [(closes[i] - closes[i-1]) / closes[i-1] for i in range(1, len(closes))]
+            # Calculate RSI (needs at least rsi_period + 1 days)
+            if len(closes) >= rsi_period + 1:
+                deltas = [closes[i] - closes[i-1] for i in range(1, len(closes))]
+                gains = [d if d > 0 else 0 for d in deltas]
+                losses = [-d if d < 0 else 0 for d in deltas]
+                
+                avg_gain = sum(gains[-rsi_period:]) / rsi_period
+                avg_loss = sum(losses[-rsi_period:]) / rsi_period
+                
+                if avg_loss == 0:
+                    result['rsi'] = 100
+                else:
+                    rs = avg_gain / avg_loss
+                    result['rsi'] = round(100 - (100 / (1 + rs)), 2)
             
-            # Calculate rolling 30-day volatility
-            import math
-            volatilities = []
-            window = 30
-            for i in range(window, len(returns)):
-                window_returns = returns[i-window:i]
-                variance = sum((r - sum(window_returns)/len(window_returns))**2 for r in window_returns) / len(window_returns)
-                vol = math.sqrt(variance) * math.sqrt(252) * 100  # Annualized
-                volatilities.append(vol)
+            # Calculate IV Rank (needs at least 30 days for rolling volatility)
+            if len(closes) >= 30:
+                returns = [(closes[i] - closes[i-1]) / closes[i-1] for i in range(1, len(closes))]
+                
+                # Calculate rolling 30-day volatility
+                volatilities = []
+                window = 30
+                for i in range(window, len(returns)):
+                    window_returns = returns[i-window:i]
+                    mean_return = sum(window_returns) / len(window_returns)
+                    variance = sum((r - mean_return)**2 for r in window_returns) / len(window_returns)
+                    vol = math.sqrt(variance) * math.sqrt(252) * 100  # Annualized
+                    volatilities.append(vol)
+                
+                if volatilities:
+                    current_iv = volatilities[-1]
+                    iv_high = max(volatilities)
+                    iv_low = min(volatilities)
+                    
+                    if iv_high == iv_low:
+                        result['iv_rank'] = 50
+                    else:
+                        result['iv_rank'] = round(((current_iv - iv_low) / (iv_high - iv_low)) * 100, 1)
             
-            if not volatilities:
-                return None
-            
-            current_iv = volatilities[-1]
-            iv_high = max(volatilities)
-            iv_low = min(volatilities)
-            
-            if iv_high == iv_low:
-                return 50  # No range = middle
-            
-            iv_rank = ((current_iv - iv_low) / (iv_high - iv_low)) * 100
-            
-            return round(iv_rank, 1)
+            # Cache the result
+            self._indicators_cache[symbol] = result
+            return result
             
         except Exception as e:
-            print(f"Error getting IV Rank for {symbol}: {e}")
-            return None
+            print(f"Error getting indicators for {symbol}: {e}")
+            self._indicators_cache[symbol] = result
+            return result
+    
+    def get_rsi(self, symbol, period=14):
+        """Get RSI for a symbol (uses cached combined indicator fetch)"""
+        indicators = self.get_indicators(symbol, rsi_period=period)
+        return indicators.get('rsi')
+    
+    def get_iv_rank(self, symbol):
+        """Get IV Rank for a symbol (uses cached combined indicator fetch)"""
+        indicators = self.get_indicators(symbol)
+        return indicators.get('iv_rank')
+    
+    def get_batch_quotes(self, symbols):
+        """
+        Get quotes for multiple symbols in a single API call.
+        Tradier supports up to 100 symbols per request.
+        
+        Args:
+            symbols: List of stock symbols
+            
+        Returns:
+            dict: {symbol: price} mapping
+        """
+        if not symbols:
+            return {}
+        
+        results = {}
+        
+        # Tradier allows up to 100 symbols per request
+        batch_size = 100
+        
+        for i in range(0, len(symbols), batch_size):
+            batch = symbols[i:i + batch_size]
+            
+            # Check cache first
+            uncached = [s for s in batch if s not in self._quotes_cache]
+            
+            if uncached:
+                try:
+                    url = f"{self.base_url}/markets/quotes"
+                    params = {"symbols": ",".join(uncached)}
+                    response = requests.get(url, headers=self.headers, params=params, timeout=10)
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        if 'quotes' in data and 'quote' in data['quotes']:
+                            quotes = data['quotes']['quote']
+                            if isinstance(quotes, dict):
+                                quotes = [quotes]
+                            
+                            for quote in quotes:
+                                symbol = quote.get('symbol')
+                                price = quote.get('last', 0)
+                                if symbol:
+                                    self._quotes_cache[symbol] = price
+                except Exception as e:
+                    print(f"Error fetching batch quotes: {e}")
+            
+            # Return from cache
+            for symbol in batch:
+                results[symbol] = self._quotes_cache.get(symbol)
+        
+        return results
+    
+    def prefetch_indicators(self, symbols, max_workers=10):
+        """
+        Prefetch RSI and IV Rank for multiple symbols in parallel.
+        Uses ThreadPoolExecutor for concurrent API calls.
+        
+        Args:
+            symbols: List of stock symbols
+            max_workers: Maximum number of concurrent threads (default 10)
+            
+        Returns:
+            dict: {symbol: {'rsi': float, 'iv_rank': float}}
+        """
+        results = {}
+        
+        # Filter out already cached symbols
+        uncached = [s for s in symbols if s not in self._indicators_cache]
+        
+        if not uncached:
+            # All cached, return from cache
+            return {s: self._indicators_cache.get(s, {'rsi': None, 'iv_rank': None}) for s in symbols}
+        
+        def fetch_single(symbol):
+            return symbol, self.get_indicators(symbol)
+        
+        # Fetch uncached symbols in parallel
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {executor.submit(fetch_single, s): s for s in uncached}
+            
+            for future in as_completed(futures):
+                try:
+                    symbol, indicators = future.result()
+                    results[symbol] = indicators
+                except Exception as e:
+                    symbol = futures[future]
+                    print(f"Error prefetching indicators for {symbol}: {e}")
+                    results[symbol] = {'rsi': None, 'iv_rank': None}
+        
+        # Combine with cached results
+        for symbol in symbols:
+            if symbol not in results:
+                results[symbol] = self._indicators_cache.get(symbol, {'rsi': None, 'iv_rank': None})
+        
+        return results
 
     def get_option_quote(self, option_symbol):
         """

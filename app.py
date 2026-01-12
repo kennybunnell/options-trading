@@ -981,9 +981,23 @@ elif page == "CSP Dashboard":
             # Create progress indicators
             progress_bar = st.progress(0, text="Starting scan...")
             
+            # OPTIMIZATION: Prefetch indicators (RSI + IV Rank) for all symbols in parallel
+            progress_bar.progress(0, text="⚡ Prefetching RSI & IV Rank for all symbols (parallel)...")
+            st.write(f"⚡ Prefetching technical indicators for {len(watchlist)} symbols...")
+            prefetched_indicators = tradier.prefetch_indicators(watchlist, max_workers=10)
+            
+            # OPTIMIZATION: Batch fetch all stock quotes at once
+            progress_bar.progress(0.05, text="⚡ Fetching stock quotes in batch...")
+            st.write(f"⚡ Batch fetching quotes for {len(watchlist)} symbols...")
+            batch_quotes = tradier.get_batch_quotes(watchlist)
+            
+            log_lines.append(f"OPTIMIZATION: Prefetched {len(prefetched_indicators)} indicators in parallel")
+            log_lines.append(f"OPTIMIZATION: Batch fetched {len(batch_quotes)} quotes")
+            log_lines.append(f"")
+            
             for idx, symbol in enumerate(watchlist):
-                # Update progress bar with percentage and current symbol
-                progress_pct = (idx + 1) / len(watchlist)
+                # Update progress bar with percentage and current symbol (start at 10% after prefetch)
+                progress_pct = 0.1 + (idx + 1) / len(watchlist) * 0.9
                 progress_bar.progress(progress_pct, text=f"📊 Scanning {symbol}... ({idx+1}/{len(watchlist)}) - {int(progress_pct * 100)}% complete")
                 stats['symbols_processed'] += 1
                 
@@ -1009,10 +1023,11 @@ elif page == "CSP Dashboard":
                 log_lines.append(f"  ✅ Chain data received")
                 log_lines.append(f"  Underlying Price: ${underlying_price}")
                 
-                # Fetch IV Rank and RSI for this symbol (once per symbol, not per option)
-                iv_rank = tradier.get_iv_rank(symbol)
-                rsi = tradier.get_rsi(symbol)
-                log_lines.append(f"  IV Rank: {iv_rank if iv_rank else 'N/A'}, RSI: {rsi if rsi else 'N/A'}")
+                # Get IV Rank and RSI from prefetched cache (no API call needed)
+                indicators = prefetched_indicators.get(symbol, {'rsi': None, 'iv_rank': None})
+                iv_rank = indicators.get('iv_rank')
+                rsi = indicators.get('rsi')
+                log_lines.append(f"  IV Rank: {iv_rank if iv_rank else 'N/A'}, RSI: {rsi if rsi else 'N/A'} (cached)")
                 
                 puts = tradier.filter_put_options(chain_data, min_delta=min_delta, max_delta=max_delta)
                 stats['total_puts_found'] += len(puts)
