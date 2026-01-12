@@ -943,9 +943,10 @@ elif page == "CSP Dashboard":
                 log_lines.append(f"  ✅ Chain data received")
                 log_lines.append(f"  Underlying Price: ${underlying_price}")
                 
-                # Fetch IV Rank for this symbol (once per symbol, not per option)
+                # Fetch IV Rank and RSI for this symbol (once per symbol, not per option)
                 iv_rank = tradier.get_iv_rank(symbol)
-                log_lines.append(f"  IV Rank: {iv_rank if iv_rank else 'N/A'}")
+                rsi = tradier.get_rsi(symbol)
+                log_lines.append(f"  IV Rank: {iv_rank if iv_rank else 'N/A'}, RSI: {rsi if rsi else 'N/A'}")
                 
                 puts = tradier.filter_put_options(chain_data, min_delta=min_delta, max_delta=max_delta)
                 stats['total_puts_found'] += len(puts)
@@ -1041,6 +1042,7 @@ elif page == "CSP Dashboard":
                         'Theta': round(put.get('greeks', {}).get('theta', 0), 3),
                         'Volume': volume,
                         'Open Int': oi,
+                        'RSI': round(rsi, 1) if rsi else None,
                         'IV Rank': round(iv_rank, 1) if iv_rank else None,
                         'Spread %': round(spread_pct, 1),
                         'Existing CSPs': existing_contracts,
