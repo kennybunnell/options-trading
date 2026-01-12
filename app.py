@@ -10,6 +10,22 @@ load_dotenv()
 from utils.tastytrade_api import TastytradeAPI
 from utils.csp_ladder_manager import render_csp_ladder_manager
 
+# Helper function for RSI formatting with emoji indicators
+def format_rsi_with_emoji(rsi_value):
+    """Format RSI with color-coded emoji: green (<40), yellow (40-60), red (>60)"""
+    try:
+        if rsi_value is None:
+            return None
+        rsi = float(rsi_value)
+        if rsi < 40:
+            return f"🟢 {round(rsi, 1)}"
+        elif rsi < 60:
+            return f"🟡 {round(rsi, 1)}"
+        else:
+            return f"🔴 {round(rsi, 1)}"
+    except (ValueError, TypeError):
+        return None
+
 # Page config
 st.set_page_config(
     page_title="Options Trading Dashboard",
@@ -1074,7 +1090,7 @@ elif page == "CSP Dashboard":
                         'Theta': round(put.get('greeks', {}).get('theta', 0), 3),
                         'Volume': volume,
                         'Open Int': oi,
-                        'RSI': f"🟢 {round(rsi, 1)}" if rsi and rsi < 40 else (f"🟡 {round(rsi, 1)}" if rsi and rsi < 60 else (f"🔴 {round(rsi, 1)}" if rsi else None)),
+                        'RSI': format_rsi_with_emoji(rsi),
                         'IV Rank': round(iv_rank, 1) if iv_rank else None,
                         'Spread %': round(spread_pct, 1),
                         'Existing CSPs': existing_contracts,
