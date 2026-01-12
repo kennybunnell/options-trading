@@ -1209,6 +1209,8 @@ elif page == "CSP Dashboard":
             st.session_state.csp_conservative_dte_min = 7
             st.session_state.csp_conservative_dte_max = 30
             st.session_state.csp_conservative_oi_min = 50
+        # Initialize RSI separately to handle existing sessions
+        if 'csp_conservative_rsi_max' not in st.session_state:
             st.session_state.csp_conservative_rsi_max = 50
         
         if 'csp_medium_delta_min' not in st.session_state:
@@ -1217,6 +1219,7 @@ elif page == "CSP Dashboard":
             st.session_state.csp_medium_dte_min = 7
             st.session_state.csp_medium_dte_max = 30
             st.session_state.csp_medium_oi_min = 50
+        if 'csp_medium_rsi_max' not in st.session_state:
             st.session_state.csp_medium_rsi_max = 60
         
         if 'csp_aggressive_delta_min' not in st.session_state:
@@ -1225,6 +1228,7 @@ elif page == "CSP Dashboard":
             st.session_state.csp_aggressive_dte_min = 7
             st.session_state.csp_aggressive_dte_max = 21
             st.session_state.csp_aggressive_oi_min = 25
+        if 'csp_aggressive_rsi_max' not in st.session_state:
             st.session_state.csp_aggressive_rsi_max = 100
         
         # Helper function to select best per ticker
@@ -2793,6 +2797,8 @@ elif page == "CC Dashboard":
                 st.session_state.cc_conservative_dte_min = 7
                 st.session_state.cc_conservative_dte_max = 30
                 st.session_state.cc_conservative_oi_min = 50
+            # Initialize RSI separately to handle existing sessions
+            if 'cc_conservative_rsi_max' not in st.session_state:
                 st.session_state.cc_conservative_rsi_max = 70
             
             if 'cc_medium_delta_min' not in st.session_state:
@@ -2801,6 +2807,7 @@ elif page == "CC Dashboard":
                 st.session_state.cc_medium_dte_min = 7
                 st.session_state.cc_medium_dte_max = 30
                 st.session_state.cc_medium_oi_min = 50
+            if 'cc_medium_rsi_max' not in st.session_state:
                 st.session_state.cc_medium_rsi_max = 80
             
             if 'cc_aggressive_delta_min' not in st.session_state:
@@ -2809,6 +2816,7 @@ elif page == "CC Dashboard":
                 st.session_state.cc_aggressive_dte_min = 7
                 st.session_state.cc_aggressive_dte_max = 21
                 st.session_state.cc_aggressive_oi_min = 25
+            if 'cc_aggressive_rsi_max' not in st.session_state:
                 st.session_state.cc_aggressive_rsi_max = 100
             
             # Get DataFrame from session state (already has Select column)
