@@ -807,6 +807,34 @@ elif page == "CSP Dashboard":
     if st.session_state.get('show_watchlist_editor', False):
         st.subheader("✏️ Edit Watchlist")
         
+        # Add new ticker section
+        st.markdown("**➕ Add New Ticker**")
+        add_col1, add_col2 = st.columns([3, 1])
+        with add_col1:
+            new_ticker = st.text_input(
+                "Enter ticker symbol",
+                placeholder="e.g., AAPL",
+                key="new_ticker_input",
+                label_visibility="collapsed"
+            ).upper().strip()
+        with add_col2:
+            if st.button("➕ Add Ticker", type="primary", use_container_width=True):
+                if new_ticker:
+                    if new_ticker in watchlist:
+                        st.warning(f"⚠️ {new_ticker} is already in your watchlist!")
+                    else:
+                        # Add to watchlist file
+                        updated_watchlist = sorted(watchlist + [new_ticker])
+                        with open('watchlist.txt', 'w') as f:
+                            for symbol in updated_watchlist:
+                                f.write(f"{symbol}\n")
+                        st.success(f"✅ Added {new_ticker} to watchlist!")
+                        st.rerun()
+                else:
+                    st.warning("⚠️ Please enter a ticker symbol")
+        
+        st.divider()
+        
         if len(watchlist) > 0:
             # Create DataFrame for editing
             watchlist_df = pd.DataFrame({
