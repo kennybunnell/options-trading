@@ -860,6 +860,8 @@ elif page == "CSP Dashboard":
                         st.info(f"ℹ️ Already in watchlist (skipped): {', '.join(already_in_watchlist)}")
                     
                     if added:
+                        # Close the dialog after adding
+                        st.session_state.show_watchlist_editor = False
                         st.rerun()
                 else:
                     st.warning("⚠️ Please enter a ticker symbol")
