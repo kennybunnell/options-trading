@@ -1042,7 +1042,7 @@ elif page == "CSP Dashboard":
                         'Theta': round(put.get('greeks', {}).get('theta', 0), 3),
                         'Volume': volume,
                         'Open Int': oi,
-                        'RSI': round(rsi, 1) if rsi else None,
+                        'RSI': f"🟢 {round(rsi, 1)}" if rsi and rsi < 40 else (f"🟡 {round(rsi, 1)}" if rsi and rsi < 60 else (f"🔴 {round(rsi, 1)}" if rsi else None)),
                         'IV Rank': round(iv_rank, 1) if iv_rank else None,
                         'Spread %': round(spread_pct, 1),
                         'Existing CSPs': existing_contracts,
