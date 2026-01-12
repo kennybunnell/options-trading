@@ -918,6 +918,7 @@ elif page == "CSP Dashboard":
     st.divider()
     
     if st.button("🔄 Fetch Opportunities", type="primary", use_container_width=True):
+      try:
         # Get existing CSP positions first
         from utils.cash_secured_puts import get_existing_csp_positions
         existing_csp_data = get_existing_csp_positions(api, selected_account)
@@ -1167,6 +1168,10 @@ elif page == "CSP Dashboard":
             # Clear opportunities if none found
             if 'csp_opportunities' in st.session_state:
                 del st.session_state.csp_opportunities
+      except Exception as e:
+        st.error(f"❌ Scan Error: {str(e)}")
+        import traceback
+        st.code(traceback.format_exc())
     # Display opportunities if they exist in session state
     if 'csp_opportunities' in st.session_state and len(st.session_state.csp_opportunities) > 0:
         # Get the DataFrame from session state
