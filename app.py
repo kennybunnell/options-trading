@@ -913,12 +913,16 @@ elif page == "CSP Dashboard":
             'final_opportunities': 0
         }
         
-        with st.status(f"Fetching opportunities for {len(watchlist)} symbols...", expanded=False) as status:
+        with st.status(f"Fetching opportunities for {len(watchlist)} symbols...", expanded=True) as status:
             opportunities = []
-            progress_bar = st.progress(0)
+            
+            # Create progress indicators
+            progress_bar = st.progress(0, text="Starting scan...")
             
             for idx, symbol in enumerate(watchlist):
-                st.write(f"Processing {symbol}... ({idx+1}/{len(watchlist)})")
+                # Update progress bar with percentage and current symbol
+                progress_pct = (idx + 1) / len(watchlist)
+                progress_bar.progress(progress_pct, text=f"📊 Scanning {symbol}... ({idx+1}/{len(watchlist)}) - {int(progress_pct * 100)}% complete")
                 stats['symbols_processed'] += 1
                 
                 log_lines.append(f"--- {symbol} ---")
@@ -1059,8 +1063,6 @@ elif page == "CSP Dashboard":
                 
                 log_lines.append(f"  ✅ Final opportunities from {symbol}: {puts_passing_filters}")
                 log_lines.append(f"")
-                
-                progress_bar.progress((idx + 1) / len(watchlist))
             
             stats['final_opportunities'] = len(opportunities)
             
