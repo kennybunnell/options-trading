@@ -1228,9 +1228,23 @@ elif page == "CSP Dashboard":
             st.session_state.csp_aggressive_weekly_min = 0.3
         
         # Helper function to select best per ticker
-        def select_best_csp_per_ticker(df, delta_min, delta_max, dte_min, dte_max, oi_min, weekly_min, qty=1):
-            """Select best CSP option per ticker based on criteria"""
+        def select_best_csp_per_ticker(df, delta_min, delta_max, dte_min, dte_max, oi_min, weekly_min, qty=1, rsi_max=100):
+            """Select best CSP option per ticker based on criteria including RSI filter"""
             selections = []
+            
+            # Helper function to extract numeric RSI from emoji string
+            def extract_rsi(rsi_val):
+                if rsi_val is None:
+                    return None
+                if isinstance(rsi_val, (int, float)):
+                    return float(rsi_val)
+                # Extract number from string like "🟢 35.2" or "🟡 52.1"
+                try:
+                    import re
+                    match = re.search(r'[\d.]+', str(rsi_val))
+                    return float(match.group()) if match else None
+                except:
+                    return None
             
             # Filter by criteria (using correct column names from DataFrame)
             filtered = df[
@@ -1241,6 +1255,10 @@ elif page == "CSP Dashboard":
                 (df['Open Int'] >= oi_min) &  # Column is 'Open Int' not 'Open Interest'
                 (df['Weekly %'] >= weekly_min)
             ]
+            
+            # Apply RSI filter if RSI column exists and rsi_max < 100
+            if 'RSI' in filtered.columns and rsi_max < 100:
+                filtered = filtered[filtered['RSI'].apply(lambda x: extract_rsi(x) is None or extract_rsi(x) <= rsi_max)]
             
             if len(filtered) == 0:
                 return selections
@@ -1266,7 +1284,7 @@ elif page == "CSP Dashboard":
         
         with col2:
             if st.button("🟢 Conservative", use_container_width=True, key="csp_preset_conservative", 
-                       help=f"Δ {st.session_state.csp_conservative_delta_min}-{st.session_state.csp_conservative_delta_max}, DTE {st.session_state.csp_conservative_dte_min}-{st.session_state.csp_conservative_dte_max}, OI ≥{st.session_state.csp_conservative_oi_min}, Weekly ≥{st.session_state.csp_conservative_weekly_min}%"):
+                       help=f"Δ {st.session_state.csp_conservative_delta_min}-{st.session_state.csp_conservative_delta_max}, DTE {st.session_state.csp_conservative_dte_min}-{st.session_state.csp_conservative_dte_max}, OI ≥{st.session_state.csp_conservative_oi_min}, Weekly ≥{st.session_state.csp_conservative_weekly_min}%, RSI ≤50"):
                 # Track active preset for Delta formatting
                 st.session_state.csp_active_preset = 'conservative'
                 
@@ -1274,7 +1292,7 @@ elif page == "CSP Dashboard":
                 st.session_state.csp_opportunities['Select'] = False
                 st.session_state.csp_opportunities['Qty'] = 1
                 
-                # Use smart per-ticker selection
+                # Use smart per-ticker selection with RSI filter (Conservative = RSI < 50, not overbought)
                 selections = select_best_csp_per_ticker(
                     st.session_state.csp_opportunities,
                     st.session_state.csp_conservative_delta_min,
@@ -1283,7 +1301,8 @@ elif page == "CSP Dashboard":
                     st.session_state.csp_conservative_dte_max,
                     st.session_state.csp_conservative_oi_min,
                     st.session_state.csp_conservative_weekly_min,
-                    qty=1
+                    qty=1,
+                    rsi_max=50  # Conservative: Only select stocks with RSI <= 50 (not overbought)
                 )
                 
                 # Apply selections
@@ -1295,7 +1314,7 @@ elif page == "CSP Dashboard":
         
         with col3:
             if st.button("🟡 Medium", use_container_width=True, key="csp_preset_medium",
-                       help=f"Δ {st.session_state.csp_medium_delta_min}-{st.session_state.csp_medium_delta_max}, DTE {st.session_state.csp_medium_dte_min}-{st.session_state.csp_medium_dte_max}, OI ≥{st.session_state.csp_medium_oi_min}, Weekly ≥{st.session_state.csp_medium_weekly_min}%"):
+                       help=f"Δ {st.session_state.csp_medium_delta_min}-{st.session_state.csp_medium_delta_max}, DTE {st.session_state.csp_medium_dte_min}-{st.session_state.csp_medium_dte_max}, OI ≥{st.session_state.csp_medium_oi_min}, Weekly ≥{st.session_state.csp_medium_weekly_min}%, RSI ≤60"):
                 # Track active preset for Delta formatting
                 st.session_state.csp_active_preset = 'medium'
                 
@@ -1303,7 +1322,7 @@ elif page == "CSP Dashboard":
                 st.session_state.csp_opportunities['Select'] = False
                 st.session_state.csp_opportunities['Qty'] = 1
                 
-                # Use smart per-ticker selection
+                # Use smart per-ticker selection with RSI filter (Medium = RSI < 60)
                 selections = select_best_csp_per_ticker(
                     st.session_state.csp_opportunities,
                     st.session_state.csp_medium_delta_min,
@@ -1312,7 +1331,8 @@ elif page == "CSP Dashboard":
                     st.session_state.csp_medium_dte_max,
                     st.session_state.csp_medium_oi_min,
                     st.session_state.csp_medium_weekly_min,
-                    qty=1
+                    qty=1,
+                    rsi_max=60  # Medium: Only select stocks with RSI <= 60
                 )
                 
                 # Apply selections
@@ -1324,7 +1344,7 @@ elif page == "CSP Dashboard":
         
         with col4:
             if st.button("🔴 Aggressive", use_container_width=True, key="csp_preset_aggressive",
-                       help=f"Δ {st.session_state.csp_aggressive_delta_min}-{st.session_state.csp_aggressive_delta_max}, DTE {st.session_state.csp_aggressive_dte_min}-{st.session_state.csp_aggressive_dte_max}, OI ≥{st.session_state.csp_aggressive_oi_min}, Weekly ≥{st.session_state.csp_aggressive_weekly_min}%"):
+                       help=f"Δ {st.session_state.csp_aggressive_delta_min}-{st.session_state.csp_aggressive_delta_max}, DTE {st.session_state.csp_aggressive_dte_min}-{st.session_state.csp_aggressive_dte_max}, OI ≥{st.session_state.csp_aggressive_oi_min}, Weekly ≥{st.session_state.csp_aggressive_weekly_min}%, No RSI filter"):
                 # Track active preset for Delta formatting
                 st.session_state.csp_active_preset = 'aggressive'
                 
