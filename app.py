@@ -1209,7 +1209,7 @@ elif page == "CSP Dashboard":
             st.session_state.csp_conservative_dte_min = 7
             st.session_state.csp_conservative_dte_max = 30
             st.session_state.csp_conservative_oi_min = 50
-            st.session_state.csp_conservative_weekly_min = 0.3
+            st.session_state.csp_conservative_rsi_max = 50
         
         if 'csp_medium_delta_min' not in st.session_state:
             st.session_state.csp_medium_delta_min = 0.15
@@ -1217,7 +1217,7 @@ elif page == "CSP Dashboard":
             st.session_state.csp_medium_dte_min = 7
             st.session_state.csp_medium_dte_max = 30
             st.session_state.csp_medium_oi_min = 50
-            st.session_state.csp_medium_weekly_min = 0.3
+            st.session_state.csp_medium_rsi_max = 60
         
         if 'csp_aggressive_delta_min' not in st.session_state:
             st.session_state.csp_aggressive_delta_min = 0.20
@@ -1225,10 +1225,10 @@ elif page == "CSP Dashboard":
             st.session_state.csp_aggressive_dte_min = 7
             st.session_state.csp_aggressive_dte_max = 21
             st.session_state.csp_aggressive_oi_min = 25
-            st.session_state.csp_aggressive_weekly_min = 0.3
+            st.session_state.csp_aggressive_rsi_max = 100
         
         # Helper function to select best per ticker
-        def select_best_csp_per_ticker(df, delta_min, delta_max, dte_min, dte_max, oi_min, weekly_min, qty=1, rsi_max=100):
+        def select_best_csp_per_ticker(df, delta_min, delta_max, dte_min, dte_max, oi_min, rsi_max=100, qty=1):
             """Select best CSP option per ticker based on criteria including RSI filter"""
             selections = []
             
@@ -1252,8 +1252,7 @@ elif page == "CSP Dashboard":
                 (df['Delta'].abs() <= delta_max) &
                 (df['DTE'] >= dte_min) &
                 (df['DTE'] <= dte_max) &
-                (df['Open Int'] >= oi_min) &  # Column is 'Open Int' not 'Open Interest'
-                (df['Weekly %'] >= weekly_min)
+                (df['Open Int'] >= oi_min)
             ]
             
             # Apply RSI filter if RSI column exists and rsi_max < 100
@@ -1284,7 +1283,7 @@ elif page == "CSP Dashboard":
         
         with col2:
             if st.button("🟢 Conservative", use_container_width=True, key="csp_preset_conservative", 
-                       help=f"Δ {st.session_state.csp_conservative_delta_min}-{st.session_state.csp_conservative_delta_max}, DTE {st.session_state.csp_conservative_dte_min}-{st.session_state.csp_conservative_dte_max}, OI ≥{st.session_state.csp_conservative_oi_min}, Weekly ≥{st.session_state.csp_conservative_weekly_min}%, RSI ≤50"):
+                       help=f"Δ {st.session_state.csp_conservative_delta_min}-{st.session_state.csp_conservative_delta_max}, DTE {st.session_state.csp_conservative_dte_min}-{st.session_state.csp_conservative_dte_max}, OI ≥{st.session_state.csp_conservative_oi_min}, RSI ≤{st.session_state.csp_conservative_rsi_max}"):
                 # Track active preset for Delta formatting
                 st.session_state.csp_active_preset = 'conservative'
                 
@@ -1292,7 +1291,7 @@ elif page == "CSP Dashboard":
                 st.session_state.csp_opportunities['Select'] = False
                 st.session_state.csp_opportunities['Qty'] = 1
                 
-                # Use smart per-ticker selection with RSI filter (Conservative = RSI < 50, not overbought)
+                # Use smart per-ticker selection with RSI filter
                 selections = select_best_csp_per_ticker(
                     st.session_state.csp_opportunities,
                     st.session_state.csp_conservative_delta_min,
@@ -1300,9 +1299,8 @@ elif page == "CSP Dashboard":
                     st.session_state.csp_conservative_dte_min,
                     st.session_state.csp_conservative_dte_max,
                     st.session_state.csp_conservative_oi_min,
-                    st.session_state.csp_conservative_weekly_min,
-                    qty=1,
-                    rsi_max=50  # Conservative: Only select stocks with RSI <= 50 (not overbought)
+                    st.session_state.csp_conservative_rsi_max,
+                    qty=1
                 )
                 
                 # Apply selections
@@ -1314,7 +1312,7 @@ elif page == "CSP Dashboard":
         
         with col3:
             if st.button("🟡 Medium", use_container_width=True, key="csp_preset_medium",
-                       help=f"Δ {st.session_state.csp_medium_delta_min}-{st.session_state.csp_medium_delta_max}, DTE {st.session_state.csp_medium_dte_min}-{st.session_state.csp_medium_dte_max}, OI ≥{st.session_state.csp_medium_oi_min}, Weekly ≥{st.session_state.csp_medium_weekly_min}%, RSI ≤60"):
+                       help=f"Δ {st.session_state.csp_medium_delta_min}-{st.session_state.csp_medium_delta_max}, DTE {st.session_state.csp_medium_dte_min}-{st.session_state.csp_medium_dte_max}, OI ≥{st.session_state.csp_medium_oi_min}, RSI ≤{st.session_state.csp_medium_rsi_max}"):
                 # Track active preset for Delta formatting
                 st.session_state.csp_active_preset = 'medium'
                 
@@ -1322,7 +1320,7 @@ elif page == "CSP Dashboard":
                 st.session_state.csp_opportunities['Select'] = False
                 st.session_state.csp_opportunities['Qty'] = 1
                 
-                # Use smart per-ticker selection with RSI filter (Medium = RSI < 60)
+                # Use smart per-ticker selection with RSI filter
                 selections = select_best_csp_per_ticker(
                     st.session_state.csp_opportunities,
                     st.session_state.csp_medium_delta_min,
@@ -1330,9 +1328,8 @@ elif page == "CSP Dashboard":
                     st.session_state.csp_medium_dte_min,
                     st.session_state.csp_medium_dte_max,
                     st.session_state.csp_medium_oi_min,
-                    st.session_state.csp_medium_weekly_min,
-                    qty=1,
-                    rsi_max=60  # Medium: Only select stocks with RSI <= 60
+                    st.session_state.csp_medium_rsi_max,
+                    qty=1
                 )
                 
                 # Apply selections
@@ -1344,7 +1341,7 @@ elif page == "CSP Dashboard":
         
         with col4:
             if st.button("🔴 Aggressive", use_container_width=True, key="csp_preset_aggressive",
-                       help=f"Δ {st.session_state.csp_aggressive_delta_min}-{st.session_state.csp_aggressive_delta_max}, DTE {st.session_state.csp_aggressive_dte_min}-{st.session_state.csp_aggressive_dte_max}, OI ≥{st.session_state.csp_aggressive_oi_min}, Weekly ≥{st.session_state.csp_aggressive_weekly_min}%, No RSI filter"):
+                       help=f"Δ {st.session_state.csp_aggressive_delta_min}-{st.session_state.csp_aggressive_delta_max}, DTE {st.session_state.csp_aggressive_dte_min}-{st.session_state.csp_aggressive_dte_max}, OI ≥{st.session_state.csp_aggressive_oi_min}, RSI ≤{st.session_state.csp_aggressive_rsi_max} (no limit)"):
                 # Track active preset for Delta formatting
                 st.session_state.csp_active_preset = 'aggressive'
                 
@@ -1352,7 +1349,7 @@ elif page == "CSP Dashboard":
                 st.session_state.csp_opportunities['Select'] = False
                 st.session_state.csp_opportunities['Qty'] = 1
                 
-                # Use smart per-ticker selection
+                # Use smart per-ticker selection (Aggressive = no RSI filter, rsi_max=100)
                 selections = select_best_csp_per_ticker(
                     st.session_state.csp_opportunities,
                     st.session_state.csp_aggressive_delta_min,
@@ -1360,7 +1357,7 @@ elif page == "CSP Dashboard":
                     st.session_state.csp_aggressive_dte_min,
                     st.session_state.csp_aggressive_dte_max,
                     st.session_state.csp_aggressive_oi_min,
-                    st.session_state.csp_aggressive_weekly_min,
+                    st.session_state.csp_aggressive_rsi_max,
                     qty=1
                 )
                 
@@ -1505,7 +1502,7 @@ elif page == "CSP Dashboard":
             with col2:
                 cons_dte_max = st.number_input("Max DTE", value=st.session_state.csp_conservative_dte_max, min_value=0, max_value=365, step=1, key="csp_cons_dte_max_input")
                 cons_oi_min = st.number_input("Min Open Interest", value=st.session_state.csp_conservative_oi_min, min_value=0, step=10, key="csp_cons_oi_min_input")
-                cons_weekly_min = st.number_input("Min Weekly Return %", value=st.session_state.csp_conservative_weekly_min, min_value=0.0, step=0.1, key="csp_cons_weekly_min_input")
+                cons_rsi_max = st.number_input("Max RSI", value=st.session_state.csp_conservative_rsi_max, min_value=0, max_value=100, step=5, key="csp_cons_rsi_max_input", help="Filter out overbought stocks. Lower = more conservative.")
             
             col1, col2 = st.columns(2)
             with col1:
@@ -1515,7 +1512,7 @@ elif page == "CSP Dashboard":
                     st.session_state.csp_conservative_dte_min = cons_dte_min
                     st.session_state.csp_conservative_dte_max = cons_dte_max
                     st.session_state.csp_conservative_oi_min = cons_oi_min
-                    st.session_state.csp_conservative_weekly_min = cons_weekly_min
+                    st.session_state.csp_conservative_rsi_max = cons_rsi_max
                     st.success("✅ Conservative criteria committed!")
                     st.rerun()
             with col2:
@@ -1525,7 +1522,7 @@ elif page == "CSP Dashboard":
                     st.session_state.csp_conservative_dte_min = 7
                     st.session_state.csp_conservative_dte_max = 30
                     st.session_state.csp_conservative_oi_min = 50
-                    st.session_state.csp_conservative_weekly_min = 0.3
+                    st.session_state.csp_conservative_rsi_max = 50
                     st.success("✅ Conservative reset to defaults!")
                     st.rerun()
         
@@ -1539,7 +1536,7 @@ elif page == "CSP Dashboard":
             with col2:
                 med_dte_max = st.number_input("Max DTE", value=st.session_state.csp_medium_dte_max, min_value=0, max_value=365, step=1, key="csp_med_dte_max_input")
                 med_oi_min = st.number_input("Min Open Interest", value=st.session_state.csp_medium_oi_min, min_value=0, step=10, key="csp_med_oi_min_input")
-                med_weekly_min = st.number_input("Min Weekly Return %", value=st.session_state.csp_medium_weekly_min, min_value=0.0, step=0.1, key="csp_med_weekly_min_input")
+                med_rsi_max = st.number_input("Max RSI", value=st.session_state.csp_medium_rsi_max, min_value=0, max_value=100, step=5, key="csp_med_rsi_max_input", help="Filter out overbought stocks. Lower = more conservative.")
             
             col1, col2 = st.columns(2)
             with col1:
@@ -1549,7 +1546,7 @@ elif page == "CSP Dashboard":
                     st.session_state.csp_medium_dte_min = med_dte_min
                     st.session_state.csp_medium_dte_max = med_dte_max
                     st.session_state.csp_medium_oi_min = med_oi_min
-                    st.session_state.csp_medium_weekly_min = med_weekly_min
+                    st.session_state.csp_medium_rsi_max = med_rsi_max
                     st.success("✅ Medium criteria committed!")
                     st.rerun()
             with col2:
@@ -1559,7 +1556,7 @@ elif page == "CSP Dashboard":
                     st.session_state.csp_medium_dte_min = 7
                     st.session_state.csp_medium_dte_max = 30
                     st.session_state.csp_medium_oi_min = 50
-                    st.session_state.csp_medium_weekly_min = 0.3
+                    st.session_state.csp_medium_rsi_max = 60
                     st.success("✅ Medium reset to defaults!")
                     st.rerun()
         
@@ -1573,7 +1570,7 @@ elif page == "CSP Dashboard":
             with col2:
                 agg_dte_max = st.number_input("Max DTE", value=st.session_state.csp_aggressive_dte_max, min_value=0, max_value=365, step=1, key="csp_agg_dte_max_input")
                 agg_oi_min = st.number_input("Min Open Interest", value=st.session_state.csp_aggressive_oi_min, min_value=0, step=10, key="csp_agg_oi_min_input")
-                agg_weekly_min = st.number_input("Min Weekly Return %", value=st.session_state.csp_aggressive_weekly_min, min_value=0.0, step=0.1, key="csp_agg_weekly_min_input")
+                agg_rsi_max = st.number_input("Max RSI", value=st.session_state.csp_aggressive_rsi_max, min_value=0, max_value=100, step=5, key="csp_agg_rsi_max_input", help="Set to 100 for no RSI filter.")
             
             col1, col2 = st.columns(2)
             with col1:
@@ -1583,7 +1580,7 @@ elif page == "CSP Dashboard":
                     st.session_state.csp_aggressive_dte_min = agg_dte_min
                     st.session_state.csp_aggressive_dte_max = agg_dte_max
                     st.session_state.csp_aggressive_oi_min = agg_oi_min
-                    st.session_state.csp_aggressive_weekly_min = agg_weekly_min
+                    st.session_state.csp_aggressive_rsi_max = agg_rsi_max
                     st.success("✅ Aggressive criteria committed!")
                     st.rerun()
             with col2:
@@ -1593,7 +1590,7 @@ elif page == "CSP Dashboard":
                     st.session_state.csp_aggressive_dte_min = 7
                     st.session_state.csp_aggressive_dte_max = 21
                     st.session_state.csp_aggressive_oi_min = 25
-                    st.session_state.csp_aggressive_weekly_min = 0.3
+                    st.session_state.csp_aggressive_rsi_max = 100
                     st.success("✅ Aggressive reset to defaults!")
                     st.rerun()
         
@@ -2796,7 +2793,7 @@ elif page == "CC Dashboard":
                 st.session_state.cc_conservative_dte_min = 7
                 st.session_state.cc_conservative_dte_max = 30
                 st.session_state.cc_conservative_oi_min = 50
-                st.session_state.cc_conservative_weekly_min = 0.3
+                st.session_state.cc_conservative_rsi_max = 70
             
             if 'cc_medium_delta_min' not in st.session_state:
                 st.session_state.cc_medium_delta_min = 0.15
@@ -2804,7 +2801,7 @@ elif page == "CC Dashboard":
                 st.session_state.cc_medium_dte_min = 7
                 st.session_state.cc_medium_dte_max = 30
                 st.session_state.cc_medium_oi_min = 50
-                st.session_state.cc_medium_weekly_min = 0.3
+                st.session_state.cc_medium_rsi_max = 80
             
             if 'cc_aggressive_delta_min' not in st.session_state:
                 st.session_state.cc_aggressive_delta_min = 0.20
@@ -2812,7 +2809,7 @@ elif page == "CC Dashboard":
                 st.session_state.cc_aggressive_dte_min = 7
                 st.session_state.cc_aggressive_dte_max = 21
                 st.session_state.cc_aggressive_oi_min = 25
-                st.session_state.cc_aggressive_weekly_min = 0.3
+                st.session_state.cc_aggressive_rsi_max = 100
             
             # Get DataFrame from session state (already has Select column)
             opp_df = st.session_state.cc_opportunities
@@ -2989,7 +2986,7 @@ elif page == "CC Dashboard":
                 with col2:
                     cons_dte_max = st.number_input("Max DTE", value=st.session_state.cc_conservative_dte_max, min_value=0, max_value=365, step=1, key="cons_dte_max_input")
                     cons_oi_min = st.number_input("Min Open Interest", value=st.session_state.cc_conservative_oi_min, min_value=0, step=10, key="cons_oi_min_input")
-                    cons_weekly_min = st.number_input("Min Weekly Return %", value=st.session_state.cc_conservative_weekly_min, min_value=0.0, step=0.1, key="cons_weekly_min_input")
+                    cons_rsi_max = st.number_input("Max RSI", value=st.session_state.cc_conservative_rsi_max, min_value=0, max_value=100, step=5, key="cons_rsi_max_input", help="For CCs, higher RSI is better (stock has momentum). Set to 70 for conservative.")
                 
                 col1, col2 = st.columns(2)
                 with col1:
@@ -2999,7 +2996,7 @@ elif page == "CC Dashboard":
                         st.session_state.cc_conservative_dte_min = cons_dte_min
                         st.session_state.cc_conservative_dte_max = cons_dte_max
                         st.session_state.cc_conservative_oi_min = cons_oi_min
-                        st.session_state.cc_conservative_weekly_min = cons_weekly_min
+                        st.session_state.cc_conservative_rsi_max = cons_rsi_max
                         st.success("✅ Conservative criteria committed!")
                         st.rerun()
                 with col2:
@@ -3009,7 +3006,7 @@ elif page == "CC Dashboard":
                         st.session_state.cc_conservative_dte_min = 7
                         st.session_state.cc_conservative_dte_max = 30
                         st.session_state.cc_conservative_oi_min = 50
-                        st.session_state.cc_conservative_weekly_min = 0.3
+                        st.session_state.cc_conservative_rsi_max = 70
                         st.success("✅ Conservative reset to defaults!")
                         st.rerun()
             
@@ -3023,7 +3020,7 @@ elif page == "CC Dashboard":
                 with col2:
                     med_dte_max = st.number_input("Max DTE", value=st.session_state.cc_medium_dte_max, min_value=0, max_value=365, step=1, key="med_dte_max_input")
                     med_oi_min = st.number_input("Min Open Interest", value=st.session_state.cc_medium_oi_min, min_value=0, step=10, key="med_oi_min_input")
-                    med_weekly_min = st.number_input("Min Weekly Return %", value=st.session_state.cc_medium_weekly_min, min_value=0.0, step=0.1, key="med_weekly_min_input")
+                    med_rsi_max = st.number_input("Max RSI", value=st.session_state.cc_medium_rsi_max, min_value=0, max_value=100, step=5, key="med_rsi_max_input", help="For CCs, higher RSI is better. Set to 80 for medium.")
                 
                 col1, col2 = st.columns(2)
                 with col1:
@@ -3033,7 +3030,7 @@ elif page == "CC Dashboard":
                         st.session_state.cc_medium_dte_min = med_dte_min
                         st.session_state.cc_medium_dte_max = med_dte_max
                         st.session_state.cc_medium_oi_min = med_oi_min
-                        st.session_state.cc_medium_weekly_min = med_weekly_min
+                        st.session_state.cc_medium_rsi_max = med_rsi_max
                         st.success("✅ Medium criteria committed!")
                         st.rerun()
                 with col2:
@@ -3043,7 +3040,7 @@ elif page == "CC Dashboard":
                         st.session_state.cc_medium_dte_min = 7
                         st.session_state.cc_medium_dte_max = 30
                         st.session_state.cc_medium_oi_min = 50
-                        st.session_state.cc_medium_weekly_min = 0.3
+                        st.session_state.cc_medium_rsi_max = 80
                         st.success("✅ Medium reset to defaults!")
                         st.rerun()
             
@@ -3057,7 +3054,7 @@ elif page == "CC Dashboard":
                 with col2:
                     agg_dte_max = st.number_input("Max DTE", value=st.session_state.cc_aggressive_dte_max, min_value=0, max_value=365, step=1, key="agg_dte_max_input")
                     agg_oi_min = st.number_input("Min Open Interest", value=st.session_state.cc_aggressive_oi_min, min_value=0, step=10, key="agg_oi_min_input")
-                    agg_weekly_min = st.number_input("Min Weekly Return %", value=st.session_state.cc_aggressive_weekly_min, min_value=0.0, step=0.1, key="agg_weekly_min_input")
+                    agg_rsi_max = st.number_input("Max RSI", value=st.session_state.cc_aggressive_rsi_max, min_value=0, max_value=100, step=5, key="agg_rsi_max_input", help="Set to 100 for no RSI filter.")
                 
                 col1, col2 = st.columns(2)
                 with col1:
@@ -3067,7 +3064,7 @@ elif page == "CC Dashboard":
                         st.session_state.cc_aggressive_dte_min = agg_dte_min
                         st.session_state.cc_aggressive_dte_max = agg_dte_max
                         st.session_state.cc_aggressive_oi_min = agg_oi_min
-                        st.session_state.cc_aggressive_weekly_min = agg_weekly_min
+                        st.session_state.cc_aggressive_rsi_max = agg_rsi_max
                         st.success("✅ Aggressive criteria committed!")
                         st.rerun()
                 with col2:
@@ -3077,7 +3074,7 @@ elif page == "CC Dashboard":
                         st.session_state.cc_aggressive_dte_min = 7
                         st.session_state.cc_aggressive_dte_max = 21
                         st.session_state.cc_aggressive_oi_min = 25
-                        st.session_state.cc_aggressive_weekly_min = 0.3
+                        st.session_state.cc_aggressive_rsi_max = 100
                         st.success("✅ Aggressive reset to defaults!")
                         st.rerun()
             
