@@ -836,14 +836,14 @@ elif page == "CSP Dashboard":
         with add_col2:
             if st.button("➕ Add Ticker(s)", type="primary", use_container_width=True):
                 if new_ticker_input:
-                    # Parse comma-separated tickers
-                    new_tickers = [t.strip() for t in new_ticker_input.split(',') if t.strip()]
+                    # Parse comma-separated tickers and remove duplicates from input
+                    new_tickers = list(dict.fromkeys([t.strip() for t in new_ticker_input.split(',') if t.strip()]))
                     added = []
-                    duplicates = []
+                    already_in_watchlist = []
                     
                     for ticker in new_tickers:
                         if ticker in watchlist:
-                            duplicates.append(ticker)
+                            already_in_watchlist.append(ticker)
                         else:
                             watchlist.append(ticker)
                             added.append(ticker)
@@ -856,8 +856,8 @@ elif page == "CSP Dashboard":
                                 f.write(f"{symbol}\n")
                         st.success(f"✅ Added {len(added)} ticker(s): {', '.join(added)}")
                     
-                    if duplicates:
-                        st.warning(f"⚠️ Already in watchlist: {', '.join(duplicates)}")
+                    if already_in_watchlist:
+                        st.info(f"ℹ️ Already in watchlist (skipped): {', '.join(already_in_watchlist)}")
                     
                     if added:
                         st.rerun()
