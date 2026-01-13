@@ -796,7 +796,12 @@ elif page == "CSP Dashboard":
         total_pl = sum([p['pl'] for p in short_put_details])
         total_collateral = sum([p['collateral_required'] for p in short_put_details])
         
-        col1, col2, col3, col4 = st.columns(4)
+        # Get Option Buying Power from Tastytrade API
+        balances = api.get_account_balances(selected_account)
+        option_buying_power = float(balances.get('derivative-buying-power', 0)) if balances else 0
+        available_bp = option_buying_power - total_collateral
+        
+        col1, col2, col3, col4, col5 = st.columns(5)
         with col1:
             st.metric("Total Premium Collected", f"${total_premium:,.2f}")
         with col2:
@@ -805,6 +810,8 @@ elif page == "CSP Dashboard":
             st.metric("Total P/L", f"${total_pl:,.2f}", delta=f"{(total_pl/total_premium*100) if total_premium > 0 else 0:.1f}%")
         with col4:
             st.metric("Total Collateral", f"${total_collateral:,.0f}")
+        with col5:
+            st.metric("Option Buying Power", f"${option_buying_power:,.0f}", delta=f"${available_bp:,.0f} available")
     else:
         st.info("ℹ️ No existing CSP positions found")
     
