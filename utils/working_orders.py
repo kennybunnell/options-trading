@@ -225,10 +225,32 @@ def render_working_orders_dashboard(api, account_number):
                 if symbol:
                     option_symbols.append(symbol)
         
-        # Fetch quotes in batch
+        # Fetch quotes in batch (with fallback for older API instances)
         quotes = {}
         if option_symbols:
-            quotes = api.get_option_quotes_batch(option_symbols)
+            try:
+                # Try batch method first
+                if hasattr(api, 'get_option_quotes_batch'):
+                    quotes = api.get_option_quotes_batch(option_symbols)
+                else:
+                    # Fallback: fetch one at a time
+                    for sym in option_symbols:
+                        try:
+                            quote = api.get_option_quote(sym)
+                            if quote:
+                                quotes[sym] = quote
+                        except:
+                            pass
+            except Exception as e:
+                st.warning(f"Could not fetch option quotes: {str(e)}")
+                # Fallback: fetch one at a time
+                for sym in option_symbols:
+                    try:
+                        quote = api.get_option_quote(sym)
+                        if quote:
+                            quotes[sym] = quote
+                    except:
+                        pass
         
         # Build display data
         order_data = []
