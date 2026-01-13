@@ -5,4 +5,4 @@ pandas
 numpy
 yfinance
 plotly
-tastytrade
+# tastytrade SDK not needed - using direct REST API
