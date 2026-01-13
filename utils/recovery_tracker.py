@@ -210,7 +210,8 @@ def render_recovery_chart_only(stock_positions: List[Dict], cc_premiums: Dict):
 def render_recovery_tracker(stock_positions: List[Dict], cc_premiums: Dict):
     """
     Render the Position Recovery Tracker
-    Shows underwater positions and recovery progress through CC premiums
+    Shows underwater positions summary, timeline estimates, and strategy recommendations
+    (The horizontal bar chart is now rendered separately at the top of the page)
     """
     
     # Calculate recovery metrics
@@ -268,114 +269,6 @@ def render_recovery_tracker(stock_positions: List[Dict], cc_premiums: Dict):
     
     st.divider()
     
-    # Sort positions by remaining loss (worst first)
-    sorted_positions = sorted(metrics['underwater_positions'], key=lambda x: x['remaining_loss'])
-    
-    # ============================================
-    # HORIZONTAL BAR CHART - NOW AT TOP
-    # ============================================
-    st.subheader("📊 Recovery Progress by Position")
-    
-    st.markdown("""
-    **Red** = Remaining underwater amount | **Green** = Premium recovered toward breakeven
-    """)
-    
-    # Prepare data for horizontal bar chart
-    chart_data = []
-    for pos in sorted_positions:
-        # Calculate the total underwater amount (absolute value)
-        total_underwater = abs(pos['unrealized_loss'])
-        cc_recovered = pos['cc_premium']
-        remaining = abs(pos['remaining_loss'])
-        recovery_pct = pos['recovery_pct']
-        
-        chart_data.append({
-            'Symbol': pos['symbol'],
-            'Total Underwater': total_underwater,
-            'CC Recovered': cc_recovered,
-            'Remaining': remaining,
-            'Recovery %': recovery_pct
-        })
-    
-    chart_df = pd.DataFrame(chart_data)
-    
-    # Sort by remaining loss (most underwater at top)
-    chart_df = chart_df.sort_values('Remaining', ascending=True)
-    
-    fig = go.Figure()
-    
-    # Green bars - CC Premiums Recovered (shown first, on the left)
-    fig.add_trace(go.Bar(
-        name='Premium Recovered',
-        y=chart_df['Symbol'],
-        x=chart_df['CC Recovered'],
-        orientation='h',
-        marker_color='#28a745',
-        text=[f"${x:,.0f}" for x in chart_df['CC Recovered']],
-        textposition='inside',
-        textfont=dict(color='white', size=10),
-        hovertemplate='<b>%{y}</b><br>Premium Recovered: $%{x:,.0f}<extra></extra>'
-    ))
-    
-    # Red bars - Remaining Loss (stacked after green)
-    fig.add_trace(go.Bar(
-        name='Remaining Underwater',
-        y=chart_df['Symbol'],
-        x=chart_df['Remaining'],
-        orientation='h',
-        marker_color='#dc3545',
-        text=[f"${x:,.0f}" for x in chart_df['Remaining']],
-        textposition='inside',
-        textfont=dict(color='white', size=10),
-        hovertemplate='<b>%{y}</b><br>Remaining Underwater: $%{x:,.0f}<extra></extra>'
-    ))
-    
-    # Add recovery percentage annotations on the right
-    for i, row in chart_df.iterrows():
-        idx = chart_df.index.get_loc(i)
-        fig.add_annotation(
-            x=row['Total Underwater'] + 500,
-            y=row['Symbol'],
-            text=f"{row['Recovery %']:.0f}%",
-            showarrow=False,
-            font=dict(color='#888', size=11),
-            xanchor='left'
-        )
-    
-    fig.update_layout(
-        barmode='stack',
-        plot_bgcolor='rgba(0,0,0,0)',
-        paper_bgcolor='rgba(0,0,0,0)',
-        xaxis=dict(
-            showgrid=True, 
-            gridcolor='rgba(255,255,255,0.1)', 
-            color='#888',
-            title='Amount ($)', 
-            tickprefix='$', 
-            tickformat=',.0f',
-            side='top'
-        ),
-        yaxis=dict(
-            showgrid=False, 
-            color='#888',
-            categoryorder='array',
-            categoryarray=chart_df['Symbol'].tolist()
-        ),
-        margin=dict(l=80, r=80, t=40, b=20),
-        height=max(400, len(chart_df) * 35),  # Dynamic height based on number of positions
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="center",
-            x=0.5
-        )
-    )
-    
-    st.plotly_chart(fig, use_container_width=True)
-    
-    st.divider()
-    
     # ============================================
     # RECOVERY TIMELINE ESTIMATES
     # ============================================
@@ -412,53 +305,6 @@ def render_recovery_tracker(stock_positions: List[Dict], cc_premiums: Dict):
             st.success(f"**{target_months:.1f} months** to breakeven at ${target_monthly:,.0f}/month")
         else:
             st.warning("Enter target monthly CC premium")
-    
-    st.divider()
-    
-    # ============================================
-    # POSITION-BY-POSITION TABLE - NOW AT BOTTOM
-    # ============================================
-    st.subheader("📋 Position-by-Position Recovery Details")
-    
-    table_data = []
-    for pos in sorted_positions:
-        table_data.append({
-            'Symbol': pos['symbol'],
-            'Shares': pos['quantity'],
-            'Cost Basis': f"${pos['cost_basis']:.2f}",
-            'Current Price': f"${pos['current_price']:.2f}",
-            'Unrealized Loss': pos['unrealized_loss'],
-            'CC Premiums': pos['cc_premium'],
-            'Adjusted Basis': f"${pos['adjusted_basis']:.2f}",
-            'Remaining Loss': pos['remaining_loss'],
-            'Recovery %': pos['recovery_pct']
-        })
-    
-    df = pd.DataFrame(table_data)
-    
-    # Format for display
-    df_display = df.copy()
-    df_display['Unrealized Loss'] = df_display['Unrealized Loss'].apply(lambda x: f"-${abs(x):,.0f}")
-    df_display['CC Premiums'] = df_display['CC Premiums'].apply(lambda x: f"${x:,.0f}")
-    df_display['Remaining Loss'] = df_display['Remaining Loss'].apply(lambda x: f"-${abs(x):,.0f}")
-    df_display['Recovery %'] = df_display['Recovery %'].apply(lambda x: f"{x:.1f}%")
-    
-    st.dataframe(
-        df_display,
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "Symbol": st.column_config.TextColumn("Symbol", width="small"),
-            "Shares": st.column_config.NumberColumn("Shares", width="small"),
-            "Cost Basis": st.column_config.TextColumn("Cost/Share", width="small"),
-            "Current Price": st.column_config.TextColumn("Current", width="small"),
-            "Unrealized Loss": st.column_config.TextColumn("Unrealized Loss", width="medium"),
-            "CC Premiums": st.column_config.TextColumn("CC Premiums", width="medium"),
-            "Adjusted Basis": st.column_config.TextColumn("Adj. Basis", width="small"),
-            "Remaining Loss": st.column_config.TextColumn("Remaining Loss", width="medium"),
-            "Recovery %": st.column_config.TextColumn("Recovery %", width="small"),
-        }
-    )
     
     st.divider()
     
