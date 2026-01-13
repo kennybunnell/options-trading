@@ -801,17 +801,14 @@ elif page == "CSP Dashboard":
         option_buying_power = float(balances.get('derivative-buying-power', 0)) if balances else 0
         available_bp = option_buying_power - total_collateral
         
-        col1, col2, col3, col4, col5 = st.columns(5)
+        # Simplified 3-metric display
+        col1, col2, col3 = st.columns(3)
         with col1:
             st.metric("Total Premium Collected", f"${total_premium:,.2f}")
         with col2:
-            st.metric("Current Value", f"${total_current:,.2f}")
-        with col3:
             st.metric("Total P/L", f"${total_pl:,.2f}", delta=f"{(total_pl/total_premium*100) if total_premium > 0 else 0:.1f}%")
-        with col4:
-            st.metric("Total Collateral", f"${total_collateral:,.0f}")
-        with col5:
-            st.metric("Option Buying Power", f"${option_buying_power:,.0f}", delta=f"${available_bp:,.0f} available")
+        with col3:
+            st.metric("Available Buying Power", f"${available_bp:,.0f}", delta=f"of ${option_buying_power:,.0f} Option BP")
     else:
         st.info("ℹ️ No existing CSP positions found")
     
@@ -2044,35 +2041,36 @@ elif page == "CSP Dashboard":
             with col6:
                 st.metric("Avg Delta", f"{avg_delta:.2f}")
             
-            # Check buying power
+            # Check buying power (90% limit for safety buffer)
             balances = api.get_account_balances(selected_account)
             if balances:
                 # For CSP, use Derivative Buying Power (API field name)
                 # This is what Tastytrade UI shows as "Option Buying Power"
-                buying_power = float(balances.get('derivative-buying-power', 0))
-                bp_label = "Option Buying Power"
+                option_buying_power = float(balances.get('derivative-buying-power', 0))
                 
-                # Get cash balance for reference
-                cash_balance = float(balances.get('cash-balance', 0))
+                # Apply 90% limit - leave 10% buffer for safety
+                max_deployable = option_buying_power * 0.90
+                remaining_under_limit = max_deployable - total_collateral
+                utilization = (total_collateral / option_buying_power * 100) if option_buying_power > 0 else 0
                 
-                col1, col2, col3 = st.columns(3)
+                col1, col2, col3, col4 = st.columns(4)
                 
                 with col1:
-                    st.metric(bp_label, f"${buying_power:,.2f}")
+                    st.metric("Option Buying Power", f"${option_buying_power:,.2f}")
                 with col2:
-                    remaining = buying_power - total_collateral
-                    st.metric("After Orders", f"${remaining:,.2f}", 
-                             delta=f"-${total_collateral:,.2f}",
-                             delta_color="inverse")
+                    st.metric("90% Limit", f"${max_deployable:,.2f}")
                 with col3:
-                    utilization = (total_collateral / buying_power * 100) if buying_power > 0 else 0
-                    st.metric("BP Utilization", f"{utilization:.1f}%")
+                    st.metric("Required Collateral", f"${total_collateral:,.2f}")
+                with col4:
+                    st.metric("Utilization", f"{utilization:.1f}%")
                 
-                # Warning if insufficient buying power
-                if total_collateral > buying_power:
-                    st.error(f"⚠️ **Insufficient Buying Power!** You need ${total_collateral:,.2f} but only have ${buying_power:,.2f}")
+                # Warning if exceeds 90% limit
+                if total_collateral > max_deployable:
+                    excess = total_collateral - max_deployable
+                    st.error(f"⚠️ **Exceeds 90% Limit!** Over by ${excess:,.2f} - reduce order quantity")
                     can_submit = False
                 else:
+                    st.success(f"✅ Within 90% limit - ${remaining_under_limit:,.2f} remaining")
                     can_submit = True
                 
             else:
@@ -2251,36 +2249,42 @@ elif page == "CSP Dashboard":
                 
                 st.divider()
                 
-                # VALIDATION 2: Buying Power
+                # VALIDATION 2: Buying Power (90% limit for safety buffer)
                 st.subheader("2️⃣ Buying Power Validation")
                 
                 balances = api.get_account_balances(selected_account)
                 if balances:
                     # Use Derivative Buying Power (API field name)
                     # This is what Tastytrade UI shows as "Option Buying Power"
-                    buying_power = float(balances.get('derivative-buying-power', 0))
+                    option_buying_power = float(balances.get('derivative-buying-power', 0))
                     
-                    col1, col2, col3 = st.columns(3)
+                    # Apply 90% limit - leave 10% buffer for safety
+                    max_deployable = option_buying_power * 0.90
+                    buffer_after_orders = max_deployable - total_collateral
+                    utilization_pct = (total_collateral / option_buying_power * 100) if option_buying_power > 0 else 0
+                    
+                    col1, col2, col3, col4 = st.columns(4)
                     with col1:
-                        st.metric("Available Option BP", f"${buying_power:,.2f}")
+                        st.metric("Option Buying Power", f"${option_buying_power:,.2f}")
                     with col2:
-                        st.metric("Required Collateral", f"${total_collateral:,.2f}")
+                        st.metric("90% Limit (Max Deployable)", f"${max_deployable:,.2f}")
                     with col3:
-                        buffer = buying_power - total_collateral
-                        st.metric("Buffer After Orders", f"${buffer:,.2f}")
+                        st.metric("Required Collateral", f"${total_collateral:,.2f}")
+                    with col4:
+                        st.metric("Utilization", f"{utilization_pct:.1f}%")
                     
-                    if total_collateral <= buying_power:
-                        buffer_pct = (buffer / buying_power * 100) if buying_power > 0 else 0
-                        st.success(f"✅ Sufficient buying power ({buffer_pct:.1f}% buffer remaining)")
-                        validation_results.append(("Buying Power", True, f"${buffer:,.2f} buffer"))
+                    if total_collateral <= max_deployable:
+                        remaining_pct = (buffer_after_orders / option_buying_power * 100) if option_buying_power > 0 else 0
+                        st.success(f"✅ Within 90% limit - ${buffer_after_orders:,.2f} remaining under limit ({remaining_pct:.1f}% of total BP)")
+                        validation_results.append(("Buying Power (90% Limit)", True, f"${buffer_after_orders:,.2f} under limit"))
                     else:
-                        shortage = total_collateral - buying_power
-                        st.error(f"❌ Insufficient buying power! Short by ${shortage:,.2f}")
-                        validation_results.append(("Buying Power", False, f"Short ${shortage:,.2f}"))
+                        excess = total_collateral - max_deployable
+                        st.error(f"❌ Exceeds 90% limit! Over by ${excess:,.2f} - reduce order quantity")
+                        validation_results.append(("Buying Power (90% Limit)", False, f"Over limit by ${excess:,.2f}"))
                         all_passed = False
                 else:
                     st.error("❌ Could not fetch account balances")
-                    validation_results.append(("Buying Power", False, "API error"))
+                    validation_results.append(("Buying Power (90% Limit)", False, "API error"))
                     all_passed = False
                 
                 st.divider()
