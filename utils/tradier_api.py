@@ -348,6 +348,40 @@ class TradierAPI:
         
         return results
 
+    def prefetch_option_chains(self, symbols, min_dte=0, max_dte=60, max_workers=5):
+        """
+        Prefetch option chains for multiple symbols in parallel.
+        Uses ThreadPoolExecutor for concurrent API calls.
+        
+        Args:
+            symbols: List of stock symbols
+            min_dte: Minimum days to expiration
+            max_dte: Maximum days to expiration
+            max_workers: Maximum number of concurrent threads (default 5 to avoid rate limits)
+            
+        Returns:
+            dict: {symbol: chain_data} mapping
+        """
+        results = {}
+        
+        def fetch_single(symbol):
+            return symbol, self.get_option_chains(symbol, min_dte=min_dte, max_dte=max_dte)
+        
+        # Fetch all symbols in parallel
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {executor.submit(fetch_single, s): s for s in symbols}
+            
+            for future in as_completed(futures):
+                try:
+                    symbol, chain_data = future.result()
+                    results[symbol] = chain_data
+                except Exception as e:
+                    symbol = futures[future]
+                    print(f"Error prefetching option chain for {symbol}: {e}")
+                    results[symbol] = None
+        
+        return results
+
     def get_option_quote(self, option_symbol):
         """
         Get current quote for an option symbol

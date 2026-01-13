@@ -695,10 +695,19 @@ elif page == "CSP Dashboard":
     
     st.divider()
     
-    # Read watchlist
+    # Read watchlist (falls back to default if user's watchlist doesn't exist)
     try:
         with open('watchlist.txt', 'r') as f:
             watchlist = [line.strip() for line in f if line.strip()]
+    except FileNotFoundError:
+        # First time setup: copy from default template
+        try:
+            import shutil
+            shutil.copy('watchlist.txt.default', 'watchlist.txt')
+            with open('watchlist.txt', 'r') as f:
+                watchlist = [line.strip() for line in f if line.strip()]
+        except:
+            watchlist = []
     except:
         watchlist = []
     
@@ -985,29 +994,36 @@ elif page == "CSP Dashboard":
             # Create progress indicators
             progress_bar = st.progress(0, text="Starting scan...")
             
-            # OPTIMIZATION: Prefetch indicators (RSI + IV Rank) for all symbols in parallel
+            # OPTIMIZATION 1: Prefetch indicators (RSI + IV Rank) for all symbols in parallel
             progress_bar.progress(0, text="⚡ Prefetching RSI & IV Rank for all symbols (parallel)...")
             st.write(f"⚡ Prefetching technical indicators for {len(watchlist)} symbols...")
             prefetched_indicators = tradier.prefetch_indicators(watchlist, max_workers=10)
             
-            # OPTIMIZATION: Batch fetch all stock quotes at once
+            # OPTIMIZATION 2: Batch fetch all stock quotes at once
             progress_bar.progress(0.05, text="⚡ Fetching stock quotes in batch...")
             st.write(f"⚡ Batch fetching quotes for {len(watchlist)} symbols...")
             batch_quotes = tradier.get_batch_quotes(watchlist)
             
+            # OPTIMIZATION 3: Prefetch option chains for all symbols in parallel
+            progress_bar.progress(0.10, text="⚡ Prefetching option chains for all symbols (parallel)...")
+            st.write(f"⚡ Prefetching option chains for {len(watchlist)} symbols (5 parallel threads)...")
+            prefetched_chains = tradier.prefetch_option_chains(watchlist, min_dte=min_dte, max_dte=max_dte, max_workers=5)
+            
             log_lines.append(f"OPTIMIZATION: Prefetched {len(prefetched_indicators)} indicators in parallel")
             log_lines.append(f"OPTIMIZATION: Batch fetched {len(batch_quotes)} quotes")
+            log_lines.append(f"OPTIMIZATION: Prefetched {len(prefetched_chains)} option chains in parallel")
             log_lines.append(f"")
             
             for idx, symbol in enumerate(watchlist):
-                # Update progress bar with percentage and current symbol (start at 10% after prefetch)
-                progress_pct = 0.1 + (idx + 1) / len(watchlist) * 0.9
-                progress_bar.progress(progress_pct, text=f"📊 Scanning {symbol}... ({idx+1}/{len(watchlist)}) - {int(progress_pct * 100)}% complete")
+                # Update progress bar with percentage and current symbol (start at 20% after all prefetch)
+                progress_pct = 0.2 + (idx + 1) / len(watchlist) * 0.8
+                progress_bar.progress(progress_pct, text=f"📊 Processing {symbol}... ({idx+1}/{len(watchlist)}) - {int(progress_pct * 100)}% complete")
                 stats['symbols_processed'] += 1
                 
                 log_lines.append(f"--- {symbol} ---")
                 
-                chain_data = tradier.get_option_chains(symbol, min_dte=min_dte, max_dte=max_dte)
+                # Use prefetched chain data (no API call needed)
+                chain_data = prefetched_chains.get(symbol)
                 
                 if not chain_data:
                     stats['symbols_no_chains'] += 1
