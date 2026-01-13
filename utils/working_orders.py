@@ -169,6 +169,8 @@ def render_working_orders_dashboard(api, account_number):
         st.session_state.auto_replace_log = []
     if 'working_orders_selected' not in st.session_state:
         st.session_state.working_orders_selected = set()  # Track selected order IDs
+    if 'aggressive_fill_enabled' not in st.session_state:
+        st.session_state.aggressive_fill_enabled = False
     
     # Control panel
     col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
@@ -192,6 +194,20 @@ def render_working_orders_dashboard(api, account_number):
     with col4:
         if st.session_state.last_refresh:
             st.caption(f"Last: {st.session_state.last_refresh.strftime('%H:%M:%S')}")
+    
+    # Second row of controls - Aggressive Fill Mode
+    col_agg1, col_agg2 = st.columns([1, 3])
+    with col_agg1:
+        aggressive_fill = st.checkbox(
+            "🚀 Aggressive Fill Mode", 
+            value=st.session_state.aggressive_fill_enabled,
+            help="Lower suggested prices to prioritize getting filled over best price"
+        )
+        st.session_state.aggressive_fill_enabled = aggressive_fill
+    
+    if st.session_state.aggressive_fill_enabled:
+        with col_agg2:
+            st.info("💨 Aggressive mode: Prices lowered by $0.01-0.02 to help orders fill faster")
     
     # Auto-replace warning/confirmation
     if st.session_state.auto_replace_enabled:
@@ -333,6 +349,23 @@ def render_working_orders_dashboard(api, account_number):
                 strategy = price_calc.get('strategy', '-')
                 mid = price_calc.get('mid', 0)
                 spread = price_calc.get('spread', 0)
+                
+                # Apply aggressive fill adjustment if enabled
+                if st.session_state.aggressive_fill_enabled and suggested_price and bid > 0:
+                    # For orders working > 2 hours, go straight to ask
+                    if time_working_minutes > 120:
+                        aggressive_price = ask if ask > 0 else suggested_price
+                        strategy = 'ask (aggressive)'
+                    # For orders working > 1 hour, subtract $0.02
+                    elif time_working_minutes > 60:
+                        aggressive_price = max(bid, suggested_price - 0.02)
+                        strategy = strategy + ' -$0.02'
+                    # Otherwise subtract $0.01
+                    else:
+                        aggressive_price = max(bid, suggested_price - 0.01)
+                        strategy = strategy + ' -$0.01'
+                    
+                    suggested_price = round(aggressive_price, 2)
                 
                 # Check replacement count
                 replacement_count = st.session_state.replacement_counts.get(order_id, 0)
