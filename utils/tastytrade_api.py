@@ -735,13 +735,12 @@ class TastytradeAPI:
             quotes = {}
             headers = self._get_headers()
             
-            # Fetch quotes one at a time since batch endpoint may not work for options
-            # This is more reliable for option symbols
+            # Fetch quotes one at a time using 'option' parameter (same as single method)
             for symbol in option_symbols:
                 try:
                     url = f"{self.base_url}/market-data/quotes"
-                    # Use 'symbols' parameter with the option symbol
-                    params = {'symbols': symbol}
+                    # Use 'option' parameter for option symbols (not 'symbols')
+                    params = {'option': symbol}
                     
                     response = requests.get(url, headers=headers, params=params)
                     
@@ -750,9 +749,9 @@ class TastytradeAPI:
                         if data.get('data') and len(data['data']) > 0:
                             item = data['data'][0]
                             quotes[symbol] = {
-                                'bid': item.get('bid-price', 0),
-                                'ask': item.get('ask-price', 0),
-                                'last': item.get('last-price', 0),
+                                'bid': item.get('bid-price', 0) or item.get('bid', 0) or 0,
+                                'ask': item.get('ask-price', 0) or item.get('ask', 0) or 0,
+                                'last': item.get('last-price', 0) or item.get('last', 0) or 0,
                                 'bid_size': item.get('bid-size', 0),
                                 'ask_size': item.get('ask-size', 0)
                             }

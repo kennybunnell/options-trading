@@ -230,29 +230,39 @@ def render_working_orders_dashboard(api, account_number):
         # Fetch quotes in batch (with fallback for older API instances)
         quotes = {}
         if option_symbols:
-            try:
-                # Try batch method first
-                if hasattr(api, 'get_option_quotes_batch'):
-                    quotes = api.get_option_quotes_batch(option_symbols)
-                else:
+            with st.spinner(f"Fetching quotes for {len(option_symbols)} options..."):
+                try:
+                    # Try batch method first
+                    if hasattr(api, 'get_option_quotes_batch'):
+                        quotes = api.get_option_quotes_batch(option_symbols)
+                    else:
+                        # Fallback: fetch one at a time using single method
+                        for sym in option_symbols:
+                            try:
+                                quote = api.get_option_quote(sym)
+                                if quote:
+                                    # Normalize the response format
+                                    quotes[sym] = {
+                                        'bid': quote.get('bid-price', 0) or quote.get('bid', 0) or 0,
+                                        'ask': quote.get('ask-price', 0) or quote.get('ask', 0) or 0,
+                                        'last': quote.get('last-price', 0) or quote.get('last', 0) or 0
+                                    }
+                            except:
+                                pass
+                except Exception as e:
+                    st.warning(f"Could not fetch option quotes: {str(e)}")
                     # Fallback: fetch one at a time
                     for sym in option_symbols:
                         try:
                             quote = api.get_option_quote(sym)
                             if quote:
-                                quotes[sym] = quote
+                                quotes[sym] = {
+                                    'bid': quote.get('bid-price', 0) or quote.get('bid', 0) or 0,
+                                    'ask': quote.get('ask-price', 0) or quote.get('ask', 0) or 0,
+                                    'last': quote.get('last-price', 0) or quote.get('last', 0) or 0
+                                }
                         except:
                             pass
-            except Exception as e:
-                st.warning(f"Could not fetch option quotes: {str(e)}")
-                # Fallback: fetch one at a time
-                for sym in option_symbols:
-                    try:
-                        quote = api.get_option_quote(sym)
-                        if quote:
-                            quotes[sym] = quote
-                    except:
-                        pass
         
         # Build display data
         order_data = []
