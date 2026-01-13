@@ -3506,13 +3506,6 @@ elif page == "PMCC Dashboard":
     if 'pmcc_short_calls' not in st.session_state:
         st.session_state.pmcc_short_calls = []
     
-    # Working Orders Monitor Section
-    st.markdown('<div class="section-header">📋 Working Orders Monitor</div>', unsafe_allow_html=True)
-    from utils.working_orders import render_working_orders_monitor
-    render_working_orders_monitor(api, selected_account, order_type='pmcc')
-    
-    st.divider()
-    
     # ========================================
     # SECTION 1: ACTIVE PMCC POSITIONS
     # ========================================
