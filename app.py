@@ -1937,9 +1937,31 @@ elif page == "CSP Dashboard":
             st.write("")
             
             # Action buttons
-            col1, col2, col3 = st.columns([1, 1, 4])
+            col1, col2, col3, col4, col5 = st.columns([1, 1, 1, 1, 2])
             
             with col1:
+                if st.button("➕ +1 Marked", use_container_width=True, 
+                           disabled=len(st.session_state.csp_marked_indices) == 0,
+                           help="Increment quantity by 1 for marked options"):
+                    for idx in st.session_state.csp_marked_indices:
+                        if idx in st.session_state.csp_opportunities.index:
+                            current_qty = st.session_state.csp_opportunities.loc[idx, 'Qty']
+                            st.session_state.csp_opportunities.loc[idx, 'Qty'] = current_qty + 1
+                    st.success(f"✅ +1 qty for {len(st.session_state.csp_marked_indices)} marked options")
+                    st.rerun()
+            
+            with col2:
+                if st.button("➖ -1 Marked", use_container_width=True, 
+                           disabled=len(st.session_state.csp_marked_indices) == 0,
+                           help="Decrement quantity by 1 for marked options (min 1)"):
+                    for idx in st.session_state.csp_marked_indices:
+                        if idx in st.session_state.csp_opportunities.index:
+                            current_qty = st.session_state.csp_opportunities.loc[idx, 'Qty']
+                            st.session_state.csp_opportunities.loc[idx, 'Qty'] = max(1, current_qty - 1)
+                    st.success(f"✅ -1 qty for {len(st.session_state.csp_marked_indices)} marked options")
+                    st.rerun()
+            
+            with col3:
                 if st.button("🗑️ Remove Marked", use_container_width=True, type="primary", 
                            disabled=len(st.session_state.csp_marked_indices) == 0,
                            help=f"Remove {len(st.session_state.csp_marked_indices)} marked options"):
@@ -1953,7 +1975,7 @@ elif page == "CSP Dashboard":
                     st.success(f"✅ Removed {removed_count} marked options")
                     st.rerun()
             
-            with col2:
+            with col4:
                 if st.button("↩️ Clear Marks", use_container_width=True, 
                            disabled=len(st.session_state.csp_marked_indices) == 0,
                            help="Clear all marks without removing"):
@@ -1961,7 +1983,7 @@ elif page == "CSP Dashboard":
                     st.success("✅ Cleared all marks")
                     st.rerun()
             
-            with col3:
+            with col5:
                 if len(st.session_state.csp_marked_indices) > 0:
                     marked_symbols = []
                     for idx in st.session_state.csp_marked_indices:
@@ -1969,6 +1991,8 @@ elif page == "CSP Dashboard":
                             symbol = st.session_state.csp_opportunities.loc[idx, 'Symbol']
                             marked_symbols.append(symbol)
                     st.info(f"🏷️ Marked ({len(marked_symbols)}): {', '.join(marked_symbols[:8])}{'...' if len(marked_symbols) > 8 else ''}")
+                else:
+                    st.caption("🏷️ Click ticker buttons above to mark them")
         else:
             st.info("ℹ️ No options selected. Select options above to enable manual marking.")
         
