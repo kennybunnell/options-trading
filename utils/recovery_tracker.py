@@ -145,92 +145,12 @@ def render_recovery_tracker(stock_positions: List[Dict], cc_premiums: Dict):
     
     st.divider()
     
-    # Recovery timeline estimates
-    st.subheader("⏱️ Recovery Timeline Estimates")
-    
-    # Calculate historical monthly CC rate (from total CC premiums)
-    # Assuming 3.5 months of trading (Sept 18 - Jan 3)
-    historical_months = 3.5
-    historical_monthly_rate = metrics['total_cc_premium'] / historical_months
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("**At Current CC Rate:**")
-        current_months = estimate_recovery_timeline(metrics['net_position'], historical_monthly_rate)
-        if current_months == float('inf'):
-            st.warning("⚠️ No CC premiums collected yet")
-        else:
-            st.info(f"**{current_months:.1f} months** to breakeven at ${historical_monthly_rate:,.0f}/month")
-    
-    with col2:
-        st.markdown("**At Target CC Rate:**")
-        # User can input target monthly CC premium
-        target_monthly = st.number_input(
-            "Target Monthly CC Premium",
-            min_value=0,
-            value=int(historical_monthly_rate * 3),  # Default to 3x current
-            step=1000,
-            help="Enter your target monthly CC premium collection goal"
-        )
-        
-        if target_monthly > 0:
-            target_months = estimate_recovery_timeline(metrics['net_position'], target_monthly)
-            st.success(f"**{target_months:.1f} months** to breakeven at ${target_monthly:,.0f}/month")
-        else:
-            st.warning("Enter target monthly CC premium")
-    
-    st.divider()
-    
-    # Position-by-position recovery table
-    st.subheader("📋 Position-by-Position Recovery")
-    
-    # Sort by remaining loss (worst first)
+    # Sort positions by remaining loss (worst first)
     sorted_positions = sorted(metrics['underwater_positions'], key=lambda x: x['remaining_loss'])
     
-    table_data = []
-    for pos in sorted_positions:
-        table_data.append({
-            'Symbol': pos['symbol'],
-            'Shares': pos['quantity'],
-            'Cost Basis': f"${pos['cost_basis']:.2f}",
-            'Current Price': f"${pos['current_price']:.2f}",
-            'Unrealized Loss': pos['unrealized_loss'],
-            'CC Premiums': pos['cc_premium'],
-            'Adjusted Basis': f"${pos['adjusted_basis']:.2f}",
-            'Remaining Loss': pos['remaining_loss'],
-            'Recovery %': pos['recovery_pct']
-        })
-    
-    df = pd.DataFrame(table_data)
-    
-    # Format for display
-    df_display = df.copy()
-    df_display['Unrealized Loss'] = df_display['Unrealized Loss'].apply(lambda x: f"-${abs(x):,.0f}")
-    df_display['CC Premiums'] = df_display['CC Premiums'].apply(lambda x: f"${x:,.0f}")
-    df_display['Remaining Loss'] = df_display['Remaining Loss'].apply(lambda x: f"-${abs(x):,.0f}")
-    df_display['Recovery %'] = df_display['Recovery %'].apply(lambda x: f"{x:.1f}%")
-    
-    st.dataframe(
-        df_display,
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "Symbol": st.column_config.TextColumn("Symbol", width="small"),
-            "Shares": st.column_config.NumberColumn("Shares", width="small"),
-            "Cost Basis": st.column_config.TextColumn("Cost/Share", width="small"),
-            "Current Price": st.column_config.TextColumn("Current", width="small"),
-            "Unrealized Loss": st.column_config.TextColumn("Unrealized Loss", width="medium"),
-            "CC Premiums": st.column_config.TextColumn("CC Premiums", width="medium"),
-            "Adjusted Basis": st.column_config.TextColumn("Adj. Basis", width="small"),
-            "Remaining Loss": st.column_config.TextColumn("Remaining Loss", width="medium"),
-            "Recovery %": st.column_config.TextColumn("Recovery %", width="small"),
-        }
-    )
-    
-    st.divider()
-    
-    # Recovery visualization - HORIZONTAL Bar chart
+    # ============================================
+    # HORIZONTAL BAR CHART - NOW AT TOP
+    # ============================================
     st.subheader("📊 Recovery Progress by Position")
     
     st.markdown("""
@@ -331,8 +251,97 @@ def render_recovery_tracker(stock_positions: List[Dict], cc_premiums: Dict):
     
     st.plotly_chart(fig, use_container_width=True)
     
-    # Strategy recommendations
     st.divider()
+    
+    # ============================================
+    # RECOVERY TIMELINE ESTIMATES
+    # ============================================
+    st.subheader("⏱️ Recovery Timeline Estimates")
+    
+    # Calculate historical monthly CC rate (from total CC premiums)
+    # Assuming 3.5 months of trading (Sept 18 - Jan 3)
+    historical_months = 3.5
+    historical_monthly_rate = metrics['total_cc_premium'] / historical_months
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("**At Current CC Rate:**")
+        current_months = estimate_recovery_timeline(metrics['net_position'], historical_monthly_rate)
+        if current_months == float('inf'):
+            st.warning("⚠️ No CC premiums collected yet")
+        else:
+            st.info(f"**{current_months:.1f} months** to breakeven at ${historical_monthly_rate:,.0f}/month")
+    
+    with col2:
+        st.markdown("**At Target CC Rate:**")
+        # User can input target monthly CC premium
+        target_monthly = st.number_input(
+            "Target Monthly CC Premium",
+            min_value=0,
+            value=int(historical_monthly_rate * 3),  # Default to 3x current
+            step=1000,
+            help="Enter your target monthly CC premium collection goal"
+        )
+        
+        if target_monthly > 0:
+            target_months = estimate_recovery_timeline(metrics['net_position'], target_monthly)
+            st.success(f"**{target_months:.1f} months** to breakeven at ${target_monthly:,.0f}/month")
+        else:
+            st.warning("Enter target monthly CC premium")
+    
+    st.divider()
+    
+    # ============================================
+    # POSITION-BY-POSITION TABLE - NOW AT BOTTOM
+    # ============================================
+    st.subheader("📋 Position-by-Position Recovery Details")
+    
+    table_data = []
+    for pos in sorted_positions:
+        table_data.append({
+            'Symbol': pos['symbol'],
+            'Shares': pos['quantity'],
+            'Cost Basis': f"${pos['cost_basis']:.2f}",
+            'Current Price': f"${pos['current_price']:.2f}",
+            'Unrealized Loss': pos['unrealized_loss'],
+            'CC Premiums': pos['cc_premium'],
+            'Adjusted Basis': f"${pos['adjusted_basis']:.2f}",
+            'Remaining Loss': pos['remaining_loss'],
+            'Recovery %': pos['recovery_pct']
+        })
+    
+    df = pd.DataFrame(table_data)
+    
+    # Format for display
+    df_display = df.copy()
+    df_display['Unrealized Loss'] = df_display['Unrealized Loss'].apply(lambda x: f"-${abs(x):,.0f}")
+    df_display['CC Premiums'] = df_display['CC Premiums'].apply(lambda x: f"${x:,.0f}")
+    df_display['Remaining Loss'] = df_display['Remaining Loss'].apply(lambda x: f"-${abs(x):,.0f}")
+    df_display['Recovery %'] = df_display['Recovery %'].apply(lambda x: f"{x:.1f}%")
+    
+    st.dataframe(
+        df_display,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Symbol": st.column_config.TextColumn("Symbol", width="small"),
+            "Shares": st.column_config.NumberColumn("Shares", width="small"),
+            "Cost Basis": st.column_config.TextColumn("Cost/Share", width="small"),
+            "Current Price": st.column_config.TextColumn("Current", width="small"),
+            "Unrealized Loss": st.column_config.TextColumn("Unrealized Loss", width="medium"),
+            "CC Premiums": st.column_config.TextColumn("CC Premiums", width="medium"),
+            "Adjusted Basis": st.column_config.TextColumn("Adj. Basis", width="small"),
+            "Remaining Loss": st.column_config.TextColumn("Remaining Loss", width="medium"),
+            "Recovery %": st.column_config.TextColumn("Recovery %", width="small"),
+        }
+    )
+    
+    st.divider()
+    
+    # ============================================
+    # STRATEGY RECOMMENDATIONS
+    # ============================================
     st.subheader("💡 Recovery Strategy Recommendations")
     
     col1, col2 = st.columns(2)
