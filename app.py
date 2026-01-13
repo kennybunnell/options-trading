@@ -936,6 +936,10 @@ elif page == "CSP Dashboard":
     
     if st.button("🔄 Fetch Opportunities", type="primary", use_container_width=True):
       try:
+        # Start scan timer
+        import time
+        scan_start_time = time.time()
+        
         # Get existing CSP positions first
         from utils.cash_secured_puts import get_existing_csp_positions
         existing_csp_data = get_existing_csp_positions(api, selected_account)
@@ -1143,7 +1147,18 @@ elif page == "CSP Dashboard":
             
             stats['final_opportunities'] = len(opportunities)
             
-            status.update(label=f"✅ Scan complete!", state="complete")
+            # Calculate scan duration
+            scan_duration = time.time() - scan_start_time
+            scan_minutes = int(scan_duration // 60)
+            scan_seconds = scan_duration % 60
+            
+            if scan_minutes > 0:
+                status.update(label=f"✅ Scan complete in {scan_minutes}m {scan_seconds:.1f}s!", state="complete")
+            else:
+                status.update(label=f"✅ Scan complete in {scan_seconds:.1f}s!", state="complete")
+            
+            # Store scan duration in session state
+            st.session_state.csp_scan_duration = scan_duration
         
         # Add summary to log
         log_lines.append(f"")
@@ -1170,7 +1185,7 @@ elif page == "CSP Dashboard":
         # Display summary stats
         st.subheader("📊 Scan Summary")
         
-        col1, col2, col3, col4 = st.columns(4)
+        col1, col2, col3, col4, col5 = st.columns(5)
         with col1:
             st.metric("Symbols Scanned", stats['symbols_processed'])
         with col2:
@@ -1179,6 +1194,11 @@ elif page == "CSP Dashboard":
             st.metric("Total PUTs Found", stats['total_puts_found'])
         with col4:
             st.metric("Final Opportunities", stats['final_opportunities'])
+        with col5:
+            if scan_minutes > 0:
+                st.metric("⏱️ Scan Time", f"{scan_minutes}m {scan_seconds:.0f}s")
+            else:
+                st.metric("⏱️ Scan Time", f"{scan_seconds:.1f}s")
         
         if stats['used_mid_price'] > 0:
             st.info(f"ℹ️ Used mid-price for {stats['used_mid_price']} options (bid was $0)")
@@ -1679,10 +1699,36 @@ elif page == "CSP Dashboard":
         if 'csp_marked_indices' not in st.session_state:
             st.session_state.csp_marked_indices = set()
         
+        # Initialize show_selected_only toggle in session state
+        if 'csp_show_selected_only' not in st.session_state:
+            st.session_state.csp_show_selected_only = False
+        
+        # Toggle to show only selected contracts
+        col1, col2 = st.columns([1, 4])
+        with col1:
+            show_selected_only = st.toggle(
+                "👁️ Selected Only",
+                value=st.session_state.csp_show_selected_only,
+                key="csp_show_selected_toggle",
+                help="Show only the contracts you've selected (checked)"
+            )
+            st.session_state.csp_show_selected_only = show_selected_only
+        with col2:
+            selected_count = st.session_state.csp_opportunities['Select'].sum()
+            total_count = len(st.session_state.csp_opportunities)
+            if show_selected_only:
+                st.caption(f"Showing {selected_count} selected of {total_count} total opportunities")
+            else:
+                st.caption(f"Showing all {total_count} opportunities ({selected_count} selected)")
+        
         st.write("")
         
         # Format IV Rank and Spread % with colored emoji indicators (like CC Dashboard)
         display_df = st.session_state.csp_opportunities.copy()
+        
+        # Apply "show selected only" filter if enabled
+        if show_selected_only:
+            display_df = display_df[display_df['Select'] == True].copy()
         
         # Format IV Rank with emoji indicators
         def format_iv_rank(val):
@@ -1788,6 +1834,10 @@ elif page == "CSP Dashboard":
         # Use dynamic key based on active preset to force re-render when formatting changes
         editor_key = f"csp_selector_{st.session_state.get('csp_active_preset', 'none')}"
         
+        # Calculate dynamic height to show ALL rows (35px per row + 60px header)
+        # Min height 400px, no max - show everything
+        dynamic_height = max(400, len(display_df) * 35 + 60)
+        
         edited_df = st.data_editor(
             display_df,
             column_config={
@@ -1809,14 +1859,20 @@ elif page == "CSP Dashboard":
             disabled=[col for col in display_df.columns if col not in ['Select', 'Qty']],
             hide_index=True,
             use_container_width=True,
-            height=600,
+            height=dynamic_height,
             key=editor_key
         )
         
         # Update session state - only copy Select and Qty columns (user-editable)
         # Keep original numeric values for other columns (formatted columns are display-only)
-        st.session_state.csp_opportunities['Select'] = edited_df['Select']
-        st.session_state.csp_opportunities['Qty'] = edited_df['Qty']
+        # When showing selected only, we need to update by index to preserve unshown rows
+        if show_selected_only:
+            for idx in edited_df.index:
+                st.session_state.csp_opportunities.loc[idx, 'Select'] = edited_df.loc[idx, 'Select']
+                st.session_state.csp_opportunities.loc[idx, 'Qty'] = edited_df.loc[idx, 'Qty']
+        else:
+            st.session_state.csp_opportunities['Select'] = edited_df['Select']
+            st.session_state.csp_opportunities['Qty'] = edited_df['Qty']
         
         # ========== MANUAL MARKING CONTROLS (Below Table) ==========
         st.write("")
