@@ -916,6 +916,7 @@ def render_stock_basis(api=None):
     st.divider()
     
     # Build table data
+    table_data = []
     for pos in stock_positions:
         symbol = pos['symbol']
         qty = pos['quantity']
