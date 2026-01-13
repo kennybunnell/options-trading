@@ -1725,10 +1725,15 @@ elif page == "CSP Dashboard":
         editor_key = f"csp_selector_{st.session_state.get('csp_active_preset', 'none')}"
         
         # Calculate dynamic height based on row count (35px per row + 60px header)
-        # Min height 400px, max height 800px to prevent white screen on large datasets
-        # For large datasets (>20 rows), cap at 800px with scrolling
+        # When "Selected Only" is ON: show ALL rows without scrolling (no max cap)
+        # When "Selected Only" is OFF: cap at 800px to prevent white screen on large datasets
         calculated_height = len(display_df) * 35 + 60
-        dynamic_height = max(400, min(calculated_height, 800))
+        if show_selected_only:
+            # No max cap - show all selected contracts without scrolling
+            dynamic_height = max(200, calculated_height)
+        else:
+            # Cap at 800px for large datasets
+            dynamic_height = max(400, min(calculated_height, 800))
         
         edited_df = st.data_editor(
             display_df,
