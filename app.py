@@ -2553,13 +2553,6 @@ elif page == "CC Dashboard":
     if 'cc_breakdown' not in st.session_state:
         st.session_state.cc_breakdown = {}
     
-    # Working Orders Monitor Section
-    st.markdown('<div class="section-header">📋 Working Orders Monitor</div>', unsafe_allow_html=True)
-    from utils.working_orders import render_working_orders_monitor
-    render_working_orders_monitor(api, selected_account, order_type='cc')
-    
-    st.divider()
-    
     # Step 1: Fetch Positions Button
     st.write("")
     if st.button("🔍 Fetch Portfolio Positions", type="primary", use_container_width=True):
