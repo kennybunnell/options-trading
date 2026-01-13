@@ -176,10 +176,11 @@ class TastytradeAPI:
             if not self._is_token_valid():
                 self._authenticate()
             
-            # Use the market-data endpoint with option symbol
-            url = f"{self.base_url}/market-data/quotes"
+            # Use the market-data/by-type endpoint with equity-option parameter
+            url = f"{self.base_url}/market-data/by-type"
             headers = self._get_headers()
-            params = {'option': option_symbol}
+            # The API expects 'equity-option' parameter as an array
+            params = {'equity-option': option_symbol}
             
             response = requests.get(url, headers=headers, params=params)
             
@@ -189,6 +190,7 @@ class TastytradeAPI:
                     return data['data'][0]
                 return None
             else:
+                print(f"Option quote API returned status {response.status_code}: {response.text[:200]}")
                 return None
                 
         except Exception as e:
@@ -717,7 +719,7 @@ class TastytradeAPI:
     
     def get_option_quotes_batch(self, option_symbols):
         """
-        Get quotes for multiple option symbols at once
+        Get quotes for multiple option symbols at once using the by-type endpoint
         
         Args:
             option_symbols: List of option symbols
@@ -735,29 +737,66 @@ class TastytradeAPI:
             quotes = {}
             headers = self._get_headers()
             
-            # Fetch quotes one at a time using 'option' parameter (same as single method)
-            for symbol in option_symbols:
+            # Use the market-data/by-type endpoint with equity-option parameter
+            # Can batch up to 100 symbols at once
+            url = f"{self.base_url}/market-data/by-type"
+            
+            # Process in batches of 100 (API limit)
+            batch_size = 100
+            for i in range(0, len(option_symbols), batch_size):
+                batch = option_symbols[i:i+batch_size]
+                
                 try:
-                    url = f"{self.base_url}/market-data/quotes"
-                    # Use 'option' parameter for option symbols (not 'symbols')
-                    params = {'option': symbol}
+                    # Pass multiple symbols as repeated query params
+                    params = [('equity-option', sym) for sym in batch]
                     
                     response = requests.get(url, headers=headers, params=params)
                     
                     if response.status_code == 200:
                         data = response.json()
-                        if data.get('data') and len(data['data']) > 0:
-                            item = data['data'][0]
-                            quotes[symbol] = {
-                                'bid': item.get('bid-price', 0) or item.get('bid', 0) or 0,
-                                'ask': item.get('ask-price', 0) or item.get('ask', 0) or 0,
-                                'last': item.get('last-price', 0) or item.get('last', 0) or 0,
-                                'bid_size': item.get('bid-size', 0),
-                                'ask_size': item.get('ask-size', 0)
-                            }
+                        if data.get('data'):
+                            for item in data['data']:
+                                sym = item.get('symbol', '')
+                                if sym:
+                                    quotes[sym] = {
+                                        'bid': item.get('bid', 0) or 0,
+                                        'ask': item.get('ask', 0) or 0,
+                                        'last': item.get('last', 0) or 0,
+                                        'mid': item.get('mid', 0) or 0,
+                                        'bid_size': item.get('bidSize', 0) or item.get('bid-size', 0) or 0,
+                                        'ask_size': item.get('askSize', 0) or item.get('ask-size', 0) or 0
+                                    }
+                    else:
+                        print(f"Batch quote API returned status {response.status_code}")
+                        # Fallback: try one at a time
+                        for sym in batch:
+                            try:
+                                quote = self.get_option_quote(sym)
+                                if quote:
+                                    quotes[sym] = {
+                                        'bid': quote.get('bid', 0) or 0,
+                                        'ask': quote.get('ask', 0) or 0,
+                                        'last': quote.get('last', 0) or 0,
+                                        'mid': quote.get('mid', 0) or 0
+                                    }
+                            except:
+                                pass
+                                
                 except Exception as e:
-                    print(f"Error fetching quote for {symbol}: {str(e)}")
-                    continue
+                    print(f"Error in batch quote fetch: {str(e)}")
+                    # Fallback: try one at a time
+                    for sym in batch:
+                        try:
+                            quote = self.get_option_quote(sym)
+                            if quote:
+                                quotes[sym] = {
+                                    'bid': quote.get('bid', 0) or 0,
+                                    'ask': quote.get('ask', 0) or 0,
+                                    'last': quote.get('last', 0) or 0,
+                                    'mid': quote.get('mid', 0) or 0
+                                }
+                        except:
+                            pass
             
             return quotes
                 
