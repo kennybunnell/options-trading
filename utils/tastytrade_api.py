@@ -664,3 +664,96 @@ class TastytradeAPI:
             import traceback
             traceback.print_exc()
             return []
+
+    def cancel_replace_order(self, account_number, order_id, new_price, original_order):
+        """
+        Cancel and replace a working order with a new price in a single API call
+        
+        Args:
+            account_number: Account number
+            order_id: Order ID to cancel and replace
+            new_price: New limit price
+            original_order: Original order data (to preserve other fields)
+            
+        Returns:
+            dict with 'success' and 'message' keys
+        """
+        try:
+            url = f'{self.base_url}/accounts/{account_number}/orders/{order_id}'
+            
+            # Build the replacement order payload
+            # Must include: time-in-force, order-type, price, price-effect, legs
+            payload = {
+                'time-in-force': original_order.get('time-in-force', 'Day'),
+                'order-type': original_order.get('order-type', 'Limit'),
+                'price': str(new_price),
+                'price-effect': original_order.get('price-effect', 'Credit'),
+                'legs': original_order.get('legs', [])
+            }
+            
+            response = requests.put(url, headers=self._get_headers(), json=payload)
+            
+            if response.status_code in [200, 201]:
+                data = response.json()
+                new_order_id = data.get('data', {}).get('order', {}).get('id', 'unknown')
+                return {
+                    'success': True,
+                    'message': f'Order replaced successfully. New order ID: {new_order_id}',
+                    'new_order_id': new_order_id
+                }
+            else:
+                return {
+                    'success': False,
+                    'message': f'Replace failed: {response.status_code} - {response.text}'
+                }
+                
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return {
+                'success': False,
+                'message': f'Exception: {str(e)}'
+            }
+    
+    def get_option_quotes_batch(self, option_symbols):
+        """
+        Get quotes for multiple option symbols at once
+        
+        Args:
+            option_symbols: List of option symbols
+            
+        Returns:
+            dict mapping symbol to quote data
+        """
+        try:
+            if not option_symbols:
+                return {}
+            
+            if not self._is_token_valid():
+                self._authenticate()
+            
+            # Tastytrade API accepts comma-separated symbols
+            url = f"{self.base_url}/market-data/quotes"
+            headers = self._get_headers()
+            
+            # Build params with multiple option symbols
+            params = {'symbols': ','.join(option_symbols)}
+            
+            response = requests.get(url, headers=headers, params=params)
+            
+            if response.status_code == 200:
+                data = response.json()
+                quotes = {}
+                if data.get('data'):
+                    for item in data['data']:
+                        symbol = item.get('symbol')
+                        if symbol:
+                            quotes[symbol] = item
+                return quotes
+            else:
+                print(f"Batch quote error: {response.status_code}")
+                return {}
+                
+        except Exception as e:
+            print(f"Exception in get_option_quotes_batch: {str(e)}")
+            return {}

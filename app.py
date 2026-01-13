@@ -4461,22 +4461,28 @@ elif page == "Performance":
         except:
             pass
     
+    # Import working orders dashboard
+    from utils.working_orders import render_working_orders_dashboard
+    
     # Create tabs
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Positions", "Active Positions", "Stock Basis & Returns", "Performance Overview", "📊 Projections"])
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📋 Working Orders", "Positions", "Active Positions", "Stock Basis & Returns", "Performance Overview", "📊 Projections"])
     
     with tab1:
-        render_positions_view(api, selected_account)
+        render_working_orders_dashboard(api, selected_account)
     
     with tab2:
-        render_active_positions(api)
+        render_positions_view(api, selected_account)
     
     with tab3:
-        render_stock_basis(api)
+        render_active_positions(api)
     
     with tab4:
-        render_performance_overview()
+        render_stock_basis(api)
     
     with tab5:
+        render_performance_overview()
+    
+    with tab6:
         render_projections_tab(api, all_account_numbers_perf, portfolio_value_perf)
 
 elif page == "Settings":
