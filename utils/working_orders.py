@@ -235,28 +235,31 @@ def render_working_orders_dashboard(api, account_number):
                     # Debug: show the symbols being requested
                     with st.expander("🔧 Debug: Option Symbols", expanded=False):
                         st.write(f"Requesting quotes for {len(option_symbols)} symbols:")
-                        for sym in option_symbols[:5]:  # Show first 5
+                        for sym in option_symbols[:6]:  # Show all symbols
                             st.code(f"'{sym}' (len={len(sym)})")
-                        if len(option_symbols) > 5:
-                            st.write(f"... and {len(option_symbols) - 5} more")
+                        if len(option_symbols) > 6:
+                            st.write(f"... and {len(option_symbols) - 6} more")
                     
                     # Try the SDK method first (more reliable)
                     try:
                         from utils.tastytrade_quotes import get_option_quotes_sdk
-                        quotes = get_option_quotes_sdk(option_symbols)
+                        # SDK function now shows its own debug info
+                        quotes = get_option_quotes_sdk(option_symbols, show_debug=True)
                         if quotes:
                             st.success(f"✅ Fetched quotes for {len(quotes)} options via SDK")
-                    except ImportError:
-                        # SDK not available, fall back to API method
+                    except ImportError as ie:
+                        st.warning(f"SDK import failed: {ie}")
+                        st.info("Falling back to direct API method...")
                         quotes = api.get_option_quotes_batch(option_symbols)
                     except Exception as sdk_error:
-                        st.warning(f"SDK error: {sdk_error}, falling back to API")
+                        st.warning(f"SDK error: {sdk_error}")
+                        st.info("Falling back to direct API method...")
                         quotes = api.get_option_quotes_batch(option_symbols)
                     
                     # Debug: show how many quotes were fetched
                     if len(quotes) == 0:
                         st.warning(f"No quotes returned for {len(option_symbols)} option symbols")
-                        st.info("Check Streamlit Cloud logs for DEBUG output")
+                        st.info("👆 Expand 'SDK Debug Info' above to see what happened")
                     elif len(quotes) < len(option_symbols):
                         st.info(f"Fetched quotes for {len(quotes)}/{len(option_symbols)} options")
                         
