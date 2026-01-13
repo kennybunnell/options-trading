@@ -211,16 +211,6 @@ def render_recovery_tracker(stock_positions: List[Dict], cc_premiums: Dict):
     df_display['Remaining Loss'] = df_display['Remaining Loss'].apply(lambda x: f"-${abs(x):,.0f}")
     df_display['Recovery %'] = df_display['Recovery %'].apply(lambda x: f"{x:.1f}%")
     
-    # Color code recovery percentage
-    def color_recovery(val):
-        pct = float(val.replace('%', ''))
-        if pct >= 50:
-            return 'background-color: #28a745; color: white'
-        elif pct >= 25:
-            return 'background-color: #ffc107; color: black'
-        else:
-            return 'background-color: #dc3545; color: white'
-    
     st.dataframe(
         df_display,
         use_container_width=True,
@@ -240,58 +230,102 @@ def render_recovery_tracker(stock_positions: List[Dict], cc_premiums: Dict):
     
     st.divider()
     
-    # Recovery visualization - Bar chart
+    # Recovery visualization - HORIZONTAL Bar chart
     st.subheader("📊 Recovery Progress by Position")
     
+    st.markdown("""
+    **Red** = Remaining underwater amount | **Green** = Premium recovered toward breakeven
+    """)
+    
+    # Prepare data for horizontal bar chart
     chart_data = []
     for pos in sorted_positions:
+        # Calculate the total underwater amount (absolute value)
+        total_underwater = abs(pos['unrealized_loss'])
+        cc_recovered = pos['cc_premium']
+        remaining = abs(pos['remaining_loss'])
+        recovery_pct = pos['recovery_pct']
+        
         chart_data.append({
             'Symbol': pos['symbol'],
-            'Unrealized Loss': abs(pos['unrealized_loss']),
-            'CC Premiums': pos['cc_premium'],
-            'Remaining Loss': abs(pos['remaining_loss'])
+            'Total Underwater': total_underwater,
+            'CC Recovered': cc_recovered,
+            'Remaining': remaining,
+            'Recovery %': recovery_pct
         })
     
     chart_df = pd.DataFrame(chart_data)
     
+    # Sort by remaining loss (most underwater at top)
+    chart_df = chart_df.sort_values('Remaining', ascending=True)
+    
     fig = go.Figure()
     
-    # Stacked bar chart showing unrealized loss and CC premium recovery
+    # Green bars - CC Premiums Recovered (shown first, on the left)
     fig.add_trace(go.Bar(
-        name='CC Premiums (Recovered)',
-        x=chart_df['Symbol'],
-        y=chart_df['CC Premiums'],
-        marker_color='#28a745'
+        name='Premium Recovered',
+        y=chart_df['Symbol'],
+        x=chart_df['CC Recovered'],
+        orientation='h',
+        marker_color='#28a745',
+        text=[f"${x:,.0f}" for x in chart_df['CC Recovered']],
+        textposition='inside',
+        textfont=dict(color='white', size=10),
+        hovertemplate='<b>%{y}</b><br>Premium Recovered: $%{x:,.0f}<extra></extra>'
     ))
     
+    # Red bars - Remaining Loss (stacked after green)
     fig.add_trace(go.Bar(
-        name='Remaining Loss',
-        x=chart_df['Symbol'],
-        y=chart_df['Remaining Loss'],
-        marker_color='#dc3545'
+        name='Remaining Underwater',
+        y=chart_df['Symbol'],
+        x=chart_df['Remaining'],
+        orientation='h',
+        marker_color='#dc3545',
+        text=[f"${x:,.0f}" for x in chart_df['Remaining']],
+        textposition='inside',
+        textfont=dict(color='white', size=10),
+        hovertemplate='<b>%{y}</b><br>Remaining Underwater: $%{x:,.0f}<extra></extra>'
     ))
+    
+    # Add recovery percentage annotations on the right
+    for i, row in chart_df.iterrows():
+        idx = chart_df.index.get_loc(i)
+        fig.add_annotation(
+            x=row['Total Underwater'] + 500,
+            y=row['Symbol'],
+            text=f"{row['Recovery %']:.0f}%",
+            showarrow=False,
+            font=dict(color='#888', size=11),
+            xanchor='left'
+        )
     
     fig.update_layout(
         barmode='stack',
         plot_bgcolor='rgba(0,0,0,0)',
         paper_bgcolor='rgba(0,0,0,0)',
-        xaxis=dict(showgrid=False, color='#888', tickangle=-45),
-        yaxis=dict(
+        xaxis=dict(
             showgrid=True, 
             gridcolor='rgba(255,255,255,0.1)', 
             color='#888',
             title='Amount ($)', 
             tickprefix='$', 
-            tickformat=',.0f'
+            tickformat=',.0f',
+            side='top'
         ),
-        margin=dict(l=80, r=20, t=20, b=100),
-        height=500,
+        yaxis=dict(
+            showgrid=False, 
+            color='#888',
+            categoryorder='array',
+            categoryarray=chart_df['Symbol'].tolist()
+        ),
+        margin=dict(l=80, r=80, t=40, b=20),
+        height=max(400, len(chart_df) * 35),  # Dynamic height based on number of positions
         legend=dict(
             orientation="h",
             yanchor="bottom",
             y=1.02,
-            xanchor="right",
-            x=1
+            xanchor="center",
+            x=0.5
         )
     )
     

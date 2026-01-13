@@ -960,50 +960,6 @@ def render_stock_basis(api=None):
     
     st.divider()
     
-    # Unrealized Gain Chart - Bar chart
-    st.subheader("Unrealized Gain by Symbol")
-    
-    chart_data = []
-    for row in table_data:
-        unrealized = row['Unrealized P/L']
-        chart_data.append({
-            'Symbol': row['Symbol'],
-            'Unrealized': unrealized
-        })
-    
-    chart_df = pd.DataFrame(chart_data)
-    chart_df = chart_df.sort_values('Unrealized', ascending=False)  # Sort descending for vertical bars
-    
-    # Create VERTICAL bar chart (as requested)
-    fig = go.Figure()
-    
-    colors = ['#28a745' if x >= 0 else '#dc3545' for x in chart_df['Unrealized']]
-    
-    fig.add_trace(go.Bar(
-        x=chart_df['Symbol'],
-        y=chart_df['Unrealized'],
-        marker_color=colors,
-        name='Unrealized P/L'
-    ))
-    
-    # Add zero line
-    fig.add_hline(y=0, line_color='white', line_width=1)
-    
-    fig.update_layout(
-        plot_bgcolor='rgba(0,0,0,0)',
-        paper_bgcolor='rgba(0,0,0,0)',
-        xaxis=dict(showgrid=False, color='#888', tickangle=-45),
-        yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.1)', color='#888',
-                  title='Unrealized P/L ($)', tickprefix='$', tickformat=',.0f'),
-        margin=dict(l=80, r=20, t=20, b=100),
-        height=500,
-        showlegend=False
-    )
-    
-    st.plotly_chart(fig, use_container_width=True)
-    
-    st.divider()
-    
     # Recovery Tracker for underwater positions
     render_recovery_tracker(stock_positions, cc_premiums)
     
