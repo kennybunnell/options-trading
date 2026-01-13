@@ -4329,87 +4329,9 @@ elif page == "PMCC Dashboard":
 elif page == "Performance":
     # Premium Header
     st.markdown('<h1 style="color: #ffffff; font-size: 36px; font-weight: 600; margin-bottom: 0.5rem;">📊 Performance</h1>', unsafe_allow_html=True)
-    st.markdown('<p style="color: #9ca3af; font-size: 14px; margin-bottom: 2rem;">Track your trading performance and analyze results</p>', unsafe_allow_html=True)
+    st.markdown('<p style="color: #9ca3af; font-size: 14px; margin-bottom: 1rem;">Track your trading performance and analyze results</p>', unsafe_allow_html=True)
     
-    # Premium Performance Metrics
-    if selected_account:
-        try:
-            # Get account balances and positions
-            balances = api.get_account_balances(selected_account)
-            positions = api.get_positions(selected_account)
-            
-            if balances:
-                # Safely get NLV
-                nlv = 0
-                try:
-                    nlv = float(balances.get('net-liquidating-value', 0) or 0)
-                except (ValueError, TypeError):
-                    nlv = 0
-                
-                # Count positions
-                total_positions = len(positions) if positions else 0
-                stock_positions = len([p for p in positions if p.get('instrument-type') == 'Equity']) if positions else 0
-                option_positions = len([p for p in positions if p.get('instrument-type') == 'Equity Option']) if positions else 0
-                
-                # Calculate total P/L from positions - with comprehensive error handling
-                total_pl = 0
-                if positions:
-                    for p in positions:
-                        try:
-                            pl_value = p.get('realized-day-gain-effect', 0)
-                            if pl_value is not None and pl_value != 'None':
-                                total_pl += float(pl_value)
-                        except (ValueError, TypeError):
-                            continue
-            
-            # Premium Metric Cards Row
-            col1, col2, col3, col4 = st.columns(4)
-            
-            with col1:
-                st.markdown(f"""
-                <div class="premium-metric-card">
-                    <div class="metric-label">Total Positions</div>
-                    <div class="metric-value">{total_positions}</div>
-                    <div class="metric-change">Stocks: {stock_positions} | Options: {option_positions}</div>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            with col2:
-                st.markdown(f"""
-                <div class="premium-metric-card">
-                    <div class="metric-label">Portfolio Value</div>
-                    <div class="metric-value">${nlv:,.0f}</div>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            with col3:
-                pl_class = "metric-value-positive" if total_pl >= 0 else ""
-                pl_symbol = "+" if total_pl >= 0 else ""
-                st.markdown(f"""
-                <div class="premium-metric-card">
-                    <div class="metric-label">Today's P/L</div>
-                    <div class="metric-value {pl_class}">{pl_symbol}${total_pl:,.2f}</div>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            with col4:
-                # Calculate win rate (placeholder - would need historical data)
-                st.markdown(f"""
-                <div class="premium-metric-card">
-                    <div class="metric-label">Win Rate</div>
-                    <div class="metric-value metric-value-positive">47% / 53%</div>
-                    <div class="metric-change">CSP / CC</div>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            st.markdown("<br>", unsafe_allow_html=True)
-        except Exception as e:
-            st.error(f"Error loading performance metrics: {str(e)}")
-    
-    # Monthly Premium Summary (ALL ACCOUNTS - not filtered by dropdown)
-    from utils.monthly_premium import render_monthly_premium_summary
-    render_monthly_premium_summary(api, all_accounts=True, call_id="performance_dashboard")
-    
+    # Import required modules first
     from utils.performance_dashboard import (
         render_active_positions,
         render_stock_basis,
@@ -4418,6 +4340,8 @@ elif page == "Performance":
     )
     from utils.performance_overview_new import render_performance_overview_real
     from utils.projections import render_projections_tab
+    from utils.working_orders import render_working_orders_dashboard
+    from utils.monthly_premium import render_monthly_premium_summary
     
     # Get all account numbers for projections
     all_account_numbers_perf = []
@@ -4448,10 +4372,7 @@ elif page == "Performance":
         except:
             pass
     
-    # Import working orders dashboard
-    from utils.working_orders import render_working_orders_dashboard
-    
-    # Create tabs
+    # Create tabs FIRST - at the top of the page
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📋 Working Orders", "Positions", "Active Positions", "Stock Basis & Returns", "Performance Overview", "📊 Projections"])
     
     with tab1:
