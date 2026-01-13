@@ -150,19 +150,19 @@ class TradierAPI:
         
         return filtered
 
-    def get_indicators(self, symbol, rsi_period=14):
+    def get_indicators(self, symbol, rsi_period=14, bb_period=20):
         """
-        Get both RSI and IV Rank with a SINGLE API call (365 days of history).
+        Get RSI, IV Rank, and Bollinger %B with a SINGLE API call (365 days of history).
         Results are cached for the session.
         
         Returns:
-            dict: {'rsi': float, 'iv_rank': float} or {'rsi': None, 'iv_rank': None}
+            dict: {'rsi': float, 'iv_rank': float, 'bb_pct_b': float} or all None
         """
         # Check cache first
         if symbol in self._indicators_cache:
             return self._indicators_cache[symbol]
         
-        result = {'rsi': None, 'iv_rank': None}
+        result = {'rsi': None, 'iv_rank': None, 'bb_pct_b': None}
         
         try:
             # Single API call for 365 days of history (enough for both RSI and IV Rank)
@@ -232,6 +232,30 @@ class TradierAPI:
                         result['iv_rank'] = 50
                     else:
                         result['iv_rank'] = round(((current_iv - iv_low) / (iv_high - iv_low)) * 100, 1)
+            
+            # Calculate Bollinger Band %B (needs at least bb_period days)
+            # %B = (Price - Lower Band) / (Upper Band - Lower Band)
+            # %B < 0 = below lower band, %B > 1 = above upper band
+            # %B = 0.5 = at middle band (SMA)
+            if len(closes) >= bb_period:
+                # Calculate 20-day SMA (middle band)
+                sma = sum(closes[-bb_period:]) / bb_period
+                
+                # Calculate standard deviation
+                variance = sum((p - sma) ** 2 for p in closes[-bb_period:]) / bb_period
+                std_dev = math.sqrt(variance)
+                
+                # Calculate bands (2 standard deviations)
+                upper_band = sma + (2 * std_dev)
+                lower_band = sma - (2 * std_dev)
+                
+                # Calculate %B
+                current_price = closes[-1]
+                if upper_band != lower_band:
+                    bb_pct_b = (current_price - lower_band) / (upper_band - lower_band)
+                    result['bb_pct_b'] = round(bb_pct_b, 2)
+                else:
+                    result['bb_pct_b'] = 0.5  # At middle if no volatility
             
             # Cache the result
             self._indicators_cache[symbol] = result

@@ -1043,11 +1043,12 @@ elif page == "CSP Dashboard":
                 log_lines.append(f"  ✅ Chain data received")
                 log_lines.append(f"  Underlying Price: ${underlying_price}")
                 
-                # Get IV Rank and RSI from prefetched cache (no API call needed)
-                indicators = prefetched_indicators.get(symbol, {'rsi': None, 'iv_rank': None})
+                # Get IV Rank, RSI, and BB %B from prefetched cache (no API call needed)
+                indicators = prefetched_indicators.get(symbol, {'rsi': None, 'iv_rank': None, 'bb_pct_b': None})
                 iv_rank = indicators.get('iv_rank')
                 rsi = indicators.get('rsi')
-                log_lines.append(f"  IV Rank: {iv_rank if iv_rank else 'N/A'}, RSI: {rsi if rsi else 'N/A'} (cached)")
+                bb_pct_b = indicators.get('bb_pct_b')
+                log_lines.append(f"  IV Rank: {iv_rank if iv_rank else 'N/A'}, RSI: {rsi if rsi else 'N/A'}, BB%B: {bb_pct_b if bb_pct_b else 'N/A'} (cached)")
                 
                 puts = tradier.filter_put_options(chain_data, min_delta=min_delta, max_delta=max_delta)
                 stats['total_puts_found'] += len(puts)
@@ -1145,6 +1146,7 @@ elif page == "CSP Dashboard":
                         'Open Int': oi,
                         'RSI': format_rsi_with_emoji(rsi),
                         'IV Rank': round(iv_rank, 1) if iv_rank else None,
+                        'BB %B': round(bb_pct_b, 2) if bb_pct_b is not None else None,
                         'Spread %': round(spread_pct, 1),
                         'Existing CSPs': existing_contracts,
                     }
@@ -1260,9 +1262,13 @@ elif page == "CSP Dashboard":
             st.session_state.csp_conservative_dte_min = 7
             st.session_state.csp_conservative_dte_max = 30
             st.session_state.csp_conservative_oi_min = 50
-        # Initialize RSI separately to handle existing sessions
+        # Initialize RSI, IV Rank, BB %B separately to handle existing sessions
         if 'csp_conservative_rsi_max' not in st.session_state:
             st.session_state.csp_conservative_rsi_max = 50
+        if 'csp_conservative_iv_rank_min' not in st.session_state:
+            st.session_state.csp_conservative_iv_rank_min = 30
+        if 'csp_conservative_bb_max' not in st.session_state:
+            st.session_state.csp_conservative_bb_max = 0.5
         
         if 'csp_medium_delta_min' not in st.session_state:
             st.session_state.csp_medium_delta_min = 0.15
@@ -1272,6 +1278,10 @@ elif page == "CSP Dashboard":
             st.session_state.csp_medium_oi_min = 50
         if 'csp_medium_rsi_max' not in st.session_state:
             st.session_state.csp_medium_rsi_max = 60
+        if 'csp_medium_iv_rank_min' not in st.session_state:
+            st.session_state.csp_medium_iv_rank_min = 40
+        if 'csp_medium_bb_max' not in st.session_state:
+            st.session_state.csp_medium_bb_max = 0.6
         
         if 'csp_aggressive_delta_min' not in st.session_state:
             st.session_state.csp_aggressive_delta_min = 0.20
@@ -1281,10 +1291,18 @@ elif page == "CSP Dashboard":
             st.session_state.csp_aggressive_oi_min = 25
         if 'csp_aggressive_rsi_max' not in st.session_state:
             st.session_state.csp_aggressive_rsi_max = 100
+        if 'csp_aggressive_iv_rank_min' not in st.session_state:
+            st.session_state.csp_aggressive_iv_rank_min = 50
+        if 'csp_aggressive_bb_max' not in st.session_state:
+            st.session_state.csp_aggressive_bb_max = 1.0  # No BB filter for aggressive
+        
+        # Initialize oversold filter toggle
+        if 'csp_oversold_filter' not in st.session_state:
+            st.session_state.csp_oversold_filter = False
         
         # Helper function to select best per ticker
-        def select_best_csp_per_ticker(df, delta_min, delta_max, dte_min, dte_max, oi_min, rsi_max=100, qty=1):
-            """Select best CSP option per ticker based on criteria including RSI filter"""
+        def select_best_csp_per_ticker(df, delta_min, delta_max, dte_min, dte_max, oi_min, rsi_max=100, iv_rank_min=0, bb_max=1.0, oversold_only=False, qty=1):
+            """Select best CSP option per ticker based on criteria including RSI, IV Rank, and BB %B filters"""
             selections = []
             
             # Helper function to extract numeric RSI from emoji string
@@ -1314,6 +1332,21 @@ elif page == "CSP Dashboard":
             if 'RSI' in filtered.columns and rsi_max < 100:
                 filtered = filtered[filtered['RSI'].apply(lambda x: extract_rsi(x) is None or extract_rsi(x) <= rsi_max)]
             
+            # Apply IV Rank filter if column exists and iv_rank_min > 0
+            if 'IV Rank' in filtered.columns and iv_rank_min > 0:
+                filtered = filtered[filtered['IV Rank'].apply(lambda x: x is None or x >= iv_rank_min)]
+            
+            # Apply BB %B filter if column exists and bb_max < 1.0
+            if 'BB %B' in filtered.columns and bb_max < 1.0:
+                filtered = filtered[filtered['BB %B'].apply(lambda x: x is None or x <= bb_max)]
+            
+            # Apply oversold filter if enabled (RSI < 40 AND BB %B < 0.3)
+            if oversold_only:
+                if 'RSI' in filtered.columns:
+                    filtered = filtered[filtered['RSI'].apply(lambda x: extract_rsi(x) is None or extract_rsi(x) < 40)]
+                if 'BB %B' in filtered.columns:
+                    filtered = filtered[filtered['BB %B'].apply(lambda x: x is None or x < 0.3)]
+            
             if len(filtered) == 0:
                 return selections
             
@@ -1338,7 +1371,7 @@ elif page == "CSP Dashboard":
         
         with col2:
             if st.button("🟢 Conservative", use_container_width=True, key="csp_preset_conservative", 
-                       help=f"Δ {st.session_state.csp_conservative_delta_min}-{st.session_state.csp_conservative_delta_max}, DTE {st.session_state.csp_conservative_dte_min}-{st.session_state.csp_conservative_dte_max}, OI ≥{st.session_state.csp_conservative_oi_min}, RSI ≤{st.session_state.csp_conservative_rsi_max}"):
+                       help=f"Δ {st.session_state.csp_conservative_delta_min}-{st.session_state.csp_conservative_delta_max}, DTE {st.session_state.csp_conservative_dte_min}-{st.session_state.csp_conservative_dte_max}, OI ≥{st.session_state.csp_conservative_oi_min}, RSI ≤{st.session_state.csp_conservative_rsi_max}, IV≥{st.session_state.csp_conservative_iv_rank_min}, BB≤{st.session_state.csp_conservative_bb_max}"):
                 # Track active preset for Delta formatting
                 st.session_state.csp_active_preset = 'conservative'
                 
@@ -1346,7 +1379,7 @@ elif page == "CSP Dashboard":
                 st.session_state.csp_opportunities['Select'] = False
                 st.session_state.csp_opportunities['Qty'] = 1
                 
-                # Use smart per-ticker selection with RSI filter
+                # Use smart per-ticker selection with all filters
                 selections = select_best_csp_per_ticker(
                     st.session_state.csp_opportunities,
                     st.session_state.csp_conservative_delta_min,
@@ -1354,7 +1387,10 @@ elif page == "CSP Dashboard":
                     st.session_state.csp_conservative_dte_min,
                     st.session_state.csp_conservative_dte_max,
                     st.session_state.csp_conservative_oi_min,
-                    st.session_state.csp_conservative_rsi_max,
+                    rsi_max=st.session_state.csp_conservative_rsi_max,
+                    iv_rank_min=st.session_state.csp_conservative_iv_rank_min,
+                    bb_max=st.session_state.csp_conservative_bb_max,
+                    oversold_only=st.session_state.csp_oversold_filter,
                     qty=1
                 )
                 
@@ -1367,7 +1403,7 @@ elif page == "CSP Dashboard":
         
         with col3:
             if st.button("🟡 Medium", use_container_width=True, key="csp_preset_medium",
-                       help=f"Δ {st.session_state.csp_medium_delta_min}-{st.session_state.csp_medium_delta_max}, DTE {st.session_state.csp_medium_dte_min}-{st.session_state.csp_medium_dte_max}, OI ≥{st.session_state.csp_medium_oi_min}, RSI ≤{st.session_state.csp_medium_rsi_max}"):
+                       help=f"Δ {st.session_state.csp_medium_delta_min}-{st.session_state.csp_medium_delta_max}, DTE {st.session_state.csp_medium_dte_min}-{st.session_state.csp_medium_dte_max}, OI ≥{st.session_state.csp_medium_oi_min}, RSI ≤{st.session_state.csp_medium_rsi_max}, IV≥{st.session_state.csp_medium_iv_rank_min}, BB≤{st.session_state.csp_medium_bb_max}"):
                 # Track active preset for Delta formatting
                 st.session_state.csp_active_preset = 'medium'
                 
@@ -1375,7 +1411,7 @@ elif page == "CSP Dashboard":
                 st.session_state.csp_opportunities['Select'] = False
                 st.session_state.csp_opportunities['Qty'] = 1
                 
-                # Use smart per-ticker selection with RSI filter
+                # Use smart per-ticker selection with all filters
                 selections = select_best_csp_per_ticker(
                     st.session_state.csp_opportunities,
                     st.session_state.csp_medium_delta_min,
@@ -1383,7 +1419,10 @@ elif page == "CSP Dashboard":
                     st.session_state.csp_medium_dte_min,
                     st.session_state.csp_medium_dte_max,
                     st.session_state.csp_medium_oi_min,
-                    st.session_state.csp_medium_rsi_max,
+                    rsi_max=st.session_state.csp_medium_rsi_max,
+                    iv_rank_min=st.session_state.csp_medium_iv_rank_min,
+                    bb_max=st.session_state.csp_medium_bb_max,
+                    oversold_only=st.session_state.csp_oversold_filter,
                     qty=1
                 )
                 
@@ -1396,7 +1435,7 @@ elif page == "CSP Dashboard":
         
         with col4:
             if st.button("🔴 Aggressive", use_container_width=True, key="csp_preset_aggressive",
-                       help=f"Δ {st.session_state.csp_aggressive_delta_min}-{st.session_state.csp_aggressive_delta_max}, DTE {st.session_state.csp_aggressive_dte_min}-{st.session_state.csp_aggressive_dte_max}, OI ≥{st.session_state.csp_aggressive_oi_min}, RSI ≤{st.session_state.csp_aggressive_rsi_max} (no limit)"):
+                       help=f"Δ {st.session_state.csp_aggressive_delta_min}-{st.session_state.csp_aggressive_delta_max}, DTE {st.session_state.csp_aggressive_dte_min}-{st.session_state.csp_aggressive_dte_max}, OI ≥{st.session_state.csp_aggressive_oi_min}, RSI ≤{st.session_state.csp_aggressive_rsi_max}, IV≥{st.session_state.csp_aggressive_iv_rank_min}"):
                 # Track active preset for Delta formatting
                 st.session_state.csp_active_preset = 'aggressive'
                 
@@ -1404,7 +1443,7 @@ elif page == "CSP Dashboard":
                 st.session_state.csp_opportunities['Select'] = False
                 st.session_state.csp_opportunities['Qty'] = 1
                 
-                # Use smart per-ticker selection (Aggressive = no RSI filter, rsi_max=100)
+                # Use smart per-ticker selection with all filters (Aggressive has looser limits)
                 selections = select_best_csp_per_ticker(
                     st.session_state.csp_opportunities,
                     st.session_state.csp_aggressive_delta_min,
@@ -1412,7 +1451,10 @@ elif page == "CSP Dashboard":
                     st.session_state.csp_aggressive_dte_min,
                     st.session_state.csp_aggressive_dte_max,
                     st.session_state.csp_aggressive_oi_min,
-                    st.session_state.csp_aggressive_rsi_max,
+                    rsi_max=st.session_state.csp_aggressive_rsi_max,
+                    iv_rank_min=st.session_state.csp_aggressive_iv_rank_min,
+                    bb_max=st.session_state.csp_aggressive_bb_max,
+                    oversold_only=st.session_state.csp_oversold_filter,
                     qty=1
                 )
                 
@@ -1432,6 +1474,20 @@ elif page == "CSP Dashboard":
             selected_count = st.session_state.csp_opportunities['Select'].sum()
             st.metric("Selected", selected_count)
         
+        # Subtle oversold filter toggle - small and subdued
+        st.markdown("<style>.oversold-toggle { opacity: 0.7; font-size: 0.85em; }</style>", unsafe_allow_html=True)
+        col_toggle, col_space = st.columns([2, 5])
+        with col_toggle:
+            oversold_filter = st.checkbox(
+                "📉 Oversold Only", 
+                value=st.session_state.csp_oversold_filter,
+                key="csp_oversold_toggle",
+                help="Additional filter: RSI < 40 AND BB %B < 0.3 (stocks that have pulled back)"
+            )
+            if oversold_filter != st.session_state.csp_oversold_filter:
+                st.session_state.csp_oversold_filter = oversold_filter
+                st.rerun()
+        
         st.write("")
         st.write("---")
         
@@ -1440,15 +1496,22 @@ elif page == "CSP Dashboard":
         
         # Conservative Expander
         with st.expander("🟢 Conservative Filter Configuration", expanded=False):
-            col1, col2 = st.columns(2)
+            col1, col2, col3 = st.columns(3)
             with col1:
                 cons_delta_min = st.number_input("Min Delta", value=st.session_state.csp_conservative_delta_min, min_value=0.0, max_value=1.0, step=0.01, key="csp_cons_delta_min_input")
                 cons_delta_max = st.number_input("Max Delta", value=st.session_state.csp_conservative_delta_max, min_value=0.0, max_value=1.0, step=0.01, key="csp_cons_delta_max_input")
-                cons_dte_min = st.number_input("Min DTE", value=st.session_state.csp_conservative_dte_min, min_value=0, max_value=365, step=1, key="csp_cons_dte_min_input")
             with col2:
+                cons_dte_min = st.number_input("Min DTE", value=st.session_state.csp_conservative_dte_min, min_value=0, max_value=365, step=1, key="csp_cons_dte_min_input")
                 cons_dte_max = st.number_input("Max DTE", value=st.session_state.csp_conservative_dte_max, min_value=0, max_value=365, step=1, key="csp_cons_dte_max_input")
+            with col3:
                 cons_oi_min = st.number_input("Min Open Interest", value=st.session_state.csp_conservative_oi_min, min_value=0, step=10, key="csp_cons_oi_min_input")
                 cons_rsi_max = st.number_input("Max RSI", value=st.session_state.csp_conservative_rsi_max, min_value=0, max_value=100, step=5, key="csp_cons_rsi_max_input", help="Filter out overbought stocks. Lower = more conservative.")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                cons_iv_rank_min = st.number_input("Min IV Rank", value=st.session_state.csp_conservative_iv_rank_min, min_value=0, max_value=100, step=5, key="csp_cons_iv_rank_min_input", help="Higher IV = better premium. 30+ recommended.")
+            with col2:
+                cons_bb_max = st.number_input("Max BB %B", value=st.session_state.csp_conservative_bb_max, min_value=0.0, max_value=1.5, step=0.1, key="csp_cons_bb_max_input", help="Lower = stock near lower band. 0.5 = middle of range.")
             
             col1, col2 = st.columns(2)
             with col1:
@@ -1459,6 +1522,8 @@ elif page == "CSP Dashboard":
                     st.session_state.csp_conservative_dte_max = cons_dte_max
                     st.session_state.csp_conservative_oi_min = cons_oi_min
                     st.session_state.csp_conservative_rsi_max = cons_rsi_max
+                    st.session_state.csp_conservative_iv_rank_min = cons_iv_rank_min
+                    st.session_state.csp_conservative_bb_max = cons_bb_max
                     st.success("✅ Conservative criteria committed!")
                     st.rerun()
             with col2:
@@ -1469,20 +1534,29 @@ elif page == "CSP Dashboard":
                     st.session_state.csp_conservative_dte_max = 30
                     st.session_state.csp_conservative_oi_min = 50
                     st.session_state.csp_conservative_rsi_max = 50
+                    st.session_state.csp_conservative_iv_rank_min = 30
+                    st.session_state.csp_conservative_bb_max = 0.5
                     st.success("✅ Conservative reset to defaults!")
                     st.rerun()
         
         # Medium Expander
         with st.expander("🟡 Medium Filter Configuration", expanded=False):
-            col1, col2 = st.columns(2)
+            col1, col2, col3 = st.columns(3)
             with col1:
                 med_delta_min = st.number_input("Min Delta", value=st.session_state.csp_medium_delta_min, min_value=0.0, max_value=1.0, step=0.01, key="csp_med_delta_min_input")
                 med_delta_max = st.number_input("Max Delta", value=st.session_state.csp_medium_delta_max, min_value=0.0, max_value=1.0, step=0.01, key="csp_med_delta_max_input")
-                med_dte_min = st.number_input("Min DTE", value=st.session_state.csp_medium_dte_min, min_value=0, max_value=365, step=1, key="csp_med_dte_min_input")
             with col2:
+                med_dte_min = st.number_input("Min DTE", value=st.session_state.csp_medium_dte_min, min_value=0, max_value=365, step=1, key="csp_med_dte_min_input")
                 med_dte_max = st.number_input("Max DTE", value=st.session_state.csp_medium_dte_max, min_value=0, max_value=365, step=1, key="csp_med_dte_max_input")
+            with col3:
                 med_oi_min = st.number_input("Min Open Interest", value=st.session_state.csp_medium_oi_min, min_value=0, step=10, key="csp_med_oi_min_input")
                 med_rsi_max = st.number_input("Max RSI", value=st.session_state.csp_medium_rsi_max, min_value=0, max_value=100, step=5, key="csp_med_rsi_max_input", help="Filter out overbought stocks. Lower = more conservative.")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                med_iv_rank_min = st.number_input("Min IV Rank", value=st.session_state.csp_medium_iv_rank_min, min_value=0, max_value=100, step=5, key="csp_med_iv_rank_min_input", help="Higher IV = better premium. 40+ recommended.")
+            with col2:
+                med_bb_max = st.number_input("Max BB %B", value=st.session_state.csp_medium_bb_max, min_value=0.0, max_value=1.5, step=0.1, key="csp_med_bb_max_input", help="Lower = stock near lower band. 0.6 = slightly below middle.")
             
             col1, col2 = st.columns(2)
             with col1:
@@ -1493,6 +1567,8 @@ elif page == "CSP Dashboard":
                     st.session_state.csp_medium_dte_max = med_dte_max
                     st.session_state.csp_medium_oi_min = med_oi_min
                     st.session_state.csp_medium_rsi_max = med_rsi_max
+                    st.session_state.csp_medium_iv_rank_min = med_iv_rank_min
+                    st.session_state.csp_medium_bb_max = med_bb_max
                     st.success("✅ Medium criteria committed!")
                     st.rerun()
             with col2:
@@ -1503,20 +1579,29 @@ elif page == "CSP Dashboard":
                     st.session_state.csp_medium_dte_max = 30
                     st.session_state.csp_medium_oi_min = 50
                     st.session_state.csp_medium_rsi_max = 60
+                    st.session_state.csp_medium_iv_rank_min = 40
+                    st.session_state.csp_medium_bb_max = 0.6
                     st.success("✅ Medium reset to defaults!")
                     st.rerun()
         
         # Aggressive Expander
         with st.expander("🔴 Aggressive Filter Configuration", expanded=False):
-            col1, col2 = st.columns(2)
+            col1, col2, col3 = st.columns(3)
             with col1:
                 agg_delta_min = st.number_input("Min Delta", value=st.session_state.csp_aggressive_delta_min, min_value=0.0, max_value=1.0, step=0.01, key="csp_agg_delta_min_input")
                 agg_delta_max = st.number_input("Max Delta", value=st.session_state.csp_aggressive_delta_max, min_value=0.0, max_value=1.0, step=0.01, key="csp_agg_delta_max_input")
-                agg_dte_min = st.number_input("Min DTE", value=st.session_state.csp_aggressive_dte_min, min_value=0, max_value=365, step=1, key="csp_agg_dte_min_input")
             with col2:
+                agg_dte_min = st.number_input("Min DTE", value=st.session_state.csp_aggressive_dte_min, min_value=0, max_value=365, step=1, key="csp_agg_dte_min_input")
                 agg_dte_max = st.number_input("Max DTE", value=st.session_state.csp_aggressive_dte_max, min_value=0, max_value=365, step=1, key="csp_agg_dte_max_input")
+            with col3:
                 agg_oi_min = st.number_input("Min Open Interest", value=st.session_state.csp_aggressive_oi_min, min_value=0, step=10, key="csp_agg_oi_min_input")
                 agg_rsi_max = st.number_input("Max RSI", value=st.session_state.csp_aggressive_rsi_max, min_value=0, max_value=100, step=5, key="csp_agg_rsi_max_input", help="Set to 100 for no RSI filter.")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                agg_iv_rank_min = st.number_input("Min IV Rank", value=st.session_state.csp_aggressive_iv_rank_min, min_value=0, max_value=100, step=5, key="csp_agg_iv_rank_min_input", help="Higher IV = better premium. 50+ for aggressive.")
+            with col2:
+                agg_bb_max = st.number_input("Max BB %B", value=st.session_state.csp_aggressive_bb_max, min_value=0.0, max_value=1.5, step=0.1, key="csp_agg_bb_max_input", help="Set to 1.0+ for no BB filter.")
             
             col1, col2 = st.columns(2)
             with col1:
@@ -1527,6 +1612,8 @@ elif page == "CSP Dashboard":
                     st.session_state.csp_aggressive_dte_max = agg_dte_max
                     st.session_state.csp_aggressive_oi_min = agg_oi_min
                     st.session_state.csp_aggressive_rsi_max = agg_rsi_max
+                    st.session_state.csp_aggressive_iv_rank_min = agg_iv_rank_min
+                    st.session_state.csp_aggressive_bb_max = agg_bb_max
                     st.success("✅ Aggressive criteria committed!")
                     st.rerun()
             with col2:
@@ -1537,6 +1624,8 @@ elif page == "CSP Dashboard":
                     st.session_state.csp_aggressive_dte_max = 21
                     st.session_state.csp_aggressive_oi_min = 25
                     st.session_state.csp_aggressive_rsi_max = 100
+                    st.session_state.csp_aggressive_iv_rank_min = 50
+                    st.session_state.csp_aggressive_bb_max = 1.0
                     st.success("✅ Aggressive reset to defaults!")
                     st.rerun()
         
