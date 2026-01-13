@@ -722,7 +722,7 @@ class TastytradeAPI:
         Get quotes for multiple option symbols at once using the by-type endpoint
         
         Args:
-            option_symbols: List of option symbols
+            option_symbols: List of option symbols (OCC format from orders)
             
         Returns:
             dict mapping symbol to quote data
@@ -737,8 +737,12 @@ class TastytradeAPI:
             quotes = {}
             headers = self._get_headers()
             
+            # Debug: log the symbols being requested
+            print(f"DEBUG: Requesting quotes for {len(option_symbols)} symbols")
+            if option_symbols:
+                print(f"DEBUG: First symbol: '{option_symbols[0]}' (len={len(option_symbols[0])})")
+            
             # Use the market-data/by-type endpoint with equity-option parameter
-            # Can batch up to 100 symbols at once
             url = f"{self.base_url}/market-data/by-type"
             
             # Process in batches of 100 (API limit)
@@ -752,9 +756,13 @@ class TastytradeAPI:
                     
                     response = requests.get(url, headers=headers, params=params)
                     
+                    print(f"DEBUG: API response status: {response.status_code}")
+                    
                     if response.status_code == 200:
                         data = response.json()
+                        print(f"DEBUG: Response has 'data' key: {'data' in data}")
                         if data.get('data'):
+                            print(f"DEBUG: Got {len(data['data'])} items in response")
                             for item in data['data']:
                                 sym = item.get('symbol', '')
                                 if sym:
@@ -766,8 +774,13 @@ class TastytradeAPI:
                                         'bid_size': item.get('bidSize', 0) or item.get('bid-size', 0) or 0,
                                         'ask_size': item.get('askSize', 0) or item.get('ask-size', 0) or 0
                                     }
+                        else:
+                            print(f"DEBUG: No 'data' in response or empty. Keys: {data.keys()}")
+                            # Try to print first 500 chars of response for debugging
+                            print(f"DEBUG: Response preview: {str(data)[:500]}")
                     else:
-                        print(f"Batch quote API returned status {response.status_code}")
+                        print(f"DEBUG: Batch quote API returned status {response.status_code}")
+                        print(f"DEBUG: Response text: {response.text[:500]}")
                         # Fallback: try one at a time
                         for sym in batch:
                             try:
@@ -783,7 +796,9 @@ class TastytradeAPI:
                                 pass
                                 
                 except Exception as e:
-                    print(f"Error in batch quote fetch: {str(e)}")
+                    print(f"DEBUG: Error in batch quote fetch: {str(e)}")
+                    import traceback
+                    traceback.print_exc()
                     # Fallback: try one at a time
                     for sym in batch:
                         try:
@@ -798,8 +813,11 @@ class TastytradeAPI:
                         except:
                             pass
             
+            print(f"DEBUG: Returning {len(quotes)} quotes")
             return quotes
                 
         except Exception as e:
             print(f"Exception in get_option_quotes_batch: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return {}

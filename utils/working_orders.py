@@ -232,19 +232,30 @@ def render_working_orders_dashboard(api, account_number):
         if option_symbols:
             with st.spinner(f"Fetching quotes for {len(option_symbols)} options..."):
                 try:
+                    # Debug: show the symbols being requested
+                    with st.expander("🔧 Debug: Option Symbols", expanded=False):
+                        st.write(f"Requesting quotes for {len(option_symbols)} symbols:")
+                        for sym in option_symbols[:5]:  # Show first 5
+                            st.code(f"'{sym}' (len={len(sym)})")
+                        if len(option_symbols) > 5:
+                            st.write(f"... and {len(option_symbols) - 5} more")
+                    
                     # Use batch method
                     quotes = api.get_option_quotes_batch(option_symbols)
                     
                     # Debug: show how many quotes were fetched
                     if len(quotes) == 0:
                         st.warning(f"No quotes returned for {len(option_symbols)} option symbols")
+                        st.info("Check Streamlit Cloud logs for DEBUG output")
                     elif len(quotes) < len(option_symbols):
                         st.info(f"Fetched quotes for {len(quotes)}/{len(option_symbols)} options")
+                    else:
+                        st.success(f"✅ Fetched quotes for all {len(quotes)} options")
                         
                 except Exception as e:
                     st.warning(f"Could not fetch option quotes: {str(e)}")
                     import traceback
-                    print(traceback.format_exc())
+                    st.error(traceback.format_exc())
         
         # Build display data
         order_data = []
