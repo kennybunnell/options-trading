@@ -955,7 +955,25 @@ elif page == "CSP Dashboard":
     
     st.divider()
     
-    if st.button("🔄 Fetch Opportunities", type="primary", use_container_width=True):
+    # Scan buttons row
+    scan_col1, scan_col2 = st.columns([3, 1])
+    
+    with scan_col1:
+        fetch_clicked = st.button("🔄 Fetch Opportunities", type="primary", use_container_width=True)
+    
+    with scan_col2:
+        if st.button("🗑️ Clear Results", use_container_width=True, key="csp_clear_results", help="Clear all scan results and start fresh"):
+            # Clear scan results
+            if 'csp_opportunities' in st.session_state:
+                del st.session_state.csp_opportunities
+            if 'csp_scan_duration' in st.session_state:
+                del st.session_state.csp_scan_duration
+            if 'csp_active_preset' in st.session_state:
+                del st.session_state.csp_active_preset
+            st.success("✅ Results cleared!")
+            st.rerun()
+    
+    if fetch_clicked:
       try:
         # Start scan timer
         import time
@@ -2679,7 +2697,22 @@ elif page == "CC Dashboard":
             if not selected_symbols:
                 st.warning("⚠️ Please select at least one stock to scan")
             else:
-                if st.button(f"🔍 Scan {len(selected_symbols)} Selected Stocks for Covered Calls", type="primary", use_container_width=True):
+                cc_scan_col1, cc_scan_col2 = st.columns([3, 1])
+                
+                with cc_scan_col1:
+                    cc_scan_clicked = st.button(f"🔍 Scan {len(selected_symbols)} Selected Stocks for Covered Calls", type="primary", use_container_width=True)
+                
+                with cc_scan_col2:
+                    if st.button("🗑️ Clear Results", use_container_width=True, key="cc_clear_results", help="Clear all scan results and start fresh"):
+                        # Clear scan results
+                        if 'cc_opportunities' in st.session_state:
+                            del st.session_state.cc_opportunities
+                        if 'cc_active_preset' in st.session_state:
+                            del st.session_state.cc_active_preset
+                        st.success("✅ Results cleared!")
+                        st.rerun()
+                
+                if cc_scan_clicked:
                     try:
                         from utils.covered_calls import pre_scan_covered_calls
                         
