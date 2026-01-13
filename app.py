@@ -1234,23 +1234,6 @@ elif page == "CSP Dashboard":
         # Store in session state (always update with fresh scan results)
         st.session_state.csp_opportunities_fresh = True
         
-        # Summary stats
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            avg_weekly = df['Weekly %'].mean()
-            st.metric("Avg Weekly Return", f"{avg_weekly:.2f}%")
-        with col2:
-            max_weekly = df['Weekly %'].max()
-            st.metric("Max Weekly Return", f"{max_weekly:.2f}%")
-        with col3:
-            avg_delta = df['Delta'].mean()
-            st.metric("Avg Delta", f"{avg_delta:.2f}")
-        with col4:
-            high_return_count = (df['Weekly %'] >= 1.5).sum()
-            st.metric("≥1.5% Weekly", high_return_count)
-        
-        st.divider()
-        
         # Selection controls
         st.subheader("📋 Select Options to Trade")
         
@@ -1834,9 +1817,11 @@ elif page == "CSP Dashboard":
         # Use dynamic key based on active preset to force re-render when formatting changes
         editor_key = f"csp_selector_{st.session_state.get('csp_active_preset', 'none')}"
         
-        # Calculate dynamic height to show ALL rows (35px per row + 60px header)
-        # Min height 400px, no max - show everything
-        dynamic_height = max(400, len(display_df) * 35 + 60)
+        # Calculate dynamic height based on row count (35px per row + 60px header)
+        # Min height 400px, max height 800px to prevent white screen on large datasets
+        # For large datasets (>20 rows), cap at 800px with scrolling
+        calculated_height = len(display_df) * 35 + 60
+        dynamic_height = max(400, min(calculated_height, 800))
         
         edited_df = st.data_editor(
             display_df,
@@ -1971,10 +1956,11 @@ elif page == "CSP Dashboard":
             total_collateral = (selected_rows['Strike'] * selected_rows['Qty'] * 100).sum()  # Each contract = 100 shares
             avg_weekly_return = selected_rows['Weekly %'].mean()
             avg_monthly_return = selected_rows['Monthly %'].mean()
+            avg_delta = selected_rows['Delta'].mean()
             num_different_options = len(selected_rows)
             
             # Display summary card
-            col1, col2, col3, col4, col5 = st.columns(5)
+            col1, col2, col3, col4, col5, col6 = st.columns(6)
             
             with col1:
                 st.metric("Total Contracts", int(total_contracts))
@@ -1987,6 +1973,8 @@ elif page == "CSP Dashboard":
                 st.metric("Avg Weekly Return", f"{avg_weekly_return:.2f}%")
             with col5:
                 st.metric("Avg Monthly Return", f"{avg_monthly_return:.2f}%")
+            with col6:
+                st.metric("Avg Delta", f"{avg_delta:.2f}")
             
             # Check buying power
             balances = api.get_account_balances(selected_account)
@@ -2018,76 +2006,6 @@ elif page == "CSP Dashboard":
                     can_submit = False
                 else:
                     can_submit = True
-                
-                # Weekly Deployment Tracker
-                st.divider()
-                st.subheader("📅 Weekly Deployment Tracker")
-                
-                # Import helper functions
-                from utils.csp_ladder_manager import get_next_friday, get_deployed_csp_capital, calculate_tranche_targets
-                
-                # Get positions to calculate deployed capital
-                positions = api.get_positions(selected_account)
-                deployed_data = get_deployed_csp_capital(positions)
-                deployed_by_week = deployed_data['by_week']
-                total_deployed = deployed_data['total']
-                
-                # Calculate this week's target
-                optimal_tranche_size = calculate_tranche_targets(buying_power, 4)
-                
-                # Get current week (Week 1 = next Friday)
-                current_week_exp = get_next_friday(0)
-                deployed_this_week = deployed_by_week.get(current_week_exp, 0)
-                
-                # Calculate if this order would exceed weekly limit
-                total_after_order = deployed_this_week + total_collateral
-                remaining_capacity = optimal_tranche_size - deployed_this_week
-                exceeds_limit = total_after_order > optimal_tranche_size
-                
-                # Display weekly tracker
-                col1, col2, col3, col4 = st.columns(4)
-                
-                with col1:
-                    st.metric(
-                        "Weekly Target",
-                        f"${optimal_tranche_size:,.0f}",
-                        help="Target deployment per week (25% of buying power)"
-                    )
-                
-                with col2:
-                    pct_deployed = (deployed_this_week / optimal_tranche_size * 100) if optimal_tranche_size > 0 else 0
-                    st.metric(
-                        "Deployed This Week",
-                        f"${deployed_this_week:,.0f}",
-                        f"{pct_deployed:.0f}%",
-                        help=f"Capital deployed for week ending {current_week_exp}"
-                    )
-                
-                with col3:
-                    st.metric(
-                        "Remaining Capacity",
-                        f"${remaining_capacity:,.0f}",
-                        help="Available capacity for this week's target"
-                    )
-                
-                with col4:
-                    pct_after = (total_after_order / optimal_tranche_size * 100) if optimal_tranche_size > 0 else 0
-                    st.metric(
-                        "After This Order",
-                        f"${total_after_order:,.0f}",
-                        f"{pct_after:.0f}%",
-                        delta_color="normal" if not exceeds_limit else "inverse"
-                    )
-                
-                # Warning if exceeds weekly limit
-                if exceeds_limit:
-                    excess = total_after_order - optimal_tranche_size
-                    st.warning(f"⚠️ **Weekly Limit Warning:** This order would exceed your weekly target by ${excess:,.0f} ({pct_after-100:.0f}% over)")
-                    st.info(f"💡 Consider reducing to ${remaining_capacity:,.0f} to stay within this week's target, or proceed if intentional.")
-                elif remaining_capacity > 0:
-                    st.success(f"✅ Within weekly target! You can deploy up to ${remaining_capacity:,.0f} more this week.")
-                else:
-                    st.info(f"✅ Weekly target met! This week's allocation is complete.")
                 
             else:
                 st.warning("⚠️ Could not fetch account balances")
