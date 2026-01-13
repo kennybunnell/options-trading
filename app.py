@@ -602,51 +602,137 @@ if page == "Home":
         from utils.monthly_premium import render_monthly_premium_summary
         render_monthly_premium_summary(api, selected_account, call_id="main_dashboard")
         
-        # Quick Actions Section
-        st.markdown('<div class="section-header">⚡ Quick Actions</div>', unsafe_allow_html=True)
-        action_col1, action_col2, action_col3, action_col4 = st.columns(4)
+        st.divider()
         
-        with action_col1:
-            if st.button("💰 Scan CSPs", use_container_width=True):
-                st.session_state.nav_page = "💰 CSP Dashboard"
-                st.rerun()
+        # ============================================
+        # PREMIUM EARNINGS OVER TIME CHART
+        # ============================================
+        from utils.monthly_premium import get_monthly_premium_data
+        import plotly.graph_objects as go
         
-        with action_col2:
-            if st.button("📞 Scan CCs", use_container_width=True):
-                st.session_state.nav_page = "📞 Covered Calls"
-                st.rerun()
+        st.subheader("Premium Earnings Over Time")
         
-        with action_col3:
-            if st.button("📈 View Performance", use_container_width=True):
-                st.session_state.nav_page = "📈 Performance"
-                st.rerun()
+        # Get monthly data for all accounts
+        all_account_numbers = [acc['account-number'] for acc in st.session_state.get('accounts', [])]
         
-        with action_col4:
-            if st.button("🔄 Refresh Data", use_container_width=True):
-                st.rerun()
+        # Aggregate monthly data across all accounts
+        from collections import defaultdict
+        aggregated_monthly = defaultdict(lambda: {'net_premium': 0, 'month_name': ''})
         
-        # Current Positions Section
-        st.markdown('<div class="section-header">📊 Current Positions</div>', unsafe_allow_html=True)
-        positions = api.get_positions(selected_account)
+        for acc_num in all_account_numbers:
+            try:
+                monthly_data = get_monthly_premium_data(api, acc_num, months=6)
+                for month in monthly_data:
+                    key = month['month_name']
+                    aggregated_monthly[key]['net_premium'] += month['net_premium']
+                    aggregated_monthly[key]['month_name'] = month['month_name']
+            except:
+                pass
         
-        if positions:
-            # Count position types
-            short_puts = len([p for p in positions if p.get('instrument-type') == 'Equity Option' and 'PUT' in p.get('symbol', '') and p.get('quantity', 0) < 0])
-            short_calls = len([p for p in positions if p.get('instrument-type') == 'Equity Option' and 'CALL' in p.get('symbol', '') and p.get('quantity', 0) < 0])
-            stocks = len([p for p in positions if p.get('instrument-type') == 'Equity'])
+        # Convert to sorted list
+        months_list = sorted(aggregated_monthly.values(), key=lambda x: x['month_name'])
+        
+        if months_list:
+            month_names = [m['month_name'] for m in months_list]
+            monthly_values = [m['net_premium'] for m in months_list]
             
-            pos_col1, pos_col2, pos_col3, pos_col4 = st.columns(4)
+            # Calculate cumulative values
+            cumulative_values = []
+            running_total = 0
+            for v in monthly_values:
+                running_total += v
+                cumulative_values.append(running_total)
             
-            with pos_col1:
-                st.metric("Total Positions", len(positions))
-            with pos_col2:
-                st.metric("Short Puts (CSPs)", short_puts)
-            with pos_col3:
-                st.metric("Short Calls (CCs)", short_calls)
-            with pos_col4:
-                st.metric("Stock Positions", stocks)
+            # Create combined bar + line chart
+            fig = go.Figure()
+            
+            # Add bars for monthly premium
+            fig.add_trace(go.Bar(
+                x=month_names,
+                y=monthly_values,
+                name='Monthly Net Premium',
+                marker_color='#28a745',
+                opacity=0.8,
+                text=[f"${v:,.0f}" for v in monthly_values],
+                textposition='outside'
+            ))
+            
+            # Add line for cumulative premium
+            fig.add_trace(go.Scatter(
+                x=month_names,
+                y=cumulative_values,
+                name='Cumulative Premium',
+                line=dict(color='#17a2b8', width=3),
+                mode='lines+markers',
+                marker=dict(size=8),
+                yaxis='y2'
+            ))
+            
+            fig.update_layout(
+                plot_bgcolor='rgba(0,0,0,0)',
+                paper_bgcolor='rgba(0,0,0,0)',
+                xaxis=dict(showgrid=False, color='#888'),
+                yaxis=dict(
+                    showgrid=True, 
+                    gridcolor='rgba(255,255,255,0.1)', 
+                    color='#888',
+                    title='Monthly Net Premium ($)',
+                    tickprefix='$',
+                    tickformat=',.0f'
+                ),
+                yaxis2=dict(
+                    title='Cumulative Premium ($)',
+                    overlaying='y',
+                    side='right',
+                    showgrid=False,
+                    color='#17a2b8',
+                    tickprefix='$',
+                    tickformat=',.0f'
+                ),
+                margin=dict(l=60, r=60, t=30, b=50),
+                height=350,
+                legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),
+                hovermode='x unified'
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
         else:
-            st.info("📊 No open positions. Start by scanning for CSP or CC opportunities!")
+            st.info("No premium data available yet.")
+        
+        st.divider()
+        
+        # ============================================
+        # RECOVERY PROGRESS BY POSITION CHART
+        # ============================================
+        from utils.recovery_tracker import render_recovery_chart_only
+        from utils.fetch_cc_premiums import fetch_and_save_cc_premiums
+        from utils.performance_dashboard import fetch_all_positions_from_api
+        
+        # Initialize cache for homepage
+        if 'home_stock_positions' not in st.session_state:
+            st.session_state.home_stock_positions = None
+        if 'home_cc_premiums' not in st.session_state:
+            st.session_state.home_cc_premiums = None
+        
+        # Fetch CC premiums from Tastytrade API
+        if st.session_state.home_cc_premiums is None:
+            with st.spinner("Loading recovery data..."):
+                result = fetch_and_save_cc_premiums(api, lookback_days=365)
+                if result:
+                    st.session_state.home_cc_premiums = result.get('cc_premiums', {})
+                else:
+                    st.session_state.home_cc_premiums = {}
+        
+        # Fetch stock positions
+        if st.session_state.home_stock_positions is None:
+            all_positions = fetch_all_positions_from_api(api)
+            st.session_state.home_stock_positions = all_positions.get('stocks', [])
+        
+        cc_premiums = st.session_state.home_cc_premiums
+        stock_positions = st.session_state.home_stock_positions
+        
+        if stock_positions:
+            render_recovery_chart_only(stock_positions, cc_premiums)
 
 
 elif page == "CSP Dashboard":
