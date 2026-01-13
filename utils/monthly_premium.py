@@ -451,7 +451,7 @@ def render_monthly_premium_summary(api, account_number: str = None, all_accounts
         months_data = get_monthly_premium_data(api, account_number, months=6)
     
     if not months_data:
-        st.warning("⚠️ No premium data available. Please upload your activity file in the 'Import Data' tab.")
+        st.warning("⚠️ No premium data available. Transaction history will be fetched from Tastytrade API.")
         return
     
     # Display cards in columns

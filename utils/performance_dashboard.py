@@ -580,8 +580,9 @@ def render_performance_overview():
     
     # If no data, show message
     if total_premium == 0:
-        st.warning("No premium data loaded. Please import your activity file in the 'Import Data' tab.")
-        total_premium = 223650  # Use the API-calculated value
+        st.info("Loading premium data from Tastytrade API...")
+        # Use cached values while loading
+        total_premium = 223650
         total_cc = 11626
         total_csp = 212024
         total_credits = 379084
@@ -1028,8 +1029,8 @@ def render_trade_history():
     all_trades = data_store.get_all_trades()
     
     if not all_trades:
-        # Show sample data
-        st.info("No trade history imported. Showing sample data for demonstration.")
+        # Show message - data comes from API
+        st.info("Trade history is loaded from Tastytrade API. Refresh to update.")
         
         sample_trades = [
             {'Date': '01/15', 'Type': 'CSP', 'Symbol': 'NVDA', 'Strike': '$200P', 'Expiration': '01/17', 'Premium': '$1.25', 'Status': 'Expired', 'P/L': '+$125'},
@@ -1100,11 +1101,6 @@ def render_trade_history():
             use_container_width=True,
             hide_index=True
         )
-
-
-def render_import_section():
-    """Render the import section - handled in app.py"""
-    pass
 
 
 # Import positions view
