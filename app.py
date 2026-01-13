@@ -608,10 +608,6 @@ if page == "Home":
             if st.button("🔄 Refresh Data", use_container_width=True):
                 st.rerun()
         
-        # CSP Ladder Manager Section
-        st.markdown('<div class="section-header">📅 Weekly CSP Ladder</div>', unsafe_allow_html=True)
-        render_csp_ladder_manager(api, selected_account)
-        
         # Current Positions Section
         st.markdown('<div class="section-header">📊 Current Positions</div>', unsafe_allow_html=True)
         positions = api.get_positions(selected_account)
