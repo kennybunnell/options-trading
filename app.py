@@ -4416,6 +4416,7 @@ elif page == "Performance":
         render_performance_overview,
         render_positions_view
     )
+    from utils.performance_overview_new import render_performance_overview_real
     from utils.projections import render_projections_tab
     
     # Get all account numbers for projections
@@ -4466,7 +4467,8 @@ elif page == "Performance":
         render_stock_basis(api)
     
     with tab5:
-        render_performance_overview()
+        # Use the new REAL DATA version of Performance Overview
+        render_performance_overview_real(api, all_account_numbers_perf)
     
     with tab6:
         render_projections_tab(api, all_account_numbers_perf, portfolio_value_perf)

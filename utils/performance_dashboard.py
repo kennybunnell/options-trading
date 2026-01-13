@@ -18,6 +18,7 @@ from collections import defaultdict
 
 from utils.data_models import Trade, StockPosition, PremiumSummary, data_store
 from utils.yahoo_finance import get_quote_tradier
+from utils.performance_overview_new import render_performance_overview_real, get_real_monthly_data
 
 
 # ============================================
