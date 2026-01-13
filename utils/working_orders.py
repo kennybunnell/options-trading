@@ -167,6 +167,8 @@ def render_working_orders_dashboard(api, account_number):
         st.session_state.replacement_counts = {}  # Track replacements per order
     if 'auto_replace_log' not in st.session_state:
         st.session_state.auto_replace_log = []
+    if 'working_orders_selected' not in st.session_state:
+        st.session_state.working_orders_selected = set()  # Track selected order IDs
     
     # Control panel
     col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
@@ -326,9 +328,12 @@ def render_working_orders_dashboard(api, account_number):
                 price_diff = abs(current_price - suggested_price) if suggested_price else 0
                 needs_replacement = price_diff >= 0.01 and not needs_review
                 
+                # Check if this order was previously selected
+                is_selected = order_id in st.session_state.working_orders_selected
+                
                 order_data.append({
                     'order_id': order_id,
-                    'Select': False,
+                    'Select': is_selected,
                     'Symbol': underlying,
                     'Strike': strike,
                     'Exp': expiration,
@@ -411,8 +416,16 @@ def render_working_orders_dashboard(api, account_number):
             key="working_orders_table"
         )
         
-        # Update selections
+        # Update selections and persist to session state
         df['Select'] = edited_df['Select']
+        
+        # Sync selections to session state
+        new_selected = set()
+        for idx, row in df.iterrows():
+            if row['Select']:
+                new_selected.add(row['order_id'])
+        st.session_state.working_orders_selected = new_selected
+        
         selected = df[df['Select'] == True]
         
         # Action buttons
@@ -421,10 +434,14 @@ def render_working_orders_dashboard(api, account_number):
         
         with col1:
             if st.button("✅ Select All", use_container_width=True):
+                # Add all order IDs to selected set
+                for idx, row in df.iterrows():
+                    st.session_state.working_orders_selected.add(row['order_id'])
                 st.rerun()
         
         with col2:
             if st.button("⬜ Deselect All", use_container_width=True):
+                st.session_state.working_orders_selected = set()
                 st.rerun()
         
         with col3:
