@@ -612,8 +612,24 @@ if page == "Home":
         
         st.subheader("Premium Earnings Over Time")
         
-        # Get monthly data for all accounts
-        all_account_numbers = [acc['account-number'] for acc in st.session_state.get('accounts', [])]
+        # Get monthly data for all accounts - handle nested API structure
+        all_account_numbers = []
+        accounts_list = st.session_state.get('accounts', [])
+        
+        if accounts_list:
+            for acc in accounts_list:
+                acc_num = None
+                if isinstance(acc, dict):
+                    if 'account' in acc and isinstance(acc['account'], dict):
+                        acc_num = acc['account'].get('account-number')
+                    if not acc_num:
+                        acc_num = acc.get('account-number') or acc.get('account_number')
+                if acc_num:
+                    all_account_numbers.append(acc_num)
+        
+        # Fallback to selected account if empty
+        if not all_account_numbers:
+            all_account_numbers = [selected_account]
         
         # Aggregate monthly data across all accounts
         from collections import defaultdict
