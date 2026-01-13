@@ -1264,11 +1264,11 @@ elif page == "CSP Dashboard":
             st.session_state.csp_conservative_oi_min = 50
         # Initialize RSI, IV Rank, BB %B separately to handle existing sessions
         if 'csp_conservative_rsi_max' not in st.session_state:
-            st.session_state.csp_conservative_rsi_max = 50
+            st.session_state.csp_conservative_rsi_max = 70  # Filter overbought only
         if 'csp_conservative_iv_rank_min' not in st.session_state:
-            st.session_state.csp_conservative_iv_rank_min = 30
+            st.session_state.csp_conservative_iv_rank_min = 0  # No IV filter by default
         if 'csp_conservative_bb_max' not in st.session_state:
-            st.session_state.csp_conservative_bb_max = 0.5
+            st.session_state.csp_conservative_bb_max = 1.0  # No BB filter by default
         
         if 'csp_medium_delta_min' not in st.session_state:
             st.session_state.csp_medium_delta_min = 0.15
@@ -1277,11 +1277,11 @@ elif page == "CSP Dashboard":
             st.session_state.csp_medium_dte_max = 30
             st.session_state.csp_medium_oi_min = 50
         if 'csp_medium_rsi_max' not in st.session_state:
-            st.session_state.csp_medium_rsi_max = 60
+            st.session_state.csp_medium_rsi_max = 80  # Slight overbought filter
         if 'csp_medium_iv_rank_min' not in st.session_state:
-            st.session_state.csp_medium_iv_rank_min = 40
+            st.session_state.csp_medium_iv_rank_min = 0  # No IV filter by default
         if 'csp_medium_bb_max' not in st.session_state:
-            st.session_state.csp_medium_bb_max = 0.6
+            st.session_state.csp_medium_bb_max = 1.0  # No BB filter by default
         
         if 'csp_aggressive_delta_min' not in st.session_state:
             st.session_state.csp_aggressive_delta_min = 0.20
@@ -1290,11 +1290,11 @@ elif page == "CSP Dashboard":
             st.session_state.csp_aggressive_dte_max = 21
             st.session_state.csp_aggressive_oi_min = 25
         if 'csp_aggressive_rsi_max' not in st.session_state:
-            st.session_state.csp_aggressive_rsi_max = 100
+            st.session_state.csp_aggressive_rsi_max = 100  # No RSI filter
         if 'csp_aggressive_iv_rank_min' not in st.session_state:
-            st.session_state.csp_aggressive_iv_rank_min = 50
+            st.session_state.csp_aggressive_iv_rank_min = 0  # No IV filter by default
         if 'csp_aggressive_bb_max' not in st.session_state:
-            st.session_state.csp_aggressive_bb_max = 1.0  # No BB filter for aggressive
+            st.session_state.csp_aggressive_bb_max = 1.0  # No BB filter by default
         
         # Initialize oversold filter toggle
         if 'csp_oversold_filter' not in st.session_state:
@@ -1533,9 +1533,9 @@ elif page == "CSP Dashboard":
                     st.session_state.csp_conservative_dte_min = 7
                     st.session_state.csp_conservative_dte_max = 30
                     st.session_state.csp_conservative_oi_min = 50
-                    st.session_state.csp_conservative_rsi_max = 50
-                    st.session_state.csp_conservative_iv_rank_min = 30
-                    st.session_state.csp_conservative_bb_max = 0.5
+                    st.session_state.csp_conservative_rsi_max = 70  # Filter overbought only
+                    st.session_state.csp_conservative_iv_rank_min = 0  # No IV filter
+                    st.session_state.csp_conservative_bb_max = 1.0  # No BB filter
                     st.success("✅ Conservative reset to defaults!")
                     st.rerun()
         
@@ -1578,9 +1578,9 @@ elif page == "CSP Dashboard":
                     st.session_state.csp_medium_dte_min = 7
                     st.session_state.csp_medium_dte_max = 30
                     st.session_state.csp_medium_oi_min = 50
-                    st.session_state.csp_medium_rsi_max = 60
-                    st.session_state.csp_medium_iv_rank_min = 40
-                    st.session_state.csp_medium_bb_max = 0.6
+                    st.session_state.csp_medium_rsi_max = 80  # Slight overbought filter
+                    st.session_state.csp_medium_iv_rank_min = 0  # No IV filter
+                    st.session_state.csp_medium_bb_max = 1.0  # No BB filter
                     st.success("✅ Medium reset to defaults!")
                     st.rerun()
         
@@ -1623,9 +1623,9 @@ elif page == "CSP Dashboard":
                     st.session_state.csp_aggressive_dte_min = 7
                     st.session_state.csp_aggressive_dte_max = 21
                     st.session_state.csp_aggressive_oi_min = 25
-                    st.session_state.csp_aggressive_rsi_max = 100
-                    st.session_state.csp_aggressive_iv_rank_min = 50
-                    st.session_state.csp_aggressive_bb_max = 1.0
+                    st.session_state.csp_aggressive_rsi_max = 100  # No RSI filter
+                    st.session_state.csp_aggressive_iv_rank_min = 0  # No IV filter
+                    st.session_state.csp_aggressive_bb_max = 1.0  # No BB filter
                     st.success("✅ Aggressive reset to defaults!")
                     st.rerun()
         
