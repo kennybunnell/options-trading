@@ -732,27 +732,35 @@ class TastytradeAPI:
             if not self._is_token_valid():
                 self._authenticate()
             
-            # Tastytrade API accepts comma-separated symbols
-            url = f"{self.base_url}/market-data/quotes"
+            quotes = {}
             headers = self._get_headers()
             
-            # Build params with multiple option symbols
-            params = {'symbols': ','.join(option_symbols)}
+            # Fetch quotes one at a time since batch endpoint may not work for options
+            # This is more reliable for option symbols
+            for symbol in option_symbols:
+                try:
+                    url = f"{self.base_url}/market-data/quotes"
+                    # Use 'symbols' parameter with the option symbol
+                    params = {'symbols': symbol}
+                    
+                    response = requests.get(url, headers=headers, params=params)
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        if data.get('data') and len(data['data']) > 0:
+                            item = data['data'][0]
+                            quotes[symbol] = {
+                                'bid': item.get('bid-price', 0),
+                                'ask': item.get('ask-price', 0),
+                                'last': item.get('last-price', 0),
+                                'bid_size': item.get('bid-size', 0),
+                                'ask_size': item.get('ask-size', 0)
+                            }
+                except Exception as e:
+                    print(f"Error fetching quote for {symbol}: {str(e)}")
+                    continue
             
-            response = requests.get(url, headers=headers, params=params)
-            
-            if response.status_code == 200:
-                data = response.json()
-                quotes = {}
-                if data.get('data'):
-                    for item in data['data']:
-                        symbol = item.get('symbol')
-                        if symbol:
-                            quotes[symbol] = item
-                return quotes
-            else:
-                print(f"Batch quote error: {response.status_code}")
-                return {}
+            return quotes
                 
         except Exception as e:
             print(f"Exception in get_option_quotes_batch: {str(e)}")
