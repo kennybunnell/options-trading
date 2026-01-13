@@ -84,6 +84,129 @@ def estimate_recovery_timeline(remaining_loss: float, monthly_cc_rate: float) ->
     return abs(remaining_loss) / monthly_cc_rate
 
 
+def render_recovery_chart_only(stock_positions: List[Dict], cc_premiums: Dict):
+    """
+    Render ONLY the horizontal recovery bar chart (for use at top of Stock Basis page)
+    Shows all stock positions with their unrealized P/L and CC premium recovery
+    """
+    
+    # Calculate metrics for ALL positions (not just underwater)
+    chart_data = []
+    
+    for pos in stock_positions:
+        symbol = pos['symbol']
+        qty = pos['quantity']
+        avg_cost = pos['average_open_price']
+        current_price = pos.get('close_price', 0) or pos.get('mark', 0)
+        
+        cost_basis = qty * avg_cost
+        market_value = qty * current_price
+        unrealized_pl = market_value - cost_basis
+        
+        # Get CC premium for this symbol
+        cc_premium = cc_premiums.get(symbol, 0)
+        
+        # Only show underwater positions in recovery chart
+        if unrealized_pl < 0:
+            total_underwater = abs(unrealized_pl)
+            remaining = max(0, total_underwater - cc_premium)
+            recovery_pct = (cc_premium / total_underwater * 100) if total_underwater > 0 else 0
+            
+            chart_data.append({
+                'Symbol': symbol,
+                'Total Underwater': total_underwater,
+                'CC Recovered': cc_premium,
+                'Remaining': remaining,
+                'Recovery %': recovery_pct
+            })
+    
+    if not chart_data:
+        st.success("🎉 **No underwater positions!** All your stock positions are at or above cost basis.")
+        return
+    
+    st.subheader("📊 Recovery Progress by Position")
+    
+    st.markdown("""
+    **Green** = CC Premium recovered toward breakeven | **Red** = Remaining underwater amount
+    """)
+    
+    chart_df = pd.DataFrame(chart_data)
+    
+    # Sort by remaining loss (most underwater at top, least at bottom)
+    chart_df = chart_df.sort_values('Remaining', ascending=True)
+    
+    fig = go.Figure()
+    
+    # Green bars - CC Premiums Recovered (shown first, on the left)
+    fig.add_trace(go.Bar(
+        name='Premium Recovered',
+        y=chart_df['Symbol'],
+        x=chart_df['CC Recovered'],
+        orientation='h',
+        marker_color='#28a745',
+        text=[f"${x:,.0f}" for x in chart_df['CC Recovered']],
+        textposition='inside',
+        textfont=dict(color='white', size=10),
+        hovertemplate='<b>%{y}</b><br>Premium Recovered: $%{x:,.0f}<extra></extra>'
+    ))
+    
+    # Red bars - Remaining Loss (stacked after green)
+    fig.add_trace(go.Bar(
+        name='Remaining Underwater',
+        y=chart_df['Symbol'],
+        x=chart_df['Remaining'],
+        orientation='h',
+        marker_color='#dc3545',
+        text=[f"${x:,.0f}" for x in chart_df['Remaining']],
+        textposition='inside',
+        textfont=dict(color='white', size=10),
+        hovertemplate='<b>%{y}</b><br>Remaining Underwater: $%{x:,.0f}<extra></extra>'
+    ))
+    
+    # Add recovery percentage annotations on the right
+    for i, row in chart_df.iterrows():
+        fig.add_annotation(
+            x=row['Total Underwater'] + 500,
+            y=row['Symbol'],
+            text=f"{row['Recovery %']:.0f}%",
+            showarrow=False,
+            font=dict(color='#888', size=11),
+            xanchor='left'
+        )
+    
+    fig.update_layout(
+        barmode='stack',
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        xaxis=dict(
+            showgrid=True, 
+            gridcolor='rgba(255,255,255,0.1)', 
+            color='#888',
+            title='Amount ($)', 
+            tickprefix='$', 
+            tickformat=',.0f',
+            side='top'
+        ),
+        yaxis=dict(
+            showgrid=False, 
+            color='#888',
+            categoryorder='array',
+            categoryarray=chart_df['Symbol'].tolist()
+        ),
+        margin=dict(l=80, r=80, t=40, b=20),
+        height=max(400, len(chart_df) * 35),  # Dynamic height based on number of positions
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="center",
+            x=0.5
+        )
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
+
+
 def render_recovery_tracker(stock_positions: List[Dict], cc_premiums: Dict):
     """
     Render the Position Recovery Tracker

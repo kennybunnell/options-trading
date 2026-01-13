@@ -906,8 +906,16 @@ def render_stock_basis(api=None):
     
     st.divider()
     
+    # ============================================
+    # HORIZONTAL RECOVERY CHART - AT THE VERY TOP
+    # ============================================
+    # Render recovery chart first (before the detailed table)
+    from utils.recovery_tracker import render_recovery_chart_only
+    render_recovery_chart_only(stock_positions, cc_premiums)
+    
+    st.divider()
+    
     # Build table data
-    table_data = []
     for pos in stock_positions:
         symbol = pos['symbol']
         qty = pos['quantity']
