@@ -26,6 +26,22 @@ def format_rsi_with_emoji(rsi_value):
     except (ValueError, TypeError):
         return None
 
+# Helper function for BB %B formatting with emoji indicators
+def format_bb_with_emoji(bb_value):
+    """Format BB %B with color-coded emoji: green (<0.3 oversold), yellow (0.3-0.7), red (>0.7 overbought)"""
+    try:
+        if bb_value is None:
+            return None
+        bb = float(bb_value)
+        if bb < 0.3:
+            return f"🟢 {round(bb, 2)}"  # Green = Oversold (good for selling puts)
+        elif bb > 0.7:
+            return f"🔴 {round(bb, 2)}"  # Red = Overbought (risky for selling puts)
+        else:
+            return f"🟡 {round(bb, 2)}"  # Yellow = Neutral
+    except (ValueError, TypeError):
+        return None
+
 # Page config
 st.set_page_config(
     page_title="Options Trading Dashboard",
@@ -1142,7 +1158,7 @@ elif page == "CSP Dashboard":
                         'Open Int': oi,
                         'RSI': format_rsi_with_emoji(rsi),
                         'IV Rank': round(iv_rank, 1) if iv_rank else None,
-                        'BB %B': round(bb_pct_b, 2) if bb_pct_b is not None else None,
+                        'BB %B': format_bb_with_emoji(bb_pct_b),
                         'Spread %': round(spread_pct, 1),
                         'Existing CSPs': existing_contracts,
                     }
@@ -3093,7 +3109,7 @@ elif page == "CC Dashboard":
             st.write("---")
             
             # Display dataframe
-            display_opp = opp_df[['Select', 'Qty', 'symbol', 'current_price', 'strike', 'expiration', 'dte', 'delta', 'premium', 'weekly_return_pct', 'rsi', 'iv_rank', 'spread_pct', 'open_interest', 'volume', 'max_contracts']].copy()
+            display_opp = opp_df[['Select', 'Qty', 'symbol', 'current_price', 'strike', 'expiration', 'dte', 'delta', 'premium', 'weekly_return_pct', 'rsi', 'iv_rank', 'bb_pct_b', 'spread_pct', 'open_interest', 'volume', 'max_contracts']].copy()
             
             # Calculate Available column (remaining contracts)
             display_opp['Available'] = display_opp['max_contracts'] - display_opp['Qty']
@@ -3108,7 +3124,7 @@ elif page == "CC Dashboard":
             display_opp['Available_Display'] = display_opp['Available'].apply(format_available)
             
             # Rename columns
-            display_opp.columns = ['Select', 'Qty', 'Symbol', 'Stock Price', 'Strike', 'Expiration', 'DTE', 'Delta', 'Premium', 'Weekly %', 'RSI', 'IV Rank', 'Spread %', 'OI', 'Volume', 'max_contracts', 'Available', 'Available_Display']
+            display_opp.columns = ['Select', 'Qty', 'Symbol', 'Stock Price', 'Strike', 'Expiration', 'DTE', 'Delta', 'Premium', 'Weekly %', 'RSI', 'IV Rank', 'BB %B', 'Spread %', 'OI', 'Volume', 'max_contracts', 'Available', 'Available_Display']
             
             # Format RSI with emoji indicators
             def format_rsi(val):
@@ -3142,6 +3158,17 @@ elif page == "CC Dashboard":
                     return f"🟡 {val:.1f}%"  # Yellow = Medium spread
                 else:
                     return f"🔴 {val:.1f}%"  # Red = Wide spread (bad)
+            
+            # Format BB %B with emoji indicators
+            def format_bb_pct_b(val):
+                if val is None or val != val:  # Check for None or NaN
+                    return "N/A"
+                if val < 0.3:
+                    return f"🟢 {val:.2f}"  # Green = Oversold (good for selling calls)
+                elif val > 0.7:
+                    return f"🔴 {val:.2f}"  # Red = Overbought (risky for selling calls)
+                else:
+                    return f"🟡 {val:.2f}"  # Yellow = Neutral
             
             # Format Delta with emoji indicators (dynamic based on active preset)
             def format_delta(val):
@@ -3197,10 +3224,11 @@ elif page == "CC Dashboard":
             display_opp['Weekly %'] = display_opp['Weekly %'].apply(lambda x: f"{x:.2f}%")
             display_opp['RSI'] = display_opp['RSI'].apply(format_rsi)
             display_opp['IV Rank'] = display_opp['IV Rank'].apply(format_iv_rank)
+            display_opp['BB %B'] = display_opp['BB %B'].apply(format_bb_pct_b)
             display_opp['Spread %'] = display_opp['Spread %'].apply(format_spread)
             
             # Reorder columns to put Available after Qty, Stock Price after Symbol (use display version with emoji)
-            display_opp = display_opp[['Select', 'Qty', 'Available_Display', 'Symbol', 'Stock Price', 'Strike', 'Expiration', 'DTE', 'Delta', 'Premium', 'Weekly %', 'RSI', 'IV Rank', 'Spread %', 'OI', 'Volume']]
+            display_opp = display_opp[['Select', 'Qty', 'Available_Display', 'Symbol', 'Stock Price', 'Strike', 'Expiration', 'DTE', 'Delta', 'Premium', 'Weekly %', 'RSI', 'IV Rank', 'BB %B', 'Spread %', 'OI', 'Volume']]
             
             edited_opp = st.data_editor(
                 display_opp,

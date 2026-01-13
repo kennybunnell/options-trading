@@ -239,9 +239,11 @@ def pre_scan_covered_calls(api, tradier_api, holdings, min_prescan_delta=0.10, m
             # Get option chain from Tradier (includes greeks!)
             st.write(f"  🔍 Fetching option chain and indicators...")
             
-            # Fetch RSI and IV Rank for this stock
-            rsi = tradier_api.get_rsi(symbol)
-            iv_rank = tradier_api.get_iv_rank(symbol)
+            # Fetch RSI, IV Rank, and BB %B for this stock
+            indicators = tradier_api.get_indicators(symbol)
+            rsi = indicators.get('rsi') if indicators else None
+            iv_rank = indicators.get('iv_rank') if indicators else None
+            bb_pct_b = indicators.get('bb_pct_b') if indicators else None
             
             tradier_chain = tradier_api.get_option_chains(symbol, min_dte=min_dte, max_dte=max_dte)
             
@@ -249,7 +251,7 @@ def pre_scan_covered_calls(api, tradier_api, holdings, min_prescan_delta=0.10, m
                 st.warning(f"  ⚠️ No option chain data returned for {symbol}")
                 continue
             
-            st.write(f"  ✅ Got option chain data (RSI: {rsi if rsi else 'N/A'}, IV Rank: {iv_rank if iv_rank else 'N/A'})")
+            st.write(f"  ✅ Got option chain data (RSI: {rsi if rsi else 'N/A'}, IV Rank: {iv_rank if iv_rank else 'N/A'}, BB%B: {bb_pct_b:.2f if bb_pct_b else 'N/A'})")
             
             # Convert Tradier format to grouped by expiration
             from collections import defaultdict
@@ -407,6 +409,7 @@ def pre_scan_covered_calls(api, tradier_api, holdings, min_prescan_delta=0.10, m
                             'spread_pct': spread_pct,
                             'rsi': rsi,  # Stock RSI
                             'iv_rank': iv_rank,  # IV Rank
+                            'bb_pct_b': bb_pct_b,  # Bollinger Band %B
                             'shares_owned': quantity,
                             'max_contracts': max_contracts,
                             'distance_otm': distance_otm_pct
