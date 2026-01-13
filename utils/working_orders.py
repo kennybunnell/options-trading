@@ -227,7 +227,7 @@ def render_working_orders_dashboard(api, account_number):
                 if symbol:
                     option_symbols.append(symbol)
         
-        # Fetch quotes in batch using the market-data/by-type endpoint
+        # Fetch quotes using the tastytrade SDK
         quotes = {}
         if option_symbols:
             with st.spinner(f"Fetching quotes for {len(option_symbols)} options..."):
@@ -240,8 +240,18 @@ def render_working_orders_dashboard(api, account_number):
                         if len(option_symbols) > 5:
                             st.write(f"... and {len(option_symbols) - 5} more")
                     
-                    # Use batch method
-                    quotes = api.get_option_quotes_batch(option_symbols)
+                    # Try the SDK method first (more reliable)
+                    try:
+                        from utils.tastytrade_quotes import get_option_quotes_sdk
+                        quotes = get_option_quotes_sdk(option_symbols)
+                        if quotes:
+                            st.success(f"✅ Fetched quotes for {len(quotes)} options via SDK")
+                    except ImportError:
+                        # SDK not available, fall back to API method
+                        quotes = api.get_option_quotes_batch(option_symbols)
+                    except Exception as sdk_error:
+                        st.warning(f"SDK error: {sdk_error}, falling back to API")
+                        quotes = api.get_option_quotes_batch(option_symbols)
                     
                     # Debug: show how many quotes were fetched
                     if len(quotes) == 0:
@@ -249,8 +259,6 @@ def render_working_orders_dashboard(api, account_number):
                         st.info("Check Streamlit Cloud logs for DEBUG output")
                     elif len(quotes) < len(option_symbols):
                         st.info(f"Fetched quotes for {len(quotes)}/{len(option_symbols)} options")
-                    else:
-                        st.success(f"✅ Fetched quotes for all {len(quotes)} options")
                         
                 except Exception as e:
                     st.warning(f"Could not fetch option quotes: {str(e)}")
