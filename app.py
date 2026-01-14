@@ -2322,9 +2322,12 @@ elif page == "CSP Dashboard":
                 if time_since_scan < 5:
                     st.success(f"✅ Data is fresh ({time_since_scan:.1f} minutes old)")
                     validation_results.append(("Price Freshness", True, f"{time_since_scan:.1f}min old"))
-                elif time_since_scan < 15:
+                elif time_since_scan < 30:
                     st.warning(f"⚠️ Data is {time_since_scan:.1f} minutes old - consider re-scanning")
                     validation_results.append(("Price Freshness", True, f"{time_since_scan:.1f}min old (acceptable)"))
+                elif time_since_scan < 60:
+                    st.warning(f"⚠️ Data is {time_since_scan:.1f} minutes old - prices may have changed")
+                    validation_results.append(("Price Freshness", True, f"{time_since_scan:.1f}min old (use caution)"))
                 else:
                     st.error(f"❌ Data is stale ({time_since_scan:.1f} minutes old) - please re-scan!")
                     validation_results.append(("Price Freshness", False, f"{time_since_scan:.1f}min old (stale)"))
