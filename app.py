@@ -4116,46 +4116,6 @@ elif page == "PMCC Dashboard":
                 help="Maximum capital efficiency. Typically want < 85% to make PMCC worthwhile."
             )
     
-    # Preset filter buttons
-    st.write("")
-    preset_col1, preset_col2, preset_col3 = st.columns(3)
-    
-    with preset_col1:
-        if st.button("🔥 Aggressive", use_container_width=True, key="pmcc_aggressive"):
-            st.session_state.pmcc_dte_min = 360
-            st.session_state.pmcc_dte_max = 450
-            st.session_state.pmcc_delta_min = 0.85
-            st.session_state.pmcc_delta_max = 0.95
-            st.session_state.pmcc_min_oi = 100
-            st.session_state.pmcc_max_spread = 3.0
-            st.session_state.pmcc_max_extrinsic = 10.0
-            st.session_state.pmcc_above_ma = True
-            st.rerun()
-    
-    with preset_col2:
-        if st.button("⚖️ Medium", use_container_width=True, key="pmcc_medium"):
-            st.session_state.pmcc_dte_min = 300
-            st.session_state.pmcc_dte_max = 390
-            st.session_state.pmcc_delta_min = 0.75
-            st.session_state.pmcc_delta_max = 0.85
-            st.session_state.pmcc_min_oi = 50
-            st.session_state.pmcc_max_spread = 5.0
-            st.session_state.pmcc_max_extrinsic = 15.0
-            st.session_state.pmcc_above_ma = False
-            st.rerun()
-    
-    with preset_col3:
-        if st.button("🛡️ Conservative", use_container_width=True, key="pmcc_conservative"):
-            st.session_state.pmcc_dte_min = 270
-            st.session_state.pmcc_dte_max = 330
-            st.session_state.pmcc_delta_min = 0.70
-            st.session_state.pmcc_delta_max = 0.80
-            st.session_state.pmcc_min_oi = 25
-            st.session_state.pmcc_max_spread = 7.0
-            st.session_state.pmcc_max_extrinsic = 20.0
-            st.session_state.pmcc_above_ma = False
-            st.rerun()
-    
     st.write("")
     
     # Initialize session state for scan results
