@@ -797,9 +797,19 @@ elif page == "CSP Dashboard":
         total_collateral = sum([p['collateral_required'] for p in short_put_details])
         
         # Get Option Buying Power from Tastytrade API
+        # Try derivative-buying-power first (margin accounts), fall back to cash-available-to-withdraw for IRA/cash accounts
         balances = api.get_account_balances(selected_account)
-        option_buying_power = float(balances.get('derivative-buying-power', 0)) if balances else 0
-        available_bp = option_buying_power - total_collateral
+        if balances:
+            option_buying_power = float(balances.get('derivative-buying-power', 0))
+            # For IRA accounts, derivative-buying-power might be 0, use cash-available-to-withdraw or net-liquidating-value
+            if option_buying_power == 0:
+                option_buying_power = float(balances.get('cash-available-to-withdraw', 0))
+            if option_buying_power == 0:
+                option_buying_power = float(balances.get('net-liquidating-value', 0))
+        else:
+            option_buying_power = 0
+        
+        available_after_collateral = option_buying_power - total_collateral
         
         # Simplified 3-metric display
         col1, col2, col3 = st.columns(3)
@@ -808,8 +818,25 @@ elif page == "CSP Dashboard":
         with col2:
             st.metric("Total P/L", f"${total_pl:,.2f}", delta=f"{(total_pl/total_premium*100) if total_premium > 0 else 0:.1f}%")
         with col3:
-            st.metric("Available Buying Power", f"${available_bp:,.0f}", delta=f"of ${option_buying_power:,.0f} Option BP")
+            st.metric("Option Buying Power", f"${option_buying_power:,.0f}", delta=f"${available_after_collateral:,.0f} available")
     else:
+        # Show Option Buying Power even when no CSP positions exist
+        balances = api.get_account_balances(selected_account)
+        if balances:
+            option_buying_power = float(balances.get('derivative-buying-power', 0))
+            if option_buying_power == 0:
+                option_buying_power = float(balances.get('cash-available-to-withdraw', 0))
+            if option_buying_power == 0:
+                option_buying_power = float(balances.get('net-liquidating-value', 0))
+            
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Total Premium Collected", "$0.00")
+            with col2:
+                st.metric("Total P/L", "$0.00")
+            with col3:
+                st.metric("Option Buying Power", f"${option_buying_power:,.0f}", delta="100% available")
+        
         st.info("ℹ️ No existing CSP positions found")
     
     st.divider()
