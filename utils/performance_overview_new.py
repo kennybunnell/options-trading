@@ -115,9 +115,9 @@ def get_real_monthly_data(api, account_numbers):
             print(f"Error fetching transactions for {account_number}: {str(e)}")
             continue
     
-    # Convert to sorted list (oldest to newest)
+    # Convert to sorted list (newest to oldest to match Dashboard)
     results = []
-    for month_key in sorted(monthly_totals.keys(), key=lambda x: (x[1], x[0])):
+    for month_key in sorted(monthly_totals.keys(), key=lambda x: (x[1], x[0]), reverse=True):
         month, year = month_key
         data = monthly_totals[month_key]
         
