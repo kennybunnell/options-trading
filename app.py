@@ -4183,37 +4183,97 @@ elif page == "PMCC Dashboard":
     # Display scan results
     if st.session_state.pmcc_leap_scan_results:
         st.write("")
-        st.markdown(f"### 📊 LEAP Scan Results ({len(st.session_state.pmcc_leap_scan_results)} opportunities)")
-        st.caption("🎯 Sorted by PMCC Score (highest = best candidate)")
+        st.markdown(f"### 📊 LEAP Scan Results")
         
-        results_df = pd.DataFrame(st.session_state.pmcc_leap_scan_results)
+        # Initialize opportunities DataFrame in session state (like CSP Dashboard)
+        if 'pmcc_opportunities' not in st.session_state or st.session_state.get('pmcc_needs_refresh', False):
+            results_df = pd.DataFrame(st.session_state.pmcc_leap_scan_results)
+            
+            # Add Select and Qty columns
+            results_df['Select'] = False
+            results_df['Qty'] = 1
+            
+            # Store raw data for order submission
+            results_df['_raw_data'] = st.session_state.pmcc_leap_scan_results
+            
+            st.session_state.pmcc_opportunities = results_df
+            st.session_state.pmcc_needs_refresh = False
         
-        # Build display columns based on what's available
-        base_cols = ['symbol', 'underlying_price', 'strike', 'expiration', 'dte', 'delta', 'price', 'cost_per_contract']
+        # Initialize show_selected_only toggle
+        if 'pmcc_show_selected_only' not in st.session_state:
+            st.session_state.pmcc_show_selected_only = False
+        
+        # Action buttons row (like CSP Dashboard)
+        col1, col2, col3, col4, col5, col6 = st.columns(6)
+        
+        with col1:
+            if st.button("❌ Clear All", use_container_width=True, key="pmcc_clear_all"):
+                st.session_state.pmcc_opportunities['Select'] = False
+                st.rerun()
+        
+        with col2:
+            if st.button("✅ Select All", use_container_width=True, key="pmcc_select_all"):
+                st.session_state.pmcc_opportunities['Select'] = True
+                st.rerun()
+        
+        with col3:
+            if st.button("➕ +1 Qty", use_container_width=True, key="pmcc_qty_plus1"):
+                mask = st.session_state.pmcc_opportunities['Select'] == True
+                st.session_state.pmcc_opportunities.loc[mask, 'Qty'] += 1
+                st.rerun()
+        
+        with col4:
+            if st.button("➖ -1 Qty", use_container_width=True, key="pmcc_qty_minus1"):
+                mask = st.session_state.pmcc_opportunities['Select'] == True
+                st.session_state.pmcc_opportunities.loc[mask, 'Qty'] = st.session_state.pmcc_opportunities.loc[mask, 'Qty'].apply(lambda x: max(1, x - 1))
+                st.rerun()
+        
+        with col5:
+            if st.button("🔄 Reset Qty", use_container_width=True, key="pmcc_qty_reset"):
+                st.session_state.pmcc_opportunities['Qty'] = 1
+                st.rerun()
+        
+        with col6:
+            selected_count = st.session_state.pmcc_opportunities['Select'].sum()
+            st.metric("Selected", int(selected_count))
+        
+        # Toggle to show only selected (like CSP Dashboard)
+        col1, col2 = st.columns([1, 4])
+        with col1:
+            show_selected_only = st.toggle(
+                "👁️ Selected Only",
+                value=st.session_state.pmcc_show_selected_only,
+                key="pmcc_show_selected_toggle",
+                help="Show only the LEAPs you've selected (checked)"
+            )
+            st.session_state.pmcc_show_selected_only = show_selected_only
+        with col2:
+            total_count = len(st.session_state.pmcc_opportunities)
+            if show_selected_only:
+                st.caption(f"Showing {int(selected_count)} selected of {total_count} total opportunities")
+            else:
+                st.caption(f"Showing all {total_count} opportunities ({int(selected_count)} selected)")
+        
+        st.write("")
+        
+        # Prepare display DataFrame
+        display_df = st.session_state.pmcc_opportunities.copy()
+        
+        # Apply "show selected only" filter if enabled
+        if show_selected_only:
+            display_df = display_df[display_df['Select'] == True].copy()
+        
+        # Select columns for display (keep raw numeric for sorting)
+        display_cols = ['Select', 'Qty', 'symbol', 'underlying_price', 'strike', 'expiration', 'dte', 'delta', 'price', 'cost_per_contract']
         
         # Add enhanced columns if available
-        enhanced_cols = []
-        if 'pmcc_score' in results_df.columns:
-            enhanced_cols.append('pmcc_score')
-        if 'extrinsic_pct' in results_df.columns:
-            enhanced_cols.append('extrinsic_pct')
-        if 'capital_efficiency' in results_df.columns:
-            enhanced_cols.append('capital_efficiency')
-        if 'bid_ask_spread_pct' in results_df.columns:
-            enhanced_cols.append('bid_ask_spread_pct')
-        if 'iv' in results_df.columns:
-            enhanced_cols.append('iv')
-        if 'rsi' in results_df.columns:
-            enhanced_cols.append('rsi')
-        if 'ma_percent' in results_df.columns:
-            enhanced_cols.append('ma_percent')
+        for col in ['pmcc_score', 'extrinsic_pct', 'capital_efficiency', 'bid_ask_spread_pct', 'iv', 'rsi', 'ma_percent', 'open_interest', 'volume']:
+            if col in display_df.columns:
+                display_cols.append(col)
         
-        # Add basic cols
-        enhanced_cols.extend(['open_interest', 'volume'])
-        
-        # Create display dataframe
-        display_cols = base_cols + [c for c in enhanced_cols if c in results_df.columns]
-        display_df = results_df[display_cols].copy()
+        # Filter to only existing columns
+        display_cols = [c for c in display_cols if c in display_df.columns]
+        display_df = display_df[display_cols].copy()
         
         # Rename columns for display
         col_rename = {
@@ -4225,7 +4285,7 @@ elif page == "PMCC Dashboard":
             'delta': 'Delta',
             'price': 'Premium',
             'cost_per_contract': 'Cost',
-            'pmcc_score': '🎯 Score',
+            'pmcc_score': 'Score',
             'extrinsic_pct': 'Extr %',
             'capital_efficiency': 'Cap Eff %',
             'bid_ask_spread_pct': 'Spread %',
@@ -4237,101 +4297,124 @@ elif page == "PMCC Dashboard":
         }
         display_df.rename(columns=col_rename, inplace=True)
         
-        # Format columns
-        if 'Stock $' in display_df.columns:
-            display_df['Stock $'] = display_df['Stock $'].apply(lambda x: f"${x:.2f}")
-        if 'Strike' in display_df.columns:
-            display_df['Strike'] = display_df['Strike'].apply(lambda x: f"${x:.0f}")
-        if 'Delta' in display_df.columns:
-            display_df['Delta'] = display_df['Delta'].apply(lambda x: f"{x:.2f}")
-        if 'Premium' in display_df.columns:
-            display_df['Premium'] = display_df['Premium'].apply(lambda x: f"${x:.2f}")
-        if 'Cost' in display_df.columns:
-            display_df['Cost'] = display_df['Cost'].apply(lambda x: f"${x:,.0f}")
-        if '🎯 Score' in display_df.columns:
-            display_df['🎯 Score'] = display_df['🎯 Score'].apply(lambda x: f"{x:.0f}" if pd.notna(x) else "N/A")
-        if 'Extr %' in display_df.columns:
-            display_df['Extr %'] = display_df['Extr %'].apply(lambda x: f"{x:.1f}%" if pd.notna(x) else "N/A")
-        if 'Cap Eff %' in display_df.columns:
-            display_df['Cap Eff %'] = display_df['Cap Eff %'].apply(lambda x: f"{x:.0f}%" if pd.notna(x) else "N/A")
-        if 'Spread %' in display_df.columns:
-            display_df['Spread %'] = display_df['Spread %'].apply(lambda x: f"{x:.1f}%" if pd.notna(x) else "N/A")
-        if 'IV %' in display_df.columns:
-            display_df['IV %'] = display_df['IV %'].apply(lambda x: f"{x:.0f}%" if pd.notna(x) and x > 0 else "N/A")
-        if 'RSI' in display_df.columns:
-            display_df['RSI'] = display_df['RSI'].apply(lambda x: f"{x:.0f}" if pd.notna(x) else "N/A")
-        if 'MA %' in display_df.columns:
-            display_df['MA %'] = display_df['MA %'].apply(lambda x: f"{x:+.1f}%" if pd.notna(x) else "N/A")
+        # Calculate dynamic height
+        calculated_height = len(display_df) * 35 + 60
+        if show_selected_only:
+            dynamic_height = max(200, calculated_height)
+        else:
+            dynamic_height = max(400, min(calculated_height, 800))
         
-        st.dataframe(display_df, use_container_width=True, hide_index=True)
-        
-        # Add action buttons for each LEAP
-        st.write("")
-        st.markdown("**Select a LEAP to purchase:**")
-        
-        # Create selection dropdown
-        leap_options = [f"{r['symbol']} ${r['strike']:.2f} exp {r['expiration']} (${r['cost_per_contract']:,.0f})" 
-                       for r in st.session_state.pmcc_leap_scan_results]
-        
-        selected_leap_idx = st.selectbox(
-            "Choose LEAP",
-            range(len(leap_options)),
-            format_func=lambda x: leap_options[x],
-            key="pmcc_selected_leap_to_buy"
+        # Display editable table with checkbox column
+        edited_df = st.data_editor(
+            display_df,
+            column_config={
+                "Select": st.column_config.CheckboxColumn(
+                    "Select",
+                    help="Select LEAPs to purchase",
+                    default=False,
+                ),
+                "Qty": st.column_config.NumberColumn(
+                    "Qty",
+                    help="Number of contracts to buy",
+                    min_value=1,
+                    max_value=100,
+                    step=1,
+                    default=1,
+                ),
+                "Stock $": st.column_config.NumberColumn("Stock $", format="$%.2f"),
+                "Strike": st.column_config.NumberColumn("Strike", format="$%.0f"),
+                "Delta": st.column_config.NumberColumn("Delta", format="%.2f"),
+                "Premium": st.column_config.NumberColumn("Premium", format="$%.2f"),
+                "Cost": st.column_config.NumberColumn("Cost", format="$%,.0f"),
+                "Score": st.column_config.NumberColumn("Score", format="%.0f"),
+                "Extr %": st.column_config.NumberColumn("Extr %", format="%.1f%%"),
+                "Cap Eff %": st.column_config.NumberColumn("Cap Eff %", format="%.0f%%"),
+                "Spread %": st.column_config.NumberColumn("Spread %", format="%.1f%%"),
+                "IV %": st.column_config.NumberColumn("IV %", format="%.0f%%"),
+                "RSI": st.column_config.NumberColumn("RSI", format="%.0f"),
+                "MA %": st.column_config.NumberColumn("MA %", format="%+.1f%%"),
+            },
+            hide_index=True,
+            use_container_width=True,
+            height=dynamic_height,
+            key="pmcc_leap_editor"
         )
         
-        if selected_leap_idx is not None:
-            selected_leap = st.session_state.pmcc_leap_scan_results[selected_leap_idx]
+        # Update session state with edits
+        if show_selected_only:
+            # Update by matching indices
+            for idx, row in edited_df.iterrows():
+                orig_idx = display_df.index[edited_df.index.get_loc(idx)]
+                st.session_state.pmcc_opportunities.loc[orig_idx, 'Select'] = row['Select']
+                st.session_state.pmcc_opportunities.loc[orig_idx, 'Qty'] = row['Qty']
+        else:
+            # Direct update
+            st.session_state.pmcc_opportunities['Select'] = edited_df['Select'].values
+            st.session_state.pmcc_opportunities['Qty'] = edited_df['Qty'].values
+        
+        # Summary of selected LEAPs
+        selected_leaps = st.session_state.pmcc_opportunities[st.session_state.pmcc_opportunities['Select'] == True]
+        if len(selected_leaps) > 0:
+            st.write("")
+            st.markdown("### 💰 Selected LEAPs Summary")
             
-            col1, col2 = st.columns(2)
+            total_contracts = int(selected_leaps['Qty'].sum())
+            total_cost = (selected_leaps['cost_per_contract'] * selected_leaps['Qty']).sum()
+            
+            col1, col2, col3 = st.columns(3)
             with col1:
-                num_contracts = st.number_input(
-                    "Number of Contracts",
-                    min_value=1,
-                    max_value=10,
-                    value=1,
-                    step=1,
-                    key="pmcc_num_contracts"
-                )
-            
+                st.metric("LEAPs Selected", len(selected_leaps))
             with col2:
-                total_cost = selected_leap['cost_per_contract'] * num_contracts
+                st.metric("Total Contracts", total_contracts)
+            with col3:
                 st.metric("Total Cost", f"${total_cost:,.0f}")
             
             st.write("")
-            if st.button("💰 Buy LEAP (Submit Order)", type="primary", use_container_width=True, key="pmcc_buy_leap"):
+            
+            # Submit orders button
+            if st.button("💰 Buy Selected LEAPs (Submit Orders)", type="primary", use_container_width=True, key="pmcc_buy_selected"):
                 try:
-                    with st.status("Submitting LEAP buy order...", expanded=True) as status:
+                    with st.status("Submitting LEAP buy orders...", expanded=True) as status:
                         from utils.pmcc_orders import submit_leap_buy_order
                         
-                        st.write(f"💰 Buying {num_contracts} contract(s) of {selected_leap['symbol']}")
-                        st.write(f"💵 Limit Price: ${selected_leap['price']:.2f} per contract")
-                        st.write(f"📄 Total Cost: ${total_cost:,.0f}")
+                        success_count = 0
+                        fail_count = 0
                         
-                        # Submit order via Tastytrade API
-                        result = submit_leap_buy_order(
-                            api,
-                            selected_account,
-                            selected_leap['option_symbol'],
-                            num_contracts,
-                            selected_leap['price'],
-                            order_type='Limit'
-                        )
+                        for idx, row in selected_leaps.iterrows():
+                            symbol = row['symbol']
+                            qty = int(row['Qty'])
+                            price = row['price']
+                            option_symbol = row.get('option_symbol', '')
+                            
+                            st.write(f"💰 Buying {qty} contract(s) of {symbol} at ${price:.2f}...")
+                            
+                            try:
+                                result = submit_leap_buy_order(
+                                    api,
+                                    selected_account,
+                                    option_symbol,
+                                    qty,
+                                    price,
+                                    order_type='Limit'
+                                )
+                                
+                                if result['success']:
+                                    st.write(f"✅ {symbol}: Order submitted (ID: {result.get('order_id', 'N/A')})")
+                                    success_count += 1
+                                else:
+                                    st.write(f"❌ {symbol}: {result['message']}")
+                                    fail_count += 1
+                            except Exception as e:
+                                st.write(f"❌ {symbol}: {str(e)}")
+                                fail_count += 1
                         
-                        if result['success']:
-                            status.update(label=f"✅ Order submitted successfully! Order ID: {result.get('order_id', 'N/A')}", state="complete")
-                            st.success(f"✅ {result['message']}")
-                            st.info(f"📊 Order ID: {result.get('order_id', 'N/A')}")
-                            st.info(f"🕒 Status: {result.get('status', 'Pending')}")
+                        if fail_count == 0:
+                            status.update(label=f"✅ All {success_count} orders submitted successfully!", state="complete")
                         else:
-                            status.update(label="❌ Order failed", state="error")
-                            st.error(f"❌ {result['message']}")
-                            if 'traceback' in result:
-                                with st.expander("Error Details"):
-                                    st.code(result['traceback'])
+                            status.update(label=f"⚠️ {success_count} succeeded, {fail_count} failed", state="complete")
                         
                 except Exception as e:
-                    st.error(f"Error submitting order: {str(e)}")
+                    st.error(f"Error submitting orders: {str(e)}")
                     import traceback
                     st.error(traceback.format_exc())
     
