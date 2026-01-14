@@ -1411,6 +1411,11 @@ elif page == "CSP Dashboard":
             df.insert(1, 'Qty', 1)  # Add quantity column with default value of 1
             df = df.sort_values('Score', ascending=False)  # Sort by Score instead of Weekly %
             st.session_state.csp_opportunities = df
+            
+            # Reset UI state after fresh scan - show all opportunities, no filters
+            st.session_state.csp_show_selected_only = False  # Show all opportunities
+            st.session_state.csp_min_score = 0  # Reset score filter to 0 (no filter)
+            st.session_state.csp_active_preset = None  # Clear any active preset
         else:
             # Clear opportunities if none found
             if 'csp_opportunities' in st.session_state:
@@ -3111,6 +3116,10 @@ elif page == "CC Dashboard":
                             df.insert(1, 'Qty', 1)  # Add Qty column with default value of 1
                             df = df.sort_values('score', ascending=False)  # Sort by Score
                             st.session_state.cc_opportunities = df
+                            
+                            # Reset UI state after fresh scan - show all opportunities, no filters
+                            st.session_state.cc_min_score = 0  # Reset score filter to 0 (no filter)
+                            st.session_state.cc_active_preset = None  # Clear any active preset
                             st.rerun()
                         
                     except Exception as e:
