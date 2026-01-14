@@ -4203,39 +4203,382 @@ elif page == "PMCC Dashboard":
         if 'pmcc_show_selected_only' not in st.session_state:
             st.session_state.pmcc_show_selected_only = False
         
-        # Action buttons row (like CSP Dashboard)
-        col1, col2, col3, col4, col5, col6 = st.columns(6)
+        # Initialize PMCC preset criteria in session state (defaults for LEAP selection)
+        # Conservative: High delta (0.80-0.90), low extrinsic, low capital efficiency
+        if 'pmcc_conservative_delta_min' not in st.session_state:
+            st.session_state.pmcc_conservative_delta_min = 0.80
+            st.session_state.pmcc_conservative_delta_max = 0.95
+            st.session_state.pmcc_conservative_dte_min = 300
+            st.session_state.pmcc_conservative_dte_max = 500
+            st.session_state.pmcc_conservative_extrinsic_max = 10.0
+            st.session_state.pmcc_conservative_cap_eff_max = 70.0
+            st.session_state.pmcc_conservative_spread_max = 3.0
+            st.session_state.pmcc_conservative_rsi_min = 30
+            st.session_state.pmcc_conservative_rsi_max = 70
+        
+        # Medium: Moderate delta (0.75-0.85), moderate filters
+        if 'pmcc_medium_delta_min' not in st.session_state:
+            st.session_state.pmcc_medium_delta_min = 0.75
+            st.session_state.pmcc_medium_delta_max = 0.90
+            st.session_state.pmcc_medium_dte_min = 270
+            st.session_state.pmcc_medium_dte_max = 450
+            st.session_state.pmcc_medium_extrinsic_max = 15.0
+            st.session_state.pmcc_medium_cap_eff_max = 80.0
+            st.session_state.pmcc_medium_spread_max = 5.0
+            st.session_state.pmcc_medium_rsi_min = 25
+            st.session_state.pmcc_medium_rsi_max = 75
+        
+        # Aggressive: Lower delta (0.70-0.80), looser filters, more leverage
+        if 'pmcc_aggressive_delta_min' not in st.session_state:
+            st.session_state.pmcc_aggressive_delta_min = 0.70
+            st.session_state.pmcc_aggressive_delta_max = 0.85
+            st.session_state.pmcc_aggressive_dte_min = 240
+            st.session_state.pmcc_aggressive_dte_max = 400
+            st.session_state.pmcc_aggressive_extrinsic_max = 20.0
+            st.session_state.pmcc_aggressive_cap_eff_max = 90.0
+            st.session_state.pmcc_aggressive_spread_max = 8.0
+            st.session_state.pmcc_aggressive_rsi_min = 20
+            st.session_state.pmcc_aggressive_rsi_max = 80
+        
+        # Function to select best LEAP per ticker based on criteria
+        def select_best_leap_per_ticker(df, delta_min, delta_max, dte_min, dte_max, 
+                                         extrinsic_max=100, cap_eff_max=100, spread_max=100,
+                                         rsi_min=0, rsi_max=100, qty=1):
+            """Select best LEAP option per ticker based on PMCC criteria"""
+            selections = []
+            
+            # Start with all data
+            filtered = df.copy()
+            
+            # Filter by Delta
+            if 'delta' in filtered.columns:
+                filtered = filtered[(filtered['delta'] >= delta_min) & (filtered['delta'] <= delta_max)]
+            
+            # Filter by DTE
+            if 'dte' in filtered.columns:
+                filtered = filtered[(filtered['dte'] >= dte_min) & (filtered['dte'] <= dte_max)]
+            
+            # Filter by Extrinsic %
+            if 'extrinsic_pct' in filtered.columns and extrinsic_max < 100:
+                filtered = filtered[filtered['extrinsic_pct'] <= extrinsic_max]
+            
+            # Filter by Capital Efficiency %
+            if 'capital_efficiency' in filtered.columns and cap_eff_max < 100:
+                filtered = filtered[filtered['capital_efficiency'] <= cap_eff_max]
+            
+            # Filter by Bid-Ask Spread %
+            if 'bid_ask_spread_pct' in filtered.columns and spread_max < 100:
+                filtered = filtered[filtered['bid_ask_spread_pct'] <= spread_max]
+            
+            # Filter by RSI range
+            if 'rsi' in filtered.columns:
+                filtered = filtered[(filtered['rsi'].isna()) | ((filtered['rsi'] >= rsi_min) & (filtered['rsi'] <= rsi_max))]
+            
+            if len(filtered) == 0:
+                return selections
+            
+            # Group by symbol and select best (highest PMCC score, or highest delta if no score)
+            for symbol in filtered['symbol'].unique():
+                symbol_opps = filtered[filtered['symbol'] == symbol]
+                if len(symbol_opps) > 0:
+                    # Select by highest PMCC score if available, otherwise highest delta
+                    if 'pmcc_score' in symbol_opps.columns and symbol_opps['pmcc_score'].notna().any():
+                        best_idx = symbol_opps['pmcc_score'].idxmax()
+                    else:
+                        best_idx = symbol_opps['delta'].idxmax()
+                    selections.append((best_idx, qty))
+            
+            return selections
+        
+        # Preset Filter Buttons Row (like CSP Dashboard)
+        st.write("")
+        col1, col2, col3, col4, col5, col6 = st.columns([1, 1.5, 1.5, 1.5, 1, 1])
         
         with col1:
-            if st.button("❌ Clear All", use_container_width=True, key="pmcc_clear_all"):
+            if st.button("🗑️ Clear All", use_container_width=True, key="pmcc_clear_all"):
                 st.session_state.pmcc_opportunities['Select'] = False
+                if 'pmcc_active_preset' in st.session_state:
+                    del st.session_state.pmcc_active_preset
                 st.rerun()
         
         with col2:
-            if st.button("✅ Select All", use_container_width=True, key="pmcc_select_all"):
-                st.session_state.pmcc_opportunities['Select'] = True
+            if st.button("🟢 Conservative", use_container_width=True, key="pmcc_preset_conservative",
+                       help=f"Δ {st.session_state.pmcc_conservative_delta_min}-{st.session_state.pmcc_conservative_delta_max}, DTE {st.session_state.pmcc_conservative_dte_min}-{st.session_state.pmcc_conservative_dte_max}, Extr≤{st.session_state.pmcc_conservative_extrinsic_max}%"):
+                # Track active preset
+                st.session_state.pmcc_active_preset = 'conservative'
+                
+                # Clear all first
+                st.session_state.pmcc_opportunities['Select'] = False
+                st.session_state.pmcc_opportunities['Qty'] = 1
+                
+                # Select best LEAPs per ticker
+                selections = select_best_leap_per_ticker(
+                    st.session_state.pmcc_opportunities,
+                    st.session_state.pmcc_conservative_delta_min,
+                    st.session_state.pmcc_conservative_delta_max,
+                    st.session_state.pmcc_conservative_dte_min,
+                    st.session_state.pmcc_conservative_dte_max,
+                    extrinsic_max=st.session_state.pmcc_conservative_extrinsic_max,
+                    cap_eff_max=st.session_state.pmcc_conservative_cap_eff_max,
+                    spread_max=st.session_state.pmcc_conservative_spread_max,
+                    rsi_min=st.session_state.pmcc_conservative_rsi_min,
+                    rsi_max=st.session_state.pmcc_conservative_rsi_max,
+                    qty=1
+                )
+                
+                # Apply selections
+                for idx, qty in selections:
+                    st.session_state.pmcc_opportunities.loc[idx, 'Select'] = True
+                    st.session_state.pmcc_opportunities.loc[idx, 'Qty'] = qty
+                
                 st.rerun()
         
         with col3:
-            if st.button("➕ +1 Qty", use_container_width=True, key="pmcc_qty_plus1"):
-                mask = st.session_state.pmcc_opportunities['Select'] == True
-                st.session_state.pmcc_opportunities.loc[mask, 'Qty'] += 1
+            if st.button("🟡 Medium", use_container_width=True, key="pmcc_preset_medium",
+                       help=f"Δ {st.session_state.pmcc_medium_delta_min}-{st.session_state.pmcc_medium_delta_max}, DTE {st.session_state.pmcc_medium_dte_min}-{st.session_state.pmcc_medium_dte_max}, Extr≤{st.session_state.pmcc_medium_extrinsic_max}%"):
+                # Track active preset
+                st.session_state.pmcc_active_preset = 'medium'
+                
+                # Clear all first
+                st.session_state.pmcc_opportunities['Select'] = False
+                st.session_state.pmcc_opportunities['Qty'] = 1
+                
+                # Select best LEAPs per ticker
+                selections = select_best_leap_per_ticker(
+                    st.session_state.pmcc_opportunities,
+                    st.session_state.pmcc_medium_delta_min,
+                    st.session_state.pmcc_medium_delta_max,
+                    st.session_state.pmcc_medium_dte_min,
+                    st.session_state.pmcc_medium_dte_max,
+                    extrinsic_max=st.session_state.pmcc_medium_extrinsic_max,
+                    cap_eff_max=st.session_state.pmcc_medium_cap_eff_max,
+                    spread_max=st.session_state.pmcc_medium_spread_max,
+                    rsi_min=st.session_state.pmcc_medium_rsi_min,
+                    rsi_max=st.session_state.pmcc_medium_rsi_max,
+                    qty=1
+                )
+                
+                # Apply selections
+                for idx, qty in selections:
+                    st.session_state.pmcc_opportunities.loc[idx, 'Select'] = True
+                    st.session_state.pmcc_opportunities.loc[idx, 'Qty'] = qty
+                
                 st.rerun()
         
         with col4:
-            if st.button("➖ -1 Qty", use_container_width=True, key="pmcc_qty_minus1"):
-                mask = st.session_state.pmcc_opportunities['Select'] == True
-                st.session_state.pmcc_opportunities.loc[mask, 'Qty'] = st.session_state.pmcc_opportunities.loc[mask, 'Qty'].apply(lambda x: max(1, x - 1))
+            if st.button("🔴 Aggressive", use_container_width=True, key="pmcc_preset_aggressive",
+                       help=f"Δ {st.session_state.pmcc_aggressive_delta_min}-{st.session_state.pmcc_aggressive_delta_max}, DTE {st.session_state.pmcc_aggressive_dte_min}-{st.session_state.pmcc_aggressive_dte_max}, Extr≤{st.session_state.pmcc_aggressive_extrinsic_max}%"):
+                # Track active preset
+                st.session_state.pmcc_active_preset = 'aggressive'
+                
+                # Clear all first
+                st.session_state.pmcc_opportunities['Select'] = False
+                st.session_state.pmcc_opportunities['Qty'] = 1
+                
+                # Select best LEAPs per ticker
+                selections = select_best_leap_per_ticker(
+                    st.session_state.pmcc_opportunities,
+                    st.session_state.pmcc_aggressive_delta_min,
+                    st.session_state.pmcc_aggressive_delta_max,
+                    st.session_state.pmcc_aggressive_dte_min,
+                    st.session_state.pmcc_aggressive_dte_max,
+                    extrinsic_max=st.session_state.pmcc_aggressive_extrinsic_max,
+                    cap_eff_max=st.session_state.pmcc_aggressive_cap_eff_max,
+                    spread_max=st.session_state.pmcc_aggressive_spread_max,
+                    rsi_min=st.session_state.pmcc_aggressive_rsi_min,
+                    rsi_max=st.session_state.pmcc_aggressive_rsi_max,
+                    qty=1
+                )
+                
+                # Apply selections
+                for idx, qty in selections:
+                    st.session_state.pmcc_opportunities.loc[idx, 'Select'] = True
+                    st.session_state.pmcc_opportunities.loc[idx, 'Qty'] = qty
+                
                 st.rerun()
         
         with col5:
-            if st.button("🔄 Reset Qty", use_container_width=True, key="pmcc_qty_reset"):
-                st.session_state.pmcc_opportunities['Qty'] = 1
+            if st.button("✅ Select All", use_container_width=True, key="pmcc_select_all"):
+                st.session_state.pmcc_opportunities['Select'] = True
                 st.rerun()
         
         with col6:
             selected_count = st.session_state.pmcc_opportunities['Select'].sum()
             st.metric("Selected", int(selected_count))
+        
+        # Quantity adjustment buttons
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            if st.button("➕ +1 Qty", use_container_width=True, key="pmcc_qty_plus1"):
+                mask = st.session_state.pmcc_opportunities['Select'] == True
+                st.session_state.pmcc_opportunities.loc[mask, 'Qty'] += 1
+                st.rerun()
+        with col2:
+            if st.button("➖ -1 Qty", use_container_width=True, key="pmcc_qty_minus1"):
+                mask = st.session_state.pmcc_opportunities['Select'] == True
+                st.session_state.pmcc_opportunities.loc[mask, 'Qty'] = st.session_state.pmcc_opportunities.loc[mask, 'Qty'].apply(lambda x: max(1, x - 1))
+                st.rerun()
+        with col3:
+            if st.button("🔄 Reset Qty", use_container_width=True, key="pmcc_qty_reset"):
+                st.session_state.pmcc_opportunities['Qty'] = 1
+                st.rerun()
+        with col4:
+            # Show active preset indicator
+            active_preset = st.session_state.get('pmcc_active_preset', None)
+            if active_preset:
+                preset_colors = {'conservative': '🟢', 'medium': '🟡', 'aggressive': '🔴'}
+                st.caption(f"Active: {preset_colors.get(active_preset, '')} {active_preset.title()}")
+        
+        st.write("---")
+        
+        # Preset Filter Configuration Expanders (like CSP Dashboard)
+        st.subheader("⚙️ Preset Filter Configuration")
+        
+        # Conservative Expander
+        with st.expander("🟢 Conservative Filter Configuration", expanded=False):
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                cons_delta_min = st.number_input("Min Delta", value=st.session_state.pmcc_conservative_delta_min, min_value=0.5, max_value=1.0, step=0.05, key="pmcc_cons_delta_min")
+                cons_delta_max = st.number_input("Max Delta", value=st.session_state.pmcc_conservative_delta_max, min_value=0.5, max_value=1.0, step=0.05, key="pmcc_cons_delta_max")
+            with col2:
+                cons_dte_min = st.number_input("Min DTE", value=st.session_state.pmcc_conservative_dte_min, min_value=180, max_value=730, step=30, key="pmcc_cons_dte_min")
+                cons_dte_max = st.number_input("Max DTE", value=st.session_state.pmcc_conservative_dte_max, min_value=180, max_value=730, step=30, key="pmcc_cons_dte_max")
+            with col3:
+                cons_extr_max = st.number_input("Max Extrinsic %", value=st.session_state.pmcc_conservative_extrinsic_max, min_value=0.0, max_value=50.0, step=1.0, key="pmcc_cons_extr_max")
+                cons_cap_eff_max = st.number_input("Max Cap Eff %", value=st.session_state.pmcc_conservative_cap_eff_max, min_value=0.0, max_value=100.0, step=5.0, key="pmcc_cons_cap_eff_max")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                cons_spread_max = st.number_input("Max Spread %", value=st.session_state.pmcc_conservative_spread_max, min_value=0.0, max_value=20.0, step=0.5, key="pmcc_cons_spread_max")
+            with col2:
+                cons_rsi_min = st.number_input("Min RSI", value=st.session_state.pmcc_conservative_rsi_min, min_value=0, max_value=100, step=5, key="pmcc_cons_rsi_min")
+                cons_rsi_max = st.number_input("Max RSI", value=st.session_state.pmcc_conservative_rsi_max, min_value=0, max_value=100, step=5, key="pmcc_cons_rsi_max")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("💾 Commit Conservative", use_container_width=True, key="pmcc_commit_conservative"):
+                    st.session_state.pmcc_conservative_delta_min = cons_delta_min
+                    st.session_state.pmcc_conservative_delta_max = cons_delta_max
+                    st.session_state.pmcc_conservative_dte_min = cons_dte_min
+                    st.session_state.pmcc_conservative_dte_max = cons_dte_max
+                    st.session_state.pmcc_conservative_extrinsic_max = cons_extr_max
+                    st.session_state.pmcc_conservative_cap_eff_max = cons_cap_eff_max
+                    st.session_state.pmcc_conservative_spread_max = cons_spread_max
+                    st.session_state.pmcc_conservative_rsi_min = cons_rsi_min
+                    st.session_state.pmcc_conservative_rsi_max = cons_rsi_max
+                    st.success("✅ Conservative criteria committed!")
+                    st.rerun()
+            with col2:
+                if st.button("🔄 Reset Conservative", use_container_width=True, key="pmcc_reset_conservative"):
+                    st.session_state.pmcc_conservative_delta_min = 0.80
+                    st.session_state.pmcc_conservative_delta_max = 0.95
+                    st.session_state.pmcc_conservative_dte_min = 300
+                    st.session_state.pmcc_conservative_dte_max = 500
+                    st.session_state.pmcc_conservative_extrinsic_max = 10.0
+                    st.session_state.pmcc_conservative_cap_eff_max = 70.0
+                    st.session_state.pmcc_conservative_spread_max = 3.0
+                    st.session_state.pmcc_conservative_rsi_min = 30
+                    st.session_state.pmcc_conservative_rsi_max = 70
+                    st.success("✅ Conservative reset to defaults!")
+                    st.rerun()
+        
+        # Medium Expander
+        with st.expander("🟡 Medium Filter Configuration", expanded=False):
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                med_delta_min = st.number_input("Min Delta", value=st.session_state.pmcc_medium_delta_min, min_value=0.5, max_value=1.0, step=0.05, key="pmcc_med_delta_min")
+                med_delta_max = st.number_input("Max Delta", value=st.session_state.pmcc_medium_delta_max, min_value=0.5, max_value=1.0, step=0.05, key="pmcc_med_delta_max")
+            with col2:
+                med_dte_min = st.number_input("Min DTE", value=st.session_state.pmcc_medium_dte_min, min_value=180, max_value=730, step=30, key="pmcc_med_dte_min")
+                med_dte_max = st.number_input("Max DTE", value=st.session_state.pmcc_medium_dte_max, min_value=180, max_value=730, step=30, key="pmcc_med_dte_max")
+            with col3:
+                med_extr_max = st.number_input("Max Extrinsic %", value=st.session_state.pmcc_medium_extrinsic_max, min_value=0.0, max_value=50.0, step=1.0, key="pmcc_med_extr_max")
+                med_cap_eff_max = st.number_input("Max Cap Eff %", value=st.session_state.pmcc_medium_cap_eff_max, min_value=0.0, max_value=100.0, step=5.0, key="pmcc_med_cap_eff_max")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                med_spread_max = st.number_input("Max Spread %", value=st.session_state.pmcc_medium_spread_max, min_value=0.0, max_value=20.0, step=0.5, key="pmcc_med_spread_max")
+            with col2:
+                med_rsi_min = st.number_input("Min RSI", value=st.session_state.pmcc_medium_rsi_min, min_value=0, max_value=100, step=5, key="pmcc_med_rsi_min")
+                med_rsi_max = st.number_input("Max RSI", value=st.session_state.pmcc_medium_rsi_max, min_value=0, max_value=100, step=5, key="pmcc_med_rsi_max")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("💾 Commit Medium", use_container_width=True, key="pmcc_commit_medium"):
+                    st.session_state.pmcc_medium_delta_min = med_delta_min
+                    st.session_state.pmcc_medium_delta_max = med_delta_max
+                    st.session_state.pmcc_medium_dte_min = med_dte_min
+                    st.session_state.pmcc_medium_dte_max = med_dte_max
+                    st.session_state.pmcc_medium_extrinsic_max = med_extr_max
+                    st.session_state.pmcc_medium_cap_eff_max = med_cap_eff_max
+                    st.session_state.pmcc_medium_spread_max = med_spread_max
+                    st.session_state.pmcc_medium_rsi_min = med_rsi_min
+                    st.session_state.pmcc_medium_rsi_max = med_rsi_max
+                    st.success("✅ Medium criteria committed!")
+                    st.rerun()
+            with col2:
+                if st.button("🔄 Reset Medium", use_container_width=True, key="pmcc_reset_medium"):
+                    st.session_state.pmcc_medium_delta_min = 0.75
+                    st.session_state.pmcc_medium_delta_max = 0.90
+                    st.session_state.pmcc_medium_dte_min = 270
+                    st.session_state.pmcc_medium_dte_max = 450
+                    st.session_state.pmcc_medium_extrinsic_max = 15.0
+                    st.session_state.pmcc_medium_cap_eff_max = 80.0
+                    st.session_state.pmcc_medium_spread_max = 5.0
+                    st.session_state.pmcc_medium_rsi_min = 25
+                    st.session_state.pmcc_medium_rsi_max = 75
+                    st.success("✅ Medium reset to defaults!")
+                    st.rerun()
+        
+        # Aggressive Expander
+        with st.expander("🔴 Aggressive Filter Configuration", expanded=False):
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                agg_delta_min = st.number_input("Min Delta", value=st.session_state.pmcc_aggressive_delta_min, min_value=0.5, max_value=1.0, step=0.05, key="pmcc_agg_delta_min")
+                agg_delta_max = st.number_input("Max Delta", value=st.session_state.pmcc_aggressive_delta_max, min_value=0.5, max_value=1.0, step=0.05, key="pmcc_agg_delta_max")
+            with col2:
+                agg_dte_min = st.number_input("Min DTE", value=st.session_state.pmcc_aggressive_dte_min, min_value=180, max_value=730, step=30, key="pmcc_agg_dte_min")
+                agg_dte_max = st.number_input("Max DTE", value=st.session_state.pmcc_aggressive_dte_max, min_value=180, max_value=730, step=30, key="pmcc_agg_dte_max")
+            with col3:
+                agg_extr_max = st.number_input("Max Extrinsic %", value=st.session_state.pmcc_aggressive_extrinsic_max, min_value=0.0, max_value=50.0, step=1.0, key="pmcc_agg_extr_max")
+                agg_cap_eff_max = st.number_input("Max Cap Eff %", value=st.session_state.pmcc_aggressive_cap_eff_max, min_value=0.0, max_value=100.0, step=5.0, key="pmcc_agg_cap_eff_max")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                agg_spread_max = st.number_input("Max Spread %", value=st.session_state.pmcc_aggressive_spread_max, min_value=0.0, max_value=20.0, step=0.5, key="pmcc_agg_spread_max")
+            with col2:
+                agg_rsi_min = st.number_input("Min RSI", value=st.session_state.pmcc_aggressive_rsi_min, min_value=0, max_value=100, step=5, key="pmcc_agg_rsi_min")
+                agg_rsi_max = st.number_input("Max RSI", value=st.session_state.pmcc_aggressive_rsi_max, min_value=0, max_value=100, step=5, key="pmcc_agg_rsi_max")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("💾 Commit Aggressive", use_container_width=True, key="pmcc_commit_aggressive"):
+                    st.session_state.pmcc_aggressive_delta_min = agg_delta_min
+                    st.session_state.pmcc_aggressive_delta_max = agg_delta_max
+                    st.session_state.pmcc_aggressive_dte_min = agg_dte_min
+                    st.session_state.pmcc_aggressive_dte_max = agg_dte_max
+                    st.session_state.pmcc_aggressive_extrinsic_max = agg_extr_max
+                    st.session_state.pmcc_aggressive_cap_eff_max = agg_cap_eff_max
+                    st.session_state.pmcc_aggressive_spread_max = agg_spread_max
+                    st.session_state.pmcc_aggressive_rsi_min = agg_rsi_min
+                    st.session_state.pmcc_aggressive_rsi_max = agg_rsi_max
+                    st.success("✅ Aggressive criteria committed!")
+                    st.rerun()
+            with col2:
+                if st.button("🔄 Reset Aggressive", use_container_width=True, key="pmcc_reset_aggressive"):
+                    st.session_state.pmcc_aggressive_delta_min = 0.70
+                    st.session_state.pmcc_aggressive_delta_max = 0.85
+                    st.session_state.pmcc_aggressive_dte_min = 240
+                    st.session_state.pmcc_aggressive_dte_max = 400
+                    st.session_state.pmcc_aggressive_extrinsic_max = 20.0
+                    st.session_state.pmcc_aggressive_cap_eff_max = 90.0
+                    st.session_state.pmcc_aggressive_spread_max = 8.0
+                    st.session_state.pmcc_aggressive_rsi_min = 20
+                    st.session_state.pmcc_aggressive_rsi_max = 80
+                    st.success("✅ Aggressive reset to defaults!")
+                    st.rerun()
+        
+        st.write("---")
         
         # Toggle to show only selected (like CSP Dashboard)
         col1, col2 = st.columns([1, 4])
