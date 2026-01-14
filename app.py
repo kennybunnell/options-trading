@@ -1451,6 +1451,8 @@ elif page == "CSP Dashboard":
             st.session_state.csp_conservative_iv_rank_min = 0  # No IV filter by default
         if 'csp_conservative_bb_max' not in st.session_state:
             st.session_state.csp_conservative_bb_max = 1.0  # No BB filter by default
+        if 'csp_conservative_min_score' not in st.session_state:
+            st.session_state.csp_conservative_min_score = 50  # Min composite score for Conservative
         
         if 'csp_medium_delta_min' not in st.session_state:
             st.session_state.csp_medium_delta_min = 0.15
@@ -1464,6 +1466,8 @@ elif page == "CSP Dashboard":
             st.session_state.csp_medium_iv_rank_min = 0  # No IV filter by default
         if 'csp_medium_bb_max' not in st.session_state:
             st.session_state.csp_medium_bb_max = 1.0  # No BB filter by default
+        if 'csp_medium_min_score' not in st.session_state:
+            st.session_state.csp_medium_min_score = 40  # Min composite score for Medium
         
         if 'csp_aggressive_delta_min' not in st.session_state:
             st.session_state.csp_aggressive_delta_min = 0.20
@@ -1477,6 +1481,8 @@ elif page == "CSP Dashboard":
             st.session_state.csp_aggressive_iv_rank_min = 0  # No IV filter by default
         if 'csp_aggressive_bb_max' not in st.session_state:
             st.session_state.csp_aggressive_bb_max = 1.0  # No BB filter by default
+        if 'csp_aggressive_min_score' not in st.session_state:
+            st.session_state.csp_aggressive_min_score = 30  # Min composite score for Aggressive
         
         # Initialize oversold filter toggle
         if 'csp_oversold_filter' not in st.session_state:
@@ -1578,12 +1584,9 @@ elif page == "CSP Dashboard":
         
         with col2:
             if st.button("🟢 Conservative", use_container_width=True, key="csp_preset_conservative", 
-                       help=f"Δ {st.session_state.csp_conservative_delta_min}-{st.session_state.csp_conservative_delta_max}, DTE {st.session_state.csp_conservative_dte_min}-{st.session_state.csp_conservative_dte_max}, OI ≥{st.session_state.csp_conservative_oi_min}, RSI ≤{st.session_state.csp_conservative_rsi_max}, IV≥{st.session_state.csp_conservative_iv_rank_min}, BB≤{st.session_state.csp_conservative_bb_max}"):
+                       help=f"Δ {st.session_state.csp_conservative_delta_min}-{st.session_state.csp_conservative_delta_max}, DTE {st.session_state.csp_conservative_dte_min}-{st.session_state.csp_conservative_dte_max}, OI ≥{st.session_state.csp_conservative_oi_min}, RSI ≤{st.session_state.csp_conservative_rsi_max}, Score ≥{st.session_state.csp_conservative_min_score}"):
                 # Track active preset for Delta formatting
                 st.session_state.csp_active_preset = 'conservative'
-                
-                # Set minimum score for Conservative preset
-                st.session_state.csp_min_score = 70
                 
                 # Clear all first
                 st.session_state.csp_opportunities['Select'] = False
@@ -1602,7 +1605,7 @@ elif page == "CSP Dashboard":
                     bb_max=st.session_state.csp_conservative_bb_max,
                     oversold_only=st.session_state.csp_oversold_filter,
                     qty=1,
-                    min_score=70
+                    min_score=st.session_state.csp_conservative_min_score
                 )
                 
                 # Apply selections
@@ -1614,12 +1617,9 @@ elif page == "CSP Dashboard":
         
         with col3:
             if st.button("🟡 Medium", use_container_width=True, key="csp_preset_medium",
-                       help=f"Δ {st.session_state.csp_medium_delta_min}-{st.session_state.csp_medium_delta_max}, DTE {st.session_state.csp_medium_dte_min}-{st.session_state.csp_medium_dte_max}, OI ≥{st.session_state.csp_medium_oi_min}, RSI ≤{st.session_state.csp_medium_rsi_max}, IV≥{st.session_state.csp_medium_iv_rank_min}, BB≤{st.session_state.csp_medium_bb_max}"):
+                       help=f"Δ {st.session_state.csp_medium_delta_min}-{st.session_state.csp_medium_delta_max}, DTE {st.session_state.csp_medium_dte_min}-{st.session_state.csp_medium_dte_max}, OI ≥{st.session_state.csp_medium_oi_min}, RSI ≤{st.session_state.csp_medium_rsi_max}, Score ≥{st.session_state.csp_medium_min_score}"):
                 # Track active preset for Delta formatting
                 st.session_state.csp_active_preset = 'medium'
-                
-                # Set minimum score for Medium preset
-                st.session_state.csp_min_score = 55
                 
                 # Clear all first
                 st.session_state.csp_opportunities['Select'] = False
@@ -1638,7 +1638,7 @@ elif page == "CSP Dashboard":
                     bb_max=st.session_state.csp_medium_bb_max,
                     oversold_only=st.session_state.csp_oversold_filter,
                     qty=1,
-                    min_score=55
+                    min_score=st.session_state.csp_medium_min_score
                 )
                 
                 # Apply selections
@@ -1650,12 +1650,9 @@ elif page == "CSP Dashboard":
         
         with col4:
             if st.button("🔴 Aggressive", use_container_width=True, key="csp_preset_aggressive",
-                       help=f"Δ {st.session_state.csp_aggressive_delta_min}-{st.session_state.csp_aggressive_delta_max}, DTE {st.session_state.csp_aggressive_dte_min}-{st.session_state.csp_aggressive_dte_max}, OI ≥{st.session_state.csp_aggressive_oi_min}, RSI ≤{st.session_state.csp_aggressive_rsi_max}, IV≥{st.session_state.csp_aggressive_iv_rank_min}"):
+                       help=f"Δ {st.session_state.csp_aggressive_delta_min}-{st.session_state.csp_aggressive_delta_max}, DTE {st.session_state.csp_aggressive_dte_min}-{st.session_state.csp_aggressive_dte_max}, OI ≥{st.session_state.csp_aggressive_oi_min}, RSI ≤{st.session_state.csp_aggressive_rsi_max}, Score ≥{st.session_state.csp_aggressive_min_score}"):
                 # Track active preset for Delta formatting
                 st.session_state.csp_active_preset = 'aggressive'
-                
-                # Set minimum score for Aggressive preset
-                st.session_state.csp_min_score = 40
                 
                 # Clear all first
                 st.session_state.csp_opportunities['Select'] = False
@@ -1674,7 +1671,7 @@ elif page == "CSP Dashboard":
                     bb_max=st.session_state.csp_aggressive_bb_max,
                     oversold_only=st.session_state.csp_oversold_filter,
                     qty=1,
-                    min_score=40
+                    min_score=st.session_state.csp_aggressive_min_score
                 )
                 
                 # Apply selections
@@ -1693,35 +1690,9 @@ elif page == "CSP Dashboard":
             selected_count = st.session_state.csp_opportunities['Select'].sum()
             st.metric("Selected", selected_count)
         
-        # Initialize minimum score filter in session state
-        if 'csp_min_score' not in st.session_state:
-            st.session_state.csp_min_score = 0  # Default: no score filter
-        
-        # Minimum Score Slider - placed right below preset buttons
+        # Oversold filter checkbox - placed right below preset buttons
         st.write("")
-        col_score, col_oversold, col_space = st.columns([3, 2, 2])
-        
-        with col_score:
-            min_score = st.slider(
-                "📊 Minimum Score",
-                min_value=0,
-                max_value=100,
-                value=st.session_state.csp_min_score,
-                step=5,
-                key="csp_min_score_slider",
-                help="Slide UP to remove checks from lower-scoring items. Only unchecks items BELOW the threshold - items above remain checked."
-            )
-            if min_score != st.session_state.csp_min_score:
-                old_min_score = st.session_state.csp_min_score
-                st.session_state.csp_min_score = min_score
-                
-                # Only UNCHECK items that are below the NEW threshold
-                # Items above the threshold keep their current Select state (checked or unchecked)
-                if 'Score' in st.session_state.csp_opportunities.columns:
-                    # Only deselect items that are CURRENTLY SELECTED and below the new threshold
-                    below_threshold = (st.session_state.csp_opportunities['Score'] < min_score) & (st.session_state.csp_opportunities['Select'] == True)
-                    st.session_state.csp_opportunities.loc[below_threshold, 'Select'] = False
-                st.rerun()
+        col_oversold, col_space = st.columns([1, 4])
         
         with col_oversold:
             oversold_filter = st.checkbox(
@@ -1753,11 +1724,13 @@ elif page == "CSP Dashboard":
                 cons_oi_min = st.number_input("Min Open Interest", value=st.session_state.csp_conservative_oi_min, min_value=0, step=10, key="csp_cons_oi_min_input")
                 cons_rsi_max = st.number_input("Max RSI", value=st.session_state.csp_conservative_rsi_max, min_value=0, max_value=100, step=5, key="csp_cons_rsi_max_input", help="Filter out overbought stocks. Lower = more conservative.")
             
-            col1, col2 = st.columns(2)
+            col1, col2, col3 = st.columns(3)
             with col1:
                 cons_iv_rank_min = st.number_input("Min IV Rank", value=st.session_state.csp_conservative_iv_rank_min, min_value=0, max_value=100, step=5, key="csp_cons_iv_rank_min_input", help="Higher IV = better premium. 30+ recommended.")
             with col2:
                 cons_bb_max = st.number_input("Max BB %B", value=st.session_state.csp_conservative_bb_max, min_value=0.0, max_value=1.5, step=0.1, key="csp_cons_bb_max_input", help="Lower = stock near lower band. 0.5 = middle of range.")
+            with col3:
+                cons_min_score = st.number_input("Min Score", value=st.session_state.csp_conservative_min_score, min_value=0, max_value=100, step=5, key="csp_cons_min_score_input", help="Minimum composite score (0-100). Higher = stricter quality filter.")
             
             col1, col2 = st.columns(2)
             with col1:
@@ -1770,6 +1743,7 @@ elif page == "CSP Dashboard":
                     st.session_state.csp_conservative_rsi_max = cons_rsi_max
                     st.session_state.csp_conservative_iv_rank_min = cons_iv_rank_min
                     st.session_state.csp_conservative_bb_max = cons_bb_max
+                    st.session_state.csp_conservative_min_score = cons_min_score
                     st.success("✅ Conservative criteria committed!")
                     st.rerun()
             with col2:
@@ -1782,6 +1756,7 @@ elif page == "CSP Dashboard":
                     st.session_state.csp_conservative_rsi_max = 70  # Filter overbought only
                     st.session_state.csp_conservative_iv_rank_min = 0  # No IV filter
                     st.session_state.csp_conservative_bb_max = 1.0  # No BB filter
+                    st.session_state.csp_conservative_min_score = 50  # Default min score
                     st.success("✅ Conservative reset to defaults!")
                     st.rerun()
         
@@ -1798,11 +1773,13 @@ elif page == "CSP Dashboard":
                 med_oi_min = st.number_input("Min Open Interest", value=st.session_state.csp_medium_oi_min, min_value=0, step=10, key="csp_med_oi_min_input")
                 med_rsi_max = st.number_input("Max RSI", value=st.session_state.csp_medium_rsi_max, min_value=0, max_value=100, step=5, key="csp_med_rsi_max_input", help="Filter out overbought stocks. Lower = more conservative.")
             
-            col1, col2 = st.columns(2)
+            col1, col2, col3 = st.columns(3)
             with col1:
                 med_iv_rank_min = st.number_input("Min IV Rank", value=st.session_state.csp_medium_iv_rank_min, min_value=0, max_value=100, step=5, key="csp_med_iv_rank_min_input", help="Higher IV = better premium. 40+ recommended.")
             with col2:
                 med_bb_max = st.number_input("Max BB %B", value=st.session_state.csp_medium_bb_max, min_value=0.0, max_value=1.5, step=0.1, key="csp_med_bb_max_input", help="Lower = stock near lower band. 0.6 = slightly below middle.")
+            with col3:
+                med_min_score = st.number_input("Min Score", value=st.session_state.csp_medium_min_score, min_value=0, max_value=100, step=5, key="csp_med_min_score_input", help="Minimum composite score (0-100). Higher = stricter quality filter.")
             
             col1, col2 = st.columns(2)
             with col1:
@@ -1815,6 +1792,7 @@ elif page == "CSP Dashboard":
                     st.session_state.csp_medium_rsi_max = med_rsi_max
                     st.session_state.csp_medium_iv_rank_min = med_iv_rank_min
                     st.session_state.csp_medium_bb_max = med_bb_max
+                    st.session_state.csp_medium_min_score = med_min_score
                     st.success("✅ Medium criteria committed!")
                     st.rerun()
             with col2:
@@ -1827,6 +1805,7 @@ elif page == "CSP Dashboard":
                     st.session_state.csp_medium_rsi_max = 80  # Slight overbought filter
                     st.session_state.csp_medium_iv_rank_min = 0  # No IV filter
                     st.session_state.csp_medium_bb_max = 1.0  # No BB filter
+                    st.session_state.csp_medium_min_score = 40  # Default min score
                     st.success("✅ Medium reset to defaults!")
                     st.rerun()
         
@@ -1843,11 +1822,13 @@ elif page == "CSP Dashboard":
                 agg_oi_min = st.number_input("Min Open Interest", value=st.session_state.csp_aggressive_oi_min, min_value=0, step=10, key="csp_agg_oi_min_input")
                 agg_rsi_max = st.number_input("Max RSI", value=st.session_state.csp_aggressive_rsi_max, min_value=0, max_value=100, step=5, key="csp_agg_rsi_max_input", help="Set to 100 for no RSI filter.")
             
-            col1, col2 = st.columns(2)
+            col1, col2, col3 = st.columns(3)
             with col1:
                 agg_iv_rank_min = st.number_input("Min IV Rank", value=st.session_state.csp_aggressive_iv_rank_min, min_value=0, max_value=100, step=5, key="csp_agg_iv_rank_min_input", help="Higher IV = better premium. 50+ for aggressive.")
             with col2:
                 agg_bb_max = st.number_input("Max BB %B", value=st.session_state.csp_aggressive_bb_max, min_value=0.0, max_value=1.5, step=0.1, key="csp_agg_bb_max_input", help="Set to 1.0+ for no BB filter.")
+            with col3:
+                agg_min_score = st.number_input("Min Score", value=st.session_state.csp_aggressive_min_score, min_value=0, max_value=100, step=5, key="csp_agg_min_score_input", help="Minimum composite score (0-100). Higher = stricter quality filter.")
             
             col1, col2 = st.columns(2)
             with col1:
@@ -1860,6 +1841,7 @@ elif page == "CSP Dashboard":
                     st.session_state.csp_aggressive_rsi_max = agg_rsi_max
                     st.session_state.csp_aggressive_iv_rank_min = agg_iv_rank_min
                     st.session_state.csp_aggressive_bb_max = agg_bb_max
+                    st.session_state.csp_aggressive_min_score = agg_min_score
                     st.success("✅ Aggressive criteria committed!")
                     st.rerun()
             with col2:
@@ -1872,6 +1854,7 @@ elif page == "CSP Dashboard":
                     st.session_state.csp_aggressive_rsi_max = 100  # No RSI filter
                     st.session_state.csp_aggressive_iv_rank_min = 0  # No IV filter
                     st.session_state.csp_aggressive_bb_max = 1.0  # No BB filter
+                    st.session_state.csp_aggressive_min_score = 30  # Default min score
                     st.success("✅ Aggressive reset to defaults!")
                     st.rerun()
         
@@ -3238,6 +3221,8 @@ elif page == "CC Dashboard":
                 st.session_state.cc_conservative_rsi_max = 70
             if 'cc_conservative_weekly_min' not in st.session_state:
                 st.session_state.cc_conservative_weekly_min = 0.3
+            if 'cc_conservative_min_score' not in st.session_state:
+                st.session_state.cc_conservative_min_score = 50
             
             if 'cc_medium_delta_min' not in st.session_state:
                 st.session_state.cc_medium_delta_min = 0.15
@@ -3250,6 +3235,8 @@ elif page == "CC Dashboard":
                 st.session_state.cc_medium_rsi_max = 80
             if 'cc_medium_weekly_min' not in st.session_state:
                 st.session_state.cc_medium_weekly_min = 0.3
+            if 'cc_medium_min_score' not in st.session_state:
+                st.session_state.cc_medium_min_score = 40
             
             if 'cc_aggressive_delta_min' not in st.session_state:
                 st.session_state.cc_aggressive_delta_min = 0.20
@@ -3262,6 +3249,8 @@ elif page == "CC Dashboard":
                 st.session_state.cc_aggressive_rsi_max = 100
             if 'cc_aggressive_weekly_min' not in st.session_state:
                 st.session_state.cc_aggressive_weekly_min = 0.3
+            if 'cc_aggressive_min_score' not in st.session_state:
+                st.session_state.cc_aggressive_min_score = 30
             
             # Initialize minimum score filter
             if 'cc_min_score' not in st.session_state:
@@ -3281,12 +3270,9 @@ elif page == "CC Dashboard":
             
             with col2:
                 if st.button("🟢 Conservative", use_container_width=True, key="cc_preset_conservative", 
-                           help="Δ 0.10-0.20, DTE 7-30, OI ≥50, Weekly ≥0.3% | Qty=1 contract"):
+                           help=f"Δ {st.session_state.cc_conservative_delta_min}-{st.session_state.cc_conservative_delta_max}, DTE {st.session_state.cc_conservative_dte_min}-{st.session_state.cc_conservative_dte_max}, Score ≥{st.session_state.cc_conservative_min_score} | Qty=1 contract"):
                     # Track active preset for Delta formatting
                     st.session_state.cc_active_preset = 'conservative'
-                    
-                    # Set minimum score for Conservative preset
-                    st.session_state.cc_min_score = 70
                     
                     # Clear all first
                     st.session_state.cc_opportunities['Select'] = False
@@ -3302,7 +3288,7 @@ elif page == "CC Dashboard":
                         st.session_state.cc_conservative_oi_min,
                         st.session_state.cc_conservative_weekly_min,
                         qty_mode='conservative',
-                        min_score=70
+                        min_score=st.session_state.cc_conservative_min_score
                     )
                     
                     # Apply selections
@@ -3314,12 +3300,9 @@ elif page == "CC Dashboard":
             
             with col3:
                 if st.button("🟡 Medium", use_container_width=True, key="cc_preset_medium",
-                           help="Δ 0.15-0.30, DTE 7-30, OI ≥50, Weekly ≥0.3% | Qty=50% of shares"):
+                           help=f"Δ {st.session_state.cc_medium_delta_min}-{st.session_state.cc_medium_delta_max}, DTE {st.session_state.cc_medium_dte_min}-{st.session_state.cc_medium_dte_max}, Score ≥{st.session_state.cc_medium_min_score} | Qty=50% of shares"):
                     # Track active preset for Delta formatting
                     st.session_state.cc_active_preset = 'medium'
-                    
-                    # Set minimum score for Medium preset
-                    st.session_state.cc_min_score = 55
                     
                     # Clear all first
                     st.session_state.cc_opportunities['Select'] = False
@@ -3335,7 +3318,7 @@ elif page == "CC Dashboard":
                         st.session_state.cc_medium_oi_min,
                         st.session_state.cc_medium_weekly_min,
                         qty_mode='medium',
-                        min_score=55
+                        min_score=st.session_state.cc_medium_min_score
                     )
                     
                     # Apply selections
@@ -3347,12 +3330,9 @@ elif page == "CC Dashboard":
             
             with col4:
                 if st.button("🔴 Aggressive", use_container_width=True, key="cc_preset_aggressive",
-                           help="Δ 0.20-0.40, DTE 7-21, OI ≥25, Weekly ≥0.3% | Qty=100% of shares"):
+                           help=f"Δ {st.session_state.cc_aggressive_delta_min}-{st.session_state.cc_aggressive_delta_max}, DTE {st.session_state.cc_aggressive_dte_min}-{st.session_state.cc_aggressive_dte_max}, Score ≥{st.session_state.cc_aggressive_min_score} | Qty=100% of shares"):
                     # Track active preset for Delta formatting
                     st.session_state.cc_active_preset = 'aggressive'
-                    
-                    # Set minimum score for Aggressive preset
-                    st.session_state.cc_min_score = 40
                     
                     # Clear all first
                     st.session_state.cc_opportunities['Select'] = False
@@ -3368,7 +3348,7 @@ elif page == "CC Dashboard":
                         st.session_state.cc_aggressive_oi_min,
                         st.session_state.cc_aggressive_weekly_min,
                         qty_mode='aggressive',
-                        min_score=40
+                        min_score=st.session_state.cc_aggressive_min_score
                     )
                     
                     # Apply selections
@@ -3386,32 +3366,6 @@ elif page == "CC Dashboard":
             with col6:
                 selected_count = opp_df['Select'].sum()
                 st.metric("Selected", int(selected_count))
-            
-            # Minimum Score Slider - placed right below preset buttons
-            st.write("")
-            col_score, col_space = st.columns([3, 4])
-            
-            with col_score:
-                min_score = st.slider(
-                    "📊 Minimum Score",
-                    min_value=0,
-                    max_value=100,
-                    value=st.session_state.cc_min_score,
-                    step=5,
-                    key="cc_min_score_slider",
-                    help="Slide UP to remove checks from lower-scoring items. Only unchecks items BELOW the threshold - items above remain checked."
-                )
-                if min_score != st.session_state.cc_min_score:
-                    old_min_score = st.session_state.cc_min_score
-                    st.session_state.cc_min_score = min_score
-                    
-                    # Only UNCHECK items that are below the NEW threshold
-                    # Items above the threshold keep their current Select state (checked or unchecked)
-                    if 'score' in st.session_state.cc_opportunities.columns:
-                        # Only deselect items that are CURRENTLY SELECTED and below the new threshold
-                        below_threshold = (st.session_state.cc_opportunities['score'] < min_score) & (st.session_state.cc_opportunities['Select'] == True)
-                        st.session_state.cc_opportunities.loc[below_threshold, 'Select'] = False
-                    st.rerun()
             
             st.write("")
             
