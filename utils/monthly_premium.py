@@ -375,6 +375,7 @@ def render_monthly_premium_summary(api, account_number = None, all_accounts: boo
     
     # Handle list of account numbers
     if isinstance(account_number, list):
+        st.info(f"DEBUG render_monthly_premium_summary: Received list of {len(account_number)} accounts")
         # Aggregate data from the provided list of accounts
         aggregated_data = defaultdict(lambda: {
             'net_premium': 0,
@@ -388,6 +389,7 @@ def render_monthly_premium_summary(api, account_number = None, all_accounts: boo
         current_month_key = (now.month, now.year)
         
         for account_num in account_number:
+            st.info(f"DEBUG: Processing account {account_num}")
             # Get the raw 6-month data for this account (LIVE, non-cached)
             account_months = get_live_monthly_premium_data(api, account_num, months=6)
             for month_data in account_months:

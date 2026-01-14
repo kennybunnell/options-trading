@@ -628,6 +628,9 @@ if page == "Home":
         if not all_account_numbers:
             all_account_numbers = [selected_account]
         
+        # DEBUG: Show which accounts are being aggregated
+        st.info(f"DEBUG: Aggregating premium across {len(all_account_numbers)} accounts: {all_account_numbers}")
+        
         # Monthly Premium Summary Section
         st.markdown('<div class="section-header">💰 Monthly Premium Performance</div>', unsafe_allow_html=True)
         from utils.monthly_premium import render_monthly_premium_summary
