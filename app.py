@@ -5526,6 +5526,73 @@ elif page == "Settings":
             st.success("✅ Configured ✅ Using PRODUCTION")
         else:
             st.warning("⚠️ Not configured (optional)")
+    
+    st.divider()
+    
+    # Debug Balance Viewer
+    st.subheader("🔍 Debug: API Balance Fields")
+    st.info("This section shows ALL balance fields returned by the Tastytrade API for comparison with the Tastytrade UI.")
+    
+    if st.button("🔄 Fetch All Balance Fields", key="fetch_debug_balances"):
+        with st.spinner("Fetching balance data from Tastytrade API..."):
+            try:
+                accounts = api.get_accounts_with_names()
+                
+                if accounts:
+                    for acc in accounts:
+                        account_number = acc['account_number']
+                        nickname = acc.get('nickname', 'Unknown')
+                        
+                        with st.expander(f"📊 {nickname} ({account_number})", expanded=True):
+                            balances = api.get_account_balances(account_number)
+                            
+                            if balances:
+                                # Key buying power fields comparison
+                                st.markdown("**💰 Key Buying Power Fields:**")
+                                
+                                key_fields = [
+                                    ('net-liquidating-value', 'Net Liquidating Value'),
+                                    ('derivative-buying-power', 'Derivative Buying Power (Options)'),
+                                    ('stock-buying-power', 'Stock Buying Power'),
+                                    ('equity-buying-power', 'Equity Buying Power'),
+                                    ('cash-available-to-withdraw', 'Cash Available to Withdraw'),
+                                    ('cash-balance', 'Cash Balance'),
+                                    ('maintenance-excess', 'Maintenance Excess'),
+                                    ('day-trading-buying-power', 'Day Trading Buying Power'),
+                                ]
+                                
+                                bp_data = []
+                                for field, label in key_fields:
+                                    value = balances.get(field, 'N/A')
+                                    if isinstance(value, (int, float)):
+                                        bp_data.append({'Field': label, 'API Field Name': field, 'Value': f"${value:,.2f}"})
+                                    else:
+                                        bp_data.append({'Field': label, 'API Field Name': field, 'Value': str(value)})
+                                
+                                import pandas as pd
+                                bp_df = pd.DataFrame(bp_data)
+                                st.dataframe(bp_df, use_container_width=True, hide_index=True)
+                                
+                                # Show ALL fields in expandable section
+                                with st.expander("📄 View ALL API Fields (Raw)"):
+                                    all_data = []
+                                    for key in sorted(balances.keys()):
+                                        value = balances[key]
+                                        if isinstance(value, (int, float)):
+                                            all_data.append({'Field': key, 'Value': f"${value:,.2f}" if abs(value) > 1 else str(value)})
+                                        else:
+                                            all_data.append({'Field': key, 'Value': str(value)})
+                                    
+                                    all_df = pd.DataFrame(all_data)
+                                    st.dataframe(all_df, use_container_width=True, hide_index=True)
+                            else:
+                                st.error(f"❌ Could not fetch balances for {account_number}")
+                else:
+                    st.error("❌ No accounts found")
+            except Exception as e:
+                st.error(f"❌ Error fetching balances: {str(e)}")
+                import traceback
+                st.code(traceback.format_exc())
 
 st.write("---")
 st.caption("Built with ❤️ using Streamlit | Options Trading Dashboard v1.0")
