@@ -1704,14 +1704,17 @@ elif page == "CSP Dashboard":
                 value=st.session_state.csp_min_score,
                 step=5,
                 key="csp_min_score_slider",
-                help="Filter opportunities by composite score. Higher = better quality. Conservative=70, Medium=55, Aggressive=40"
+                help="Slide UP to remove checks from lower-scoring items. Only unchecks items BELOW the threshold - items above remain checked."
             )
             if min_score != st.session_state.csp_min_score:
+                old_min_score = st.session_state.csp_min_score
                 st.session_state.csp_min_score = min_score
-                # Apply score filter to selections
+                
+                # Only UNCHECK items that are below the NEW threshold
+                # Items above the threshold keep their current Select state (checked or unchecked)
                 if 'Score' in st.session_state.csp_opportunities.columns:
-                    # Deselect any opportunities below the minimum score
-                    below_threshold = st.session_state.csp_opportunities['Score'] < min_score
+                    # Only deselect items that are CURRENTLY SELECTED and below the new threshold
+                    below_threshold = (st.session_state.csp_opportunities['Score'] < min_score) & (st.session_state.csp_opportunities['Select'] == True)
                     st.session_state.csp_opportunities.loc[below_threshold, 'Select'] = False
                 st.rerun()
         
@@ -3387,14 +3390,17 @@ elif page == "CC Dashboard":
                     value=st.session_state.cc_min_score,
                     step=5,
                     key="cc_min_score_slider",
-                    help="Filter opportunities by composite score. Higher = better quality. Conservative=70, Medium=55, Aggressive=40"
+                    help="Slide UP to remove checks from lower-scoring items. Only unchecks items BELOW the threshold - items above remain checked."
                 )
                 if min_score != st.session_state.cc_min_score:
+                    old_min_score = st.session_state.cc_min_score
                     st.session_state.cc_min_score = min_score
-                    # Apply score filter to selections
+                    
+                    # Only UNCHECK items that are below the NEW threshold
+                    # Items above the threshold keep their current Select state (checked or unchecked)
                     if 'score' in st.session_state.cc_opportunities.columns:
-                        # Deselect any opportunities below the minimum score
-                        below_threshold = st.session_state.cc_opportunities['score'] < min_score
+                        # Only deselect items that are CURRENTLY SELECTED and below the new threshold
+                        below_threshold = (st.session_state.cc_opportunities['score'] < min_score) & (st.session_state.cc_opportunities['Select'] == True)
                         st.session_state.cc_opportunities.loc[below_threshold, 'Select'] = False
                     st.rerun()
             
