@@ -609,22 +609,7 @@ if page == "Home":
                 </div>
                 """, unsafe_allow_html=True)
         
-        # Monthly Premium Summary Section
-        st.markdown('<div class="section-header">💰 Monthly Premium Performance</div>', unsafe_allow_html=True)
-        from utils.monthly_premium import render_monthly_premium_summary
-        render_monthly_premium_summary(api, selected_account, call_id="main_dashboard")
-        
-        st.divider()
-        
-        # ============================================
-        # PREMIUM EARNINGS OVER TIME CHART
-        # ============================================
-        from utils.monthly_premium import get_live_monthly_premium_data
-        import plotly.graph_objects as go
-        
-        st.subheader("Premium Earnings Over Time")
-        
-        # Get monthly data for all accounts - handle nested API structure
+        # Get all account numbers for aggregation (used by both monthly summary and chart)
         all_account_numbers = []
         accounts_list = st.session_state.get('accounts', [])
         
@@ -642,6 +627,21 @@ if page == "Home":
         # Fallback to selected account if empty
         if not all_account_numbers:
             all_account_numbers = [selected_account]
+        
+        # Monthly Premium Summary Section
+        st.markdown('<div class="section-header">💰 Monthly Premium Performance</div>', unsafe_allow_html=True)
+        from utils.monthly_premium import render_monthly_premium_summary
+        render_monthly_premium_summary(api, all_account_numbers, call_id="main_dashboard")
+        
+        st.divider()
+        
+        # ============================================
+        # PREMIUM EARNINGS OVER TIME CHART
+        # ============================================
+        from utils.monthly_premium import get_live_monthly_premium_data
+        import plotly.graph_objects as go
+        
+        st.subheader("Premium Earnings Over Time")
         
         # Aggregate monthly data across all accounts using LIVE (non-cached) data
         from collections import defaultdict

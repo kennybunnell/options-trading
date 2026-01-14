@@ -355,13 +355,13 @@ def get_monthly_premium_data(api, account_number: str, months: int = 6) -> List[
     return results
 
 
-def render_monthly_premium_summary(api, account_number: str = None, all_accounts: bool = False, call_id: str = "default"):
+def render_monthly_premium_summary(api, account_number = None, all_accounts: bool = False, call_id: str = "default"):
     """
     Render the Monthly Premium Summary component in Streamlit
     
     Args:
         api: TastytradeAPI instance
-        account_number: Account number to query (if all_accounts=False)
+        account_number: Account number (str) or list of account numbers to query
         all_accounts: If True, aggregate data from all accounts
     """
     import streamlit as st
@@ -373,8 +373,89 @@ def render_monthly_premium_summary(api, account_number: str = None, all_accounts
     else:
         st.markdown('<div class="section-header">💰 MONTHLY PREMIUM PERFORMANCE</div>', unsafe_allow_html=True)
     
+    # Handle list of account numbers
+    if isinstance(account_number, list):
+        # Aggregate data from the provided list of accounts
+        aggregated_data = defaultdict(lambda: {
+            'net_premium': 0,
+            'csp_net': 0,
+            'cc_net': 0,
+            'pct_change': 0
+        })
+        
+        # Get current month/year for strict filtering
+        now = datetime.now()
+        current_month_key = (now.month, now.year)
+        
+        for account_num in account_number:
+            # Get the raw 6-month data for this account (LIVE, non-cached)
+            account_months = get_live_monthly_premium_data(api, account_num, months=6)
+            for month_data in account_months:
+                # Use the month_year tuple (month, year) as the unique key for aggregation
+                m_year_key = month_data['month_year']
+                month_name = month_data['month_name']
+                
+                # Initialize if not exists
+                if month_name not in aggregated_data:
+                    aggregated_data[month_name] = {
+                        'net_premium': 0,
+                        'csp_net': 0,
+                        'cc_net': 0,
+                        'month_year': m_year_key,
+                        'is_current_month': (m_year_key == current_month_key)
+                    }
+                
+                # Aggregate data into the correct calendar month bucket
+                aggregated_data[month_name]['net_premium'] += month_data['net_premium']
+                aggregated_data[month_name]['csp_net'] += month_data['csp_net']
+                aggregated_data[month_name]['cc_net'] += month_data['cc_net']
+        
+        # Convert to list format
+        months_data = []
+        prev_net = None
+        
+        # Sort by month_year to ensure chronological order
+        sorted_months = sorted(aggregated_data.keys(), key=lambda x: aggregated_data[x]['month_year'])
+        
+        for month_name in sorted_months:
+            data = aggregated_data[month_name]
+            m_year_key = data['month_year']
+            total_net = data['net_premium']
+            csp_net = data['csp_net']
+            cc_net = data['cc_net']
+            
+            # Calculate percentages
+            if total_net > 0:
+                csp_pct = (csp_net / total_net) * 100
+                cc_pct = (cc_net / total_net) * 100
+            else:
+                csp_pct = 0
+                cc_pct = 0
+            
+            # Calculate month-over-month change
+            if prev_net is not None and prev_net > 0:
+                pct_change = ((total_net - prev_net) / prev_net) * 100
+            else:
+                pct_change = 0
+            
+            # STRICT CALENDAR MONTH CHECK FOR DISPLAY
+            is_current = (m_year_key == current_month_key)
+            
+            months_data.append({
+                'month_name': month_name,
+                'month_year': m_year_key,
+                'is_current_month': is_current,
+                'net_premium': total_net,
+                'csp_net': csp_net,
+                'cc_net': cc_net,
+                'csp_percentage': csp_pct,
+                'cc_percentage': cc_pct,
+                'pct_change': pct_change
+            })
+            prev_net = total_net
+    
     # Get data
-    if all_accounts:
+    elif all_accounts:
         # Get all accounts
         accounts = api.get_accounts()
         if not accounts:
