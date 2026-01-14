@@ -4606,7 +4606,126 @@ elif page == "PMCC Dashboard":
         if show_selected_only:
             display_df = display_df[display_df['Select'] == True].copy()
         
-        # Select columns for display (keep raw numeric for sorting)
+        # Helper functions for emoji indicators
+        def score_emoji(val):
+            """PMCC Score: higher is better"""
+            if val is None or pd.isna(val):
+                return ""
+            if val >= 80:
+                return f"🟢 {val:.0f}"
+            elif val >= 60:
+                return f"🟡 {val:.0f}"
+            else:
+                return f"🔴 {val:.0f}"
+        
+        def extrinsic_emoji(val):
+            """Extrinsic %: lower is better (less time premium)"""
+            if val is None or pd.isna(val):
+                return ""
+            if val <= 8:
+                return f"🟢 {val:.1f}%"
+            elif val <= 15:
+                return f"🟡 {val:.1f}%"
+            else:
+                return f"🔴 {val:.1f}%"
+        
+        def cap_eff_emoji(val):
+            """Capital Efficiency %: lower is better (cheaper than shares)"""
+            if val is None or pd.isna(val):
+                return ""
+            if val <= 50:
+                return f"🟢 {val:.0f}%"
+            elif val <= 70:
+                return f"🟡 {val:.0f}%"
+            else:
+                return f"🔴 {val:.0f}%"
+        
+        def spread_emoji(val):
+            """Bid-Ask Spread %: lower is better (more liquid)"""
+            if val is None or pd.isna(val):
+                return ""
+            if val <= 2:
+                return f"🟢 {val:.1f}%"
+            elif val <= 5:
+                return f"🟡 {val:.1f}%"
+            else:
+                return f"🔴 {val:.1f}%"
+        
+        def iv_emoji(val):
+            """IV %: lower is better for buying LEAPs"""
+            if val is None or pd.isna(val):
+                return ""
+            if val <= 40:
+                return f"🟢 {val:.0f}%"
+            elif val <= 60:
+                return f"🟡 {val:.0f}%"
+            else:
+                return f"🔴 {val:.0f}%"
+        
+        def rsi_emoji(val):
+            """RSI: 40-60 ideal, 30-70 ok, outside is warning"""
+            if val is None or pd.isna(val):
+                return ""
+            if 40 <= val <= 60:
+                return f"🟢 {val:.0f}"
+            elif 30 <= val <= 70:
+                return f"🟡 {val:.0f}"
+            else:
+                return f"🔴 {val:.0f}"
+        
+        def ma_emoji(val):
+            """MA %: above MA (positive) is better for PMCC"""
+            if val is None or pd.isna(val):
+                return ""
+            if val > 5:
+                return f"🟢 +{val:.1f}%"
+            elif val > -5:
+                return f"🟡 {val:+.1f}%"
+            else:
+                return f"🔴 {val:+.1f}%"
+        
+        def delta_emoji(val):
+            """Delta: higher is better for PMCC (more stock-like)"""
+            if val is None or pd.isna(val):
+                return ""
+            if val >= 0.85:
+                return f"🟢 {val:.2f}"
+            elif val >= 0.75:
+                return f"🟡 {val:.2f}"
+            else:
+                return f"🔴 {val:.2f}"
+        
+        # Apply emoji formatting to indicator columns
+        if 'pmcc_score' in display_df.columns:
+            display_df['pmcc_score'] = display_df['pmcc_score'].apply(score_emoji)
+        if 'extrinsic_pct' in display_df.columns:
+            display_df['extrinsic_pct'] = display_df['extrinsic_pct'].apply(extrinsic_emoji)
+        if 'capital_efficiency' in display_df.columns:
+            display_df['capital_efficiency'] = display_df['capital_efficiency'].apply(cap_eff_emoji)
+        if 'bid_ask_spread_pct' in display_df.columns:
+            display_df['bid_ask_spread_pct'] = display_df['bid_ask_spread_pct'].apply(spread_emoji)
+        if 'iv' in display_df.columns:
+            display_df['iv'] = display_df['iv'].apply(iv_emoji)
+        if 'rsi' in display_df.columns:
+            display_df['rsi'] = display_df['rsi'].apply(rsi_emoji)
+        if 'ma_percent' in display_df.columns:
+            display_df['ma_percent'] = display_df['ma_percent'].apply(ma_emoji)
+        if 'delta' in display_df.columns:
+            display_df['delta'] = display_df['delta'].apply(delta_emoji)
+        
+        # Format cost as clean dollars
+        if 'cost_per_contract' in display_df.columns:
+            display_df['cost_per_contract'] = display_df['cost_per_contract'].apply(lambda x: f"${x:,.0f}" if pd.notna(x) else "")
+        
+        # Format other currency columns
+        if 'underlying_price' in display_df.columns:
+            display_df['underlying_price'] = display_df['underlying_price'].apply(lambda x: f"${x:.2f}" if pd.notna(x) else "")
+        if 'strike' in display_df.columns:
+            display_df['strike'] = display_df['strike'].apply(lambda x: f"${x:.0f}" if pd.notna(x) else "")
+        if 'price' in display_df.columns:
+            display_df['price'] = display_df['price'].apply(lambda x: f"${x:.2f}" if pd.notna(x) else "")
+        
+        # Select columns for display
         display_cols = ['Select', 'Qty', 'symbol', 'underlying_price', 'strike', 'expiration', 'dte', 'delta', 'price', 'cost_per_contract']
         
         # Add enhanced columns if available
@@ -4628,7 +4747,7 @@ elif page == "PMCC Dashboard":
             'delta': 'Delta',
             'price': 'Premium',
             'cost_per_contract': 'Cost',
-            'pmcc_score': 'Score',
+            'pmcc_score': '🎯 Score',
             'extrinsic_pct': 'Extr %',
             'capital_efficiency': 'Cap Eff %',
             'bid_ask_spread_pct': 'Spread %',
@@ -4664,18 +4783,18 @@ elif page == "PMCC Dashboard":
                     step=1,
                     default=1,
                 ),
-                "Stock $": st.column_config.NumberColumn("Stock $", format="$%.2f"),
-                "Strike": st.column_config.NumberColumn("Strike", format="$%.0f"),
-                "Delta": st.column_config.NumberColumn("Delta", format="%.2f"),
-                "Premium": st.column_config.NumberColumn("Premium", format="$%.2f"),
-                "Cost": st.column_config.NumberColumn("Cost", format="$%,.0f"),
-                "Score": st.column_config.NumberColumn("Score", format="%.0f"),
-                "Extr %": st.column_config.NumberColumn("Extr %", format="%.1f%%"),
-                "Cap Eff %": st.column_config.NumberColumn("Cap Eff %", format="%.0f%%"),
-                "Spread %": st.column_config.NumberColumn("Spread %", format="%.1f%%"),
-                "IV %": st.column_config.NumberColumn("IV %", format="%.0f%%"),
-                "RSI": st.column_config.NumberColumn("RSI", format="%.0f"),
-                "MA %": st.column_config.NumberColumn("MA %", format="%+.1f%%"),
+                "Stock $": st.column_config.TextColumn("Stock $"),
+                "Strike": st.column_config.TextColumn("Strike"),
+                "Delta": st.column_config.TextColumn("Delta"),
+                "Premium": st.column_config.TextColumn("Premium"),
+                "Cost": st.column_config.TextColumn("Cost"),
+                "🎯 Score": st.column_config.TextColumn("🎯 Score"),
+                "Extr %": st.column_config.TextColumn("Extr %"),
+                "Cap Eff %": st.column_config.TextColumn("Cap Eff %"),
+                "Spread %": st.column_config.TextColumn("Spread %"),
+                "IV %": st.column_config.TextColumn("IV %"),
+                "RSI": st.column_config.TextColumn("RSI"),
+                "MA %": st.column_config.TextColumn("MA %"),
             },
             hide_index=True,
             use_container_width=True,
