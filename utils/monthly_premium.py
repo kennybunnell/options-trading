@@ -138,6 +138,7 @@ def get_live_monthly_premium_data(api, account_number: str, months: int = 6) -> 
     
     # Build result list
     results = []
+    prev_net = None
     for month_key in month_list:
         month, year = month_key
         data = monthly_data[month_key]
@@ -147,14 +148,32 @@ def get_live_monthly_premium_data(api, account_number: str, months: int = 6) -> 
         is_current = (month == now.month and year == now.year)
         month_name = datetime(year, month, 1).strftime('%b %Y')
         
+        # Calculate percentages
+        if total_net > 0:
+            csp_pct = (csp_net / total_net) * 100
+            cc_pct = (cc_net / total_net) * 100
+        else:
+            csp_pct = 0
+            cc_pct = 0
+        
+        # Calculate month-over-month change
+        if prev_net is not None and prev_net > 0:
+            pct_change = ((total_net - prev_net) / prev_net) * 100
+        else:
+            pct_change = 0
+        
         results.append({
             'month_name': month_name,
             'month_year': month_key,
             'is_current_month': is_current,
             'net_premium': total_net,
             'csp_net': csp_net,
-            'cc_net': cc_net
+            'cc_net': cc_net,
+            'csp_percentage': csp_pct,
+            'cc_percentage': cc_pct,
+            'pct_change': pct_change
         })
+        prev_net = total_net
     return results
 
 def get_monthly_premium_data(api, account_number: str, months: int = 6) -> List[Dict]:
