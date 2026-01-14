@@ -1297,9 +1297,119 @@ elif page == "CSP Dashboard":
         # Store opportunities in session state for display
         if opportunities:
             df = pd.DataFrame(opportunities)
+            
+            # Calculate CSP Composite Score (0-100)
+            def calculate_csp_score(row):
+                """
+                CSP Composite Score based on:
+                - Weekly Return % (25%): Higher = Better
+                - Delta (20%): Closer to 0.30 = Best (sweet spot)
+                - RSI (20%): Lower = Better (oversold stocks bounce)
+                - BB %B (15%): Lower = Better (near lower band)
+                - IV Rank (10%): Higher = Better (elevated premium)
+                - Spread % (10%): Lower = Better (tighter spreads)
+                """
+                score = 0
+                
+                # 1. Weekly Return % (25 points) - Scale 0.5% to 2.5%
+                weekly = row.get('Weekly %', 0) or 0
+                if weekly >= 2.5:
+                    score += 25
+                elif weekly >= 0.5:
+                    score += 25 * (weekly - 0.5) / 2.0
+                
+                # 2. Delta (20 points) - Sweet spot around 0.25-0.35
+                delta = abs(row.get('Delta', 0) or 0)
+                if 0.25 <= delta <= 0.35:
+                    score += 20  # Perfect range
+                elif 0.15 <= delta <= 0.45:
+                    score += 15  # Good range
+                elif 0.10 <= delta <= 0.50:
+                    score += 10  # Acceptable
+                else:
+                    score += 5  # Outside ideal range
+                
+                # 3. RSI (20 points) - Lower is better for CSP (oversold)
+                rsi_val = row.get('RSI', None)
+                if rsi_val is not None:
+                    # Extract numeric RSI from emoji string if needed
+                    if isinstance(rsi_val, str):
+                        import re
+                        match = re.search(r'[\d.]+', str(rsi_val))
+                        rsi_val = float(match.group()) if match else 50
+                    if rsi_val < 30:
+                        score += 20  # Oversold - excellent
+                    elif rsi_val < 40:
+                        score += 16
+                    elif rsi_val < 50:
+                        score += 12
+                    elif rsi_val < 60:
+                        score += 8
+                    elif rsi_val < 70:
+                        score += 4
+                    # > 70 = 0 points (overbought)
+                else:
+                    score += 10  # Neutral if no data
+                
+                # 4. BB %B (15 points) - Lower is better for CSP
+                bb = row.get('BB %B', None)
+                if bb is not None:
+                    # Extract numeric BB from emoji string if needed
+                    if isinstance(bb, str):
+                        import re
+                        match = re.search(r'[\d.]+', str(bb))
+                        bb = float(match.group()) if match else 0.5
+                    if bb < 0.2:
+                        score += 15  # Near lower band - excellent
+                    elif bb < 0.3:
+                        score += 12
+                    elif bb < 0.5:
+                        score += 9
+                    elif bb < 0.7:
+                        score += 6
+                    elif bb < 0.8:
+                        score += 3
+                    # > 0.8 = 0 points (near upper band)
+                else:
+                    score += 7  # Neutral if no data
+                
+                # 5. IV Rank (10 points) - Higher is better
+                iv = row.get('IV Rank', None)
+                if iv is not None:
+                    if iv > 75:
+                        score += 10
+                    elif iv > 50:
+                        score += 8
+                    elif iv > 30:
+                        score += 5
+                    else:
+                        score += 2
+                else:
+                    score += 5  # Neutral if no data
+                
+                # 6. Spread % (10 points) - Lower is better
+                spread = row.get('Spread %', None)
+                if spread is not None:
+                    if spread <= 1:
+                        score += 10
+                    elif spread <= 3:
+                        score += 8
+                    elif spread <= 5:
+                        score += 5
+                    elif spread <= 10:
+                        score += 2
+                    # > 10% = 0 points
+                else:
+                    score += 5  # Neutral if no data
+                
+                return round(score)
+            
+            # Apply score calculation to each row
+            df['Score'] = df.apply(calculate_csp_score, axis=1)
+            
             df.insert(0, 'Select', False)
             df.insert(1, 'Qty', 1)  # Add quantity column with default value of 1
-            df = df.sort_values('Weekly %', ascending=False)
+            df = df.sort_values('Score', ascending=False)  # Sort by Score instead of Weekly %
             st.session_state.csp_opportunities = df
         else:
             # Clear opportunities if none found
@@ -1368,8 +1478,8 @@ elif page == "CSP Dashboard":
             st.session_state.csp_oversold_filter = False
         
         # Helper function to select best per ticker
-        def select_best_csp_per_ticker(df, delta_min, delta_max, dte_min, dte_max, oi_min, rsi_max=100, iv_rank_min=0, bb_max=1.0, oversold_only=False, qty=1):
-            """Select best CSP option per ticker based on criteria including RSI, IV Rank, and BB %B filters"""
+        def select_best_csp_per_ticker(df, delta_min, delta_max, dte_min, dte_max, oi_min, rsi_max=100, iv_rank_min=0, bb_max=1.0, oversold_only=False, qty=1, min_score=0):
+            """Select best CSP option per ticker based on criteria including RSI, IV Rank, BB %B, and Score filters"""
             selections = []
             
             # Helper function to extract numeric RSI from emoji string
@@ -1432,15 +1542,22 @@ elif page == "CSP Dashboard":
                             return True
                     filtered = filtered[filtered['BB %B'].apply(check_bb_oversold)]
             
+            # Apply minimum score filter if Score column exists and min_score > 0
+            if 'Score' in filtered.columns and min_score > 0:
+                filtered = filtered[filtered['Score'] >= min_score]
+            
             if len(filtered) == 0:
                 return selections
             
-            # Group by symbol and select best (highest weekly return)
+            # Group by symbol and select best (highest Score, then Weekly %)
             for symbol in filtered['Symbol'].unique():
                 symbol_opps = filtered[filtered['Symbol'] == symbol]
                 if len(symbol_opps) > 0:
-                    # Select highest weekly return for this symbol
-                    best_idx = symbol_opps['Weekly %'].idxmax()
+                    # Select highest Score for this symbol (fall back to Weekly % if no Score)
+                    if 'Score' in symbol_opps.columns:
+                        best_idx = symbol_opps['Score'].idxmax()
+                    else:
+                        best_idx = symbol_opps['Weekly %'].idxmax()
                     selections.append((best_idx, qty))
             
             return selections
@@ -1460,6 +1577,9 @@ elif page == "CSP Dashboard":
                 # Track active preset for Delta formatting
                 st.session_state.csp_active_preset = 'conservative'
                 
+                # Set minimum score for Conservative preset
+                st.session_state.csp_min_score = 70
+                
                 # Clear all first
                 st.session_state.csp_opportunities['Select'] = False
                 st.session_state.csp_opportunities['Qty'] = 1
@@ -1476,7 +1596,8 @@ elif page == "CSP Dashboard":
                     iv_rank_min=st.session_state.csp_conservative_iv_rank_min,
                     bb_max=st.session_state.csp_conservative_bb_max,
                     oversold_only=st.session_state.csp_oversold_filter,
-                    qty=1
+                    qty=1,
+                    min_score=70
                 )
                 
                 # Apply selections
@@ -1491,6 +1612,9 @@ elif page == "CSP Dashboard":
                        help=f"Δ {st.session_state.csp_medium_delta_min}-{st.session_state.csp_medium_delta_max}, DTE {st.session_state.csp_medium_dte_min}-{st.session_state.csp_medium_dte_max}, OI ≥{st.session_state.csp_medium_oi_min}, RSI ≤{st.session_state.csp_medium_rsi_max}, IV≥{st.session_state.csp_medium_iv_rank_min}, BB≤{st.session_state.csp_medium_bb_max}"):
                 # Track active preset for Delta formatting
                 st.session_state.csp_active_preset = 'medium'
+                
+                # Set minimum score for Medium preset
+                st.session_state.csp_min_score = 55
                 
                 # Clear all first
                 st.session_state.csp_opportunities['Select'] = False
@@ -1508,7 +1632,8 @@ elif page == "CSP Dashboard":
                     iv_rank_min=st.session_state.csp_medium_iv_rank_min,
                     bb_max=st.session_state.csp_medium_bb_max,
                     oversold_only=st.session_state.csp_oversold_filter,
-                    qty=1
+                    qty=1,
+                    min_score=55
                 )
                 
                 # Apply selections
@@ -1523,6 +1648,9 @@ elif page == "CSP Dashboard":
                        help=f"Δ {st.session_state.csp_aggressive_delta_min}-{st.session_state.csp_aggressive_delta_max}, DTE {st.session_state.csp_aggressive_dte_min}-{st.session_state.csp_aggressive_dte_max}, OI ≥{st.session_state.csp_aggressive_oi_min}, RSI ≤{st.session_state.csp_aggressive_rsi_max}, IV≥{st.session_state.csp_aggressive_iv_rank_min}"):
                 # Track active preset for Delta formatting
                 st.session_state.csp_active_preset = 'aggressive'
+                
+                # Set minimum score for Aggressive preset
+                st.session_state.csp_min_score = 40
                 
                 # Clear all first
                 st.session_state.csp_opportunities['Select'] = False
@@ -1540,7 +1668,8 @@ elif page == "CSP Dashboard":
                     iv_rank_min=st.session_state.csp_aggressive_iv_rank_min,
                     bb_max=st.session_state.csp_aggressive_bb_max,
                     oversold_only=st.session_state.csp_oversold_filter,
-                    qty=1
+                    qty=1,
+                    min_score=40
                 )
                 
                 # Apply selections
@@ -1559,10 +1688,34 @@ elif page == "CSP Dashboard":
             selected_count = st.session_state.csp_opportunities['Select'].sum()
             st.metric("Selected", selected_count)
         
-        # Subtle oversold filter toggle - small and subdued
-        st.markdown("<style>.oversold-toggle { opacity: 0.7; font-size: 0.85em; }</style>", unsafe_allow_html=True)
-        col_toggle, col_space = st.columns([2, 5])
-        with col_toggle:
+        # Initialize minimum score filter in session state
+        if 'csp_min_score' not in st.session_state:
+            st.session_state.csp_min_score = 0  # Default: no score filter
+        
+        # Minimum Score Slider - placed right below preset buttons
+        st.write("")
+        col_score, col_oversold, col_space = st.columns([3, 2, 2])
+        
+        with col_score:
+            min_score = st.slider(
+                "📊 Minimum Score",
+                min_value=0,
+                max_value=100,
+                value=st.session_state.csp_min_score,
+                step=5,
+                key="csp_min_score_slider",
+                help="Filter opportunities by composite score. Higher = better quality. Conservative=70, Medium=55, Aggressive=40"
+            )
+            if min_score != st.session_state.csp_min_score:
+                st.session_state.csp_min_score = min_score
+                # Apply score filter to selections
+                if 'Score' in st.session_state.csp_opportunities.columns:
+                    # Deselect any opportunities below the minimum score
+                    below_threshold = st.session_state.csp_opportunities['Score'] < min_score
+                    st.session_state.csp_opportunities.loc[below_threshold, 'Select'] = False
+                st.rerun()
+        
+        with col_oversold:
             oversold_filter = st.checkbox(
                 "📉 Oversold Only", 
                 value=st.session_state.csp_oversold_filter,
@@ -1884,7 +2037,26 @@ elif page == "CSP Dashboard":
                 # No preset active, return plain value
                 return f"{val:.2f}"
         
+        # Format Score with emoji indicators
+        def format_score(val):
+            if val is None or (isinstance(val, float) and val != val):
+                return "N/A"
+            try:
+                val = int(val)
+            except (ValueError, TypeError):
+                return "N/A"
+            if val >= 80:
+                return f"🟢 {val}"  # Green = Excellent
+            elif val >= 60:
+                return f"🟡 {val}"  # Yellow = Good
+            elif val >= 40:
+                return f"🟠 {val}"  # Orange = Acceptable
+            else:
+                return f"🔴 {val}"  # Red = Poor
+        
         # Apply formatting to display columns
+        if 'Score' in display_df.columns:
+            display_df['Score'] = display_df['Score'].apply(format_score)
         if 'Delta' in display_df.columns:
             display_df['Delta'] = display_df['Delta'].apply(format_delta)
         if 'IV Rank' in display_df.columns:
@@ -2827,9 +2999,114 @@ elif page == "CC Dashboard":
                             
                             # Store in session state as DataFrame (like CSP Dashboard)
                             df = pd.DataFrame(all_opportunities)
+                            
+                            # Calculate CC Composite Score (0-100)
+                            def calculate_cc_score(row):
+                                """
+                                CC Composite Score based on:
+                                - Weekly Return % (25%): Higher = Better
+                                - Delta (20%): 0.20-0.35 = Best (balance premium vs getting called)
+                                - RSI (15%): Higher = Better for CC (overbought = good time to sell calls)
+                                - BB %B (15%): Higher = Better for CC (stock near upper band)
+                                - Distance to Strike % (15%): Higher = Better (more room before assignment)
+                                - Spread % (10%): Lower = Better (tighter spreads)
+                                """
+                                score = 0
+                                
+                                # 1. Weekly Return % (25 points) - Scale 0.3% to 2.0%
+                                weekly = row.get('weekly_return_pct', 0) or 0
+                                if weekly >= 2.0:
+                                    score += 25
+                                elif weekly >= 0.3:
+                                    score += 25 * (weekly - 0.3) / 1.7
+                                
+                                # 2. Delta (20 points) - Sweet spot around 0.20-0.35
+                                delta = abs(row.get('delta', 0) or 0)
+                                if 0.20 <= delta <= 0.35:
+                                    score += 20  # Perfect range
+                                elif 0.15 <= delta <= 0.40:
+                                    score += 15  # Good range
+                                elif 0.10 <= delta <= 0.50:
+                                    score += 10  # Acceptable
+                                else:
+                                    score += 5  # Outside ideal range
+                                
+                                # 3. RSI (15 points) - Higher is better for CC (overbought)
+                                rsi_val = row.get('rsi', None)
+                                if rsi_val is not None:
+                                    if rsi_val > 70:
+                                        score += 15  # Overbought - excellent for selling calls
+                                    elif rsi_val > 60:
+                                        score += 12
+                                    elif rsi_val > 50:
+                                        score += 9
+                                    elif rsi_val > 40:
+                                        score += 6
+                                    elif rsi_val > 30:
+                                        score += 3
+                                    # < 30 = 0 points (oversold - bad for selling calls)
+                                else:
+                                    score += 7  # Neutral if no data
+                                
+                                # 4. BB %B (15 points) - Higher is better for CC
+                                bb = row.get('bb_pct_b', None)
+                                if bb is not None:
+                                    if bb > 0.8:
+                                        score += 15  # Near upper band - excellent
+                                    elif bb > 0.7:
+                                        score += 12
+                                    elif bb > 0.5:
+                                        score += 9
+                                    elif bb > 0.3:
+                                        score += 6
+                                    elif bb > 0.2:
+                                        score += 3
+                                    # < 0.2 = 0 points (near lower band)
+                                else:
+                                    score += 7  # Neutral if no data
+                                
+                                # 5. Distance to Strike % (15 points) - Higher is better
+                                current_price = row.get('current_price', 0) or 0
+                                strike = row.get('strike', 0) or 0
+                                if current_price > 0 and strike > 0:
+                                    distance_pct = ((strike - current_price) / current_price) * 100
+                                    if distance_pct > 10:
+                                        score += 15
+                                    elif distance_pct > 7:
+                                        score += 12
+                                    elif distance_pct > 5:
+                                        score += 9
+                                    elif distance_pct > 3:
+                                        score += 6
+                                    elif distance_pct > 1:
+                                        score += 3
+                                    # < 1% = 0 points (too close)
+                                else:
+                                    score += 7  # Neutral if no data
+                                
+                                # 6. Spread % (10 points) - Lower is better
+                                spread = row.get('spread_pct', None)
+                                if spread is not None:
+                                    if spread <= 1:
+                                        score += 10
+                                    elif spread <= 2:
+                                        score += 8
+                                    elif spread <= 5:
+                                        score += 5
+                                    elif spread <= 10:
+                                        score += 2
+                                    # > 10% = 0 points
+                                else:
+                                    score += 5  # Neutral if no data
+                                
+                                return round(score)
+                            
+                            # Apply score calculation to each row
+                            df['score'] = df.apply(calculate_cc_score, axis=1)
+                            
                             df.insert(0, 'Select', False)  # Add Select column
                             df.insert(1, 'Qty', 1)  # Add Qty column with default value of 1
-                            df = df.sort_values('weekly_return_pct', ascending=False)
+                            df = df.sort_values('score', ascending=False)  # Sort by Score
                             st.session_state.cc_opportunities = df
                             st.rerun()
                         
@@ -2845,15 +3122,16 @@ elif page == "CC Dashboard":
             st.write("### 🎯 Covered Call Opportunities")
             
             # Helper function: Find best opportunity per ticker with criteria relaxation
-            def select_best_per_ticker(df, delta_min, delta_max, dte_min, dte_max, oi_min, weekly_min, qty_mode='conservative'):
+            def select_best_per_ticker(df, delta_min, delta_max, dte_min, dte_max, oi_min, weekly_min, qty_mode='conservative', min_score=0):
                 """
-                For each ticker, find the BEST opportunity (highest weekly return) that matches criteria.
+                For each ticker, find the BEST opportunity (highest score) that matches criteria.
                 If no match, relax criteria to find closest match.
                 
                 Args:
                     df: DataFrame of all opportunities
                     delta_min, delta_max, dte_min, dte_max, oi_min, weekly_min: Filter criteria
                     qty_mode: 'conservative' (1), 'medium' (50%), 'aggressive' (100%)
+                    min_score: Minimum composite score required (0-100)
                 
                 Returns:
                     List of (index, qty) tuples to select
@@ -2902,13 +3180,24 @@ elif page == "CC Dashboard":
                     if len(matches) == 0:
                         continue  # Skip this ticker - no contracts within delta/DTE range
                     
-                    # Find the best match: closest to target delta, then highest weekly return
+                    # Apply minimum score filter if score column exists
+                    if 'score' in matches.columns and min_score > 0:
+                        matches = matches[matches['score'] >= min_score]
+                    
+                    if len(matches) == 0:
+                        continue  # Skip this ticker - no contracts meet score threshold
+                    
+                    # Find the best match: highest score, then closest to target delta
                     # Target delta is the middle of the range
                     target_delta = (delta_min + delta_max) / 2
+                    matches = matches.copy()
                     matches['delta_distance'] = abs(matches['delta'] - target_delta)
                     
-                    # Sort by: 1) closest to target delta, 2) highest weekly return
-                    matches = matches.sort_values(['delta_distance', 'weekly_return_pct'], ascending=[True, False])
+                    # Sort by: 1) highest score, 2) closest to target delta
+                    if 'score' in matches.columns:
+                        matches = matches.sort_values(['score', 'delta_distance'], ascending=[False, True])
+                    else:
+                        matches = matches.sort_values(['delta_distance', 'weekly_return_pct'], ascending=[True, False])
                     best_idx = matches.index[0]
                     best_opp = matches.loc[best_idx]
                     
@@ -2931,9 +3220,12 @@ elif page == "CC Dashboard":
                 st.session_state.cc_conservative_dte_min = 7
                 st.session_state.cc_conservative_dte_max = 30
                 st.session_state.cc_conservative_oi_min = 50
+                st.session_state.cc_conservative_weekly_min = 0.3
             # Initialize RSI separately to handle existing sessions
             if 'cc_conservative_rsi_max' not in st.session_state:
                 st.session_state.cc_conservative_rsi_max = 70
+            if 'cc_conservative_weekly_min' not in st.session_state:
+                st.session_state.cc_conservative_weekly_min = 0.3
             
             if 'cc_medium_delta_min' not in st.session_state:
                 st.session_state.cc_medium_delta_min = 0.15
@@ -2941,8 +3233,11 @@ elif page == "CC Dashboard":
                 st.session_state.cc_medium_dte_min = 7
                 st.session_state.cc_medium_dte_max = 30
                 st.session_state.cc_medium_oi_min = 50
+                st.session_state.cc_medium_weekly_min = 0.3
             if 'cc_medium_rsi_max' not in st.session_state:
                 st.session_state.cc_medium_rsi_max = 80
+            if 'cc_medium_weekly_min' not in st.session_state:
+                st.session_state.cc_medium_weekly_min = 0.3
             
             if 'cc_aggressive_delta_min' not in st.session_state:
                 st.session_state.cc_aggressive_delta_min = 0.20
@@ -2950,8 +3245,15 @@ elif page == "CC Dashboard":
                 st.session_state.cc_aggressive_dte_min = 7
                 st.session_state.cc_aggressive_dte_max = 21
                 st.session_state.cc_aggressive_oi_min = 25
+                st.session_state.cc_aggressive_weekly_min = 0.3
             if 'cc_aggressive_rsi_max' not in st.session_state:
                 st.session_state.cc_aggressive_rsi_max = 100
+            if 'cc_aggressive_weekly_min' not in st.session_state:
+                st.session_state.cc_aggressive_weekly_min = 0.3
+            
+            # Initialize minimum score filter
+            if 'cc_min_score' not in st.session_state:
+                st.session_state.cc_min_score = 0
             
             # Get DataFrame from session state (already has Select column)
             opp_df = st.session_state.cc_opportunities
@@ -2971,6 +3273,9 @@ elif page == "CC Dashboard":
                     # Track active preset for Delta formatting
                     st.session_state.cc_active_preset = 'conservative'
                     
+                    # Set minimum score for Conservative preset
+                    st.session_state.cc_min_score = 70
+                    
                     # Clear all first
                     st.session_state.cc_opportunities['Select'] = False
                     st.session_state.cc_opportunities['Qty'] = 1  # Reset all to 1
@@ -2984,7 +3289,8 @@ elif page == "CC Dashboard":
                         st.session_state.cc_conservative_dte_max,
                         st.session_state.cc_conservative_oi_min,
                         st.session_state.cc_conservative_weekly_min,
-                        qty_mode='conservative'
+                        qty_mode='conservative',
+                        min_score=70
                     )
                     
                     # Apply selections
@@ -3000,6 +3306,9 @@ elif page == "CC Dashboard":
                     # Track active preset for Delta formatting
                     st.session_state.cc_active_preset = 'medium'
                     
+                    # Set minimum score for Medium preset
+                    st.session_state.cc_min_score = 55
+                    
                     # Clear all first
                     st.session_state.cc_opportunities['Select'] = False
                     st.session_state.cc_opportunities['Qty'] = 1  # Reset all to 1
@@ -3013,7 +3322,8 @@ elif page == "CC Dashboard":
                         st.session_state.cc_medium_dte_max,
                         st.session_state.cc_medium_oi_min,
                         st.session_state.cc_medium_weekly_min,
-                        qty_mode='medium'
+                        qty_mode='medium',
+                        min_score=55
                     )
                     
                     # Apply selections
@@ -3029,6 +3339,9 @@ elif page == "CC Dashboard":
                     # Track active preset for Delta formatting
                     st.session_state.cc_active_preset = 'aggressive'
                     
+                    # Set minimum score for Aggressive preset
+                    st.session_state.cc_min_score = 40
+                    
                     # Clear all first
                     st.session_state.cc_opportunities['Select'] = False
                     st.session_state.cc_opportunities['Qty'] = 1  # Reset all to 1
@@ -3042,7 +3355,8 @@ elif page == "CC Dashboard":
                         st.session_state.cc_aggressive_dte_max,
                         st.session_state.cc_aggressive_oi_min,
                         st.session_state.cc_aggressive_weekly_min,
-                        qty_mode='aggressive'
+                        qty_mode='aggressive',
+                        min_score=40
                     )
                     
                     # Apply selections
@@ -3060,6 +3374,29 @@ elif page == "CC Dashboard":
             with col6:
                 selected_count = opp_df['Select'].sum()
                 st.metric("Selected", int(selected_count))
+            
+            # Minimum Score Slider - placed right below preset buttons
+            st.write("")
+            col_score, col_space = st.columns([3, 4])
+            
+            with col_score:
+                min_score = st.slider(
+                    "📊 Minimum Score",
+                    min_value=0,
+                    max_value=100,
+                    value=st.session_state.cc_min_score,
+                    step=5,
+                    key="cc_min_score_slider",
+                    help="Filter opportunities by composite score. Higher = better quality. Conservative=70, Medium=55, Aggressive=40"
+                )
+                if min_score != st.session_state.cc_min_score:
+                    st.session_state.cc_min_score = min_score
+                    # Apply score filter to selections
+                    if 'score' in st.session_state.cc_opportunities.columns:
+                        # Deselect any opportunities below the minimum score
+                        below_threshold = st.session_state.cc_opportunities['score'] < min_score
+                        st.session_state.cc_opportunities.loc[below_threshold, 'Select'] = False
+                    st.rerun()
             
             st.write("")
             
@@ -3223,8 +3560,12 @@ elif page == "CC Dashboard":
             st.write("")
             st.write("---")
             
-            # Display dataframe
-            display_opp = opp_df[['Select', 'Qty', 'symbol', 'current_price', 'strike', 'expiration', 'dte', 'delta', 'premium', 'weekly_return_pct', 'rsi', 'iv_rank', 'bb_pct_b', 'spread_pct', 'open_interest', 'volume', 'max_contracts']].copy()
+            # Display dataframe - include Score column if it exists
+            base_cols = ['Select', 'Qty', 'symbol']
+            if 'score' in opp_df.columns:
+                base_cols.append('score')
+            base_cols.extend(['current_price', 'strike', 'expiration', 'dte', 'delta', 'premium', 'weekly_return_pct', 'rsi', 'iv_rank', 'bb_pct_b', 'spread_pct', 'open_interest', 'volume', 'max_contracts'])
+            display_opp = opp_df[[col for col in base_cols if col in opp_df.columns]].copy()
             
             # Calculate Available column (remaining contracts)
             display_opp['Available'] = display_opp['max_contracts'] - display_opp['Qty']
@@ -3238,8 +3579,11 @@ elif page == "CC Dashboard":
             
             display_opp['Available_Display'] = display_opp['Available'].apply(format_available)
             
-            # Rename columns
-            display_opp.columns = ['Select', 'Qty', 'Symbol', 'Stock Price', 'Strike', 'Expiration', 'DTE', 'Delta', 'Premium', 'Weekly %', 'RSI', 'IV Rank', 'BB %B', 'Spread %', 'OI', 'Volume', 'max_contracts', 'Available', 'Available_Display']
+            # Rename columns - dynamically include Score if present
+            if 'score' in opp_df.columns:
+                display_opp.columns = ['Select', 'Qty', 'Symbol', 'Score', 'Stock Price', 'Strike', 'Expiration', 'DTE', 'Delta', 'Premium', 'Weekly %', 'RSI', 'IV Rank', 'BB %B', 'Spread %', 'OI', 'Volume', 'max_contracts', 'Available', 'Available_Display']
+            else:
+                display_opp.columns = ['Select', 'Qty', 'Symbol', 'Stock Price', 'Strike', 'Expiration', 'DTE', 'Delta', 'Premium', 'Weekly %', 'RSI', 'IV Rank', 'BB %B', 'Spread %', 'OI', 'Volume', 'max_contracts', 'Available', 'Available_Display']
             
             # Format RSI with emoji indicators
             def format_rsi(val):
@@ -3331,7 +3675,26 @@ elif page == "CC Dashboard":
                     # No preset active, return plain value
                     return f"{val:.3f}"
             
+            # Format Score with emoji indicators
+            def format_score(val):
+                if val is None or (isinstance(val, float) and val != val):
+                    return "N/A"
+                try:
+                    val = int(val)
+                except (ValueError, TypeError):
+                    return "N/A"
+                if val >= 80:
+                    return f"🟢 {val}"  # Green = Excellent
+                elif val >= 60:
+                    return f"🟡 {val}"  # Yellow = Good
+                elif val >= 40:
+                    return f"🟠 {val}"  # Orange = Acceptable
+                else:
+                    return f"🔴 {val}"  # Red = Poor
+            
             # Apply formatting
+            if 'Score' in display_opp.columns:
+                display_opp['Score'] = display_opp['Score'].apply(format_score)
             display_opp['Stock Price'] = display_opp['Stock Price'].apply(lambda x: f"${x:.2f}")
             display_opp['Strike'] = display_opp['Strike'].apply(lambda x: f"${x:.2f}")
             display_opp['Delta'] = display_opp['Delta'].apply(format_delta)
@@ -3342,8 +3705,11 @@ elif page == "CC Dashboard":
             display_opp['BB %B'] = display_opp['BB %B'].apply(format_bb_pct_b)
             display_opp['Spread %'] = display_opp['Spread %'].apply(format_spread)
             
-            # Reorder columns to put Available after Qty, Stock Price after Symbol (use display version with emoji)
-            display_opp = display_opp[['Select', 'Qty', 'Available_Display', 'Symbol', 'Stock Price', 'Strike', 'Expiration', 'DTE', 'Delta', 'Premium', 'Weekly %', 'RSI', 'IV Rank', 'BB %B', 'Spread %', 'OI', 'Volume']]
+            # Reorder columns to put Available after Qty, Score after Symbol (use display version with emoji)
+            if 'Score' in display_opp.columns:
+                display_opp = display_opp[['Select', 'Qty', 'Available_Display', 'Symbol', 'Score', 'Stock Price', 'Strike', 'Expiration', 'DTE', 'Delta', 'Premium', 'Weekly %', 'RSI', 'IV Rank', 'BB %B', 'Spread %', 'OI', 'Volume']]
+            else:
+                display_opp = display_opp[['Select', 'Qty', 'Available_Display', 'Symbol', 'Stock Price', 'Strike', 'Expiration', 'DTE', 'Delta', 'Premium', 'Weekly %', 'RSI', 'IV Rank', 'BB %B', 'Spread %', 'OI', 'Volume']]
             
             edited_opp = st.data_editor(
                 display_opp,
