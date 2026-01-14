@@ -619,7 +619,7 @@ if page == "Home":
         # ============================================
         # PREMIUM EARNINGS OVER TIME CHART
         # ============================================
-        from utils.monthly_premium import get_monthly_premium_data
+        from utils.monthly_premium import get_live_monthly_premium_data
         import plotly.graph_objects as go
         
         st.subheader("Premium Earnings Over Time")
@@ -643,13 +643,13 @@ if page == "Home":
         if not all_account_numbers:
             all_account_numbers = [selected_account]
         
-        # Aggregate monthly data across all accounts
+        # Aggregate monthly data across all accounts using LIVE (non-cached) data
         from collections import defaultdict
         aggregated_monthly = defaultdict(lambda: {'net_premium': 0, 'month_name': ''})
         
         for acc_num in all_account_numbers:
             try:
-                monthly_data = get_monthly_premium_data(api, acc_num, months=6)
+                monthly_data = get_live_monthly_premium_data(api, acc_num, months=6)
                 for month in monthly_data:
                     key = month['month_name']
                     aggregated_monthly[key]['net_premium'] += month['net_premium']
