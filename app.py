@@ -645,20 +645,35 @@ if page == "Home":
         
         # Aggregate monthly data across all accounts using LIVE (non-cached) data
         from collections import defaultdict
-        aggregated_monthly = defaultdict(lambda: {'net_premium': 0, 'month_name': ''})
+        aggregated_monthly = defaultdict(lambda: {'net_premium': 0, 'month_name': '', 'month_key': (0, 0)})
         
         for acc_num in all_account_numbers:
             try:
                 monthly_data = get_live_monthly_premium_data(api, acc_num, months=6)
                 for month in monthly_data:
-                    key = month['month_name']
+                    # Use month_year tuple as key for proper sorting
+                    key = month.get('month_year', (0, 0))
+                    if key == (0, 0):
+                        # Fallback: parse from month_name
+                        from datetime import datetime as dt
+                        try:
+                            parsed = dt.strptime(month['month_name'], '%b %Y')
+                            key = (parsed.month, parsed.year)
+                        except:
+                            key = month['month_name']
                     aggregated_monthly[key]['net_premium'] += month['net_premium']
                     aggregated_monthly[key]['month_name'] = month['month_name']
+                    aggregated_monthly[key]['month_key'] = key
             except:
                 pass
         
         # Convert to sorted list (newest first to match Performance page)
-        months_list = sorted(aggregated_monthly.values(), key=lambda x: x['month_name'], reverse=True)
+        # Sort by (year, month) tuple descending
+        months_list = sorted(
+            aggregated_monthly.values(), 
+            key=lambda x: (x['month_key'][1], x['month_key'][0]) if isinstance(x['month_key'], tuple) else (0, 0), 
+            reverse=True
+        )
         
         if months_list:
             month_names = [m['month_name'] for m in months_list]
@@ -706,7 +721,7 @@ if page == "Home":
                     color='#888',
                     title='Monthly Net Premium ($)',
                     tickprefix='$',
-                    tickformat=',.0f'
+                    tickformat=',.'
                 ),
                 yaxis2=dict(
                     title='Cumulative Premium ($)',
@@ -715,10 +730,10 @@ if page == "Home":
                     showgrid=False,
                     color='#17a2b8',
                     tickprefix='$',
-                    tickformat=',.0f'
+                    tickformat=',.'
                 ),
                 margin=dict(l=60, r=60, t=30, b=50),
-                height=350,
+                height=400,
                 legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),
                 hovermode='x unified'
             )
