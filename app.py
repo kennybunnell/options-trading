@@ -365,13 +365,13 @@ with st.sidebar:
     # Navigation - Combined approach with sections
     st.markdown('<div class="nav-section">TRADING</div>', unsafe_allow_html=True)
     
-    # All navigation options - Performance first as default
-    all_pages = ["📊 Performance", "🏠 Dashboard", "💵 CSP Dashboard", "📈 Covered Calls", "🎯 PMCC Dashboard", "⚙️ Settings"]
-    trading_pages = ["📊 Performance", "🏠 Dashboard", "💵 CSP Dashboard", "📈 Covered Calls", "🎯 PMCC Dashboard"]
+    # All navigation options
+    all_pages = ["🏠 Dashboard", "💵 CSP Dashboard", "📈 Covered Calls", "🎯 PMCC Dashboard", "📊 Performance", "⚙️ Settings"]
+    trading_pages = ["🏠 Dashboard", "💵 CSP Dashboard", "📈 Covered Calls", "🎯 PMCC Dashboard", "📊 Performance"]
     
-    # Initialize default page - Performance is now default
+    # Initialize default page
     if 'nav_page' not in st.session_state:
-        st.session_state.nav_page = "📊 Performance"
+        st.session_state.nav_page = "🏠 Dashboard"
     
     # Trading section radio buttons
     for page_option in trading_pages:
@@ -507,11 +507,11 @@ with st.sidebar:
 
 # Map page names back to original names for compatibility
 page_mapping = {
-    "📊 Performance": "Performance",
     "🏠 Dashboard": "Home",
     "💵 CSP Dashboard": "CSP Dashboard",
     "📈 Covered Calls": "CC Dashboard",
     "🎯 PMCC Dashboard": "PMCC Dashboard",
+    "📊 Performance": "Performance",
     "⚙️ Settings": "Settings"
 }
 page = page_mapping.get(page, page)
@@ -5499,24 +5499,24 @@ elif page == "Performance":
         except:
             pass
     
-    # Create tabs FIRST - at the top of the page
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📋 Working Orders", "Positions", "Active Positions", "Stock Basis & Returns", "Performance Overview", "📊 Projections"])
+    # Create tabs FIRST - at the top of the page (Performance Overview is default/first)
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📊 Performance Overview", "📋 Working Orders", "📍 Positions", "📈 Active Positions", "💰 Stock Basis & Returns", "📈 Projections"])
     
     with tab1:
-        render_working_orders_dashboard(api, selected_account)
-    
-    with tab2:
-        render_positions_view(api, selected_account)
-    
-    with tab3:
-        render_active_positions(api)
-    
-    with tab4:
-        render_stock_basis(api)
-    
-    with tab5:
         # Use the new REAL DATA version of Performance Overview
         render_performance_overview_real(api, all_account_numbers_perf)
+    
+    with tab2:
+        render_working_orders_dashboard(api, selected_account)
+    
+    with tab3:
+        render_positions_view(api, selected_account)
+    
+    with tab4:
+        render_active_positions(api)
+    
+    with tab5:
+        render_stock_basis(api)
     
     with tab6:
         render_projections_tab(api, all_account_numbers_perf, portfolio_value_perf)
