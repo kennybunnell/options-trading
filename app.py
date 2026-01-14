@@ -1405,14 +1405,32 @@ elif page == "CSP Dashboard":
             
             # Apply BB %B filter if column exists and bb_max < 1.0
             if 'BB %B' in filtered.columns and bb_max < 1.0:
-                filtered = filtered[filtered['BB %B'].apply(lambda x: x is None or x <= bb_max)]
+                def check_bb_max(x):
+                    if x is None or pd.isna(x):
+                        return True
+                    if isinstance(x, str):
+                        return True  # Skip string values like 'N/A'
+                    try:
+                        return float(x) <= bb_max
+                    except (ValueError, TypeError):
+                        return True
+                filtered = filtered[filtered['BB %B'].apply(check_bb_max)]
             
             # Apply oversold filter if enabled (RSI < 40 AND BB %B < 0.3)
             if oversold_only:
                 if 'RSI' in filtered.columns:
                     filtered = filtered[filtered['RSI'].apply(lambda x: extract_rsi(x) is None or extract_rsi(x) < 40)]
                 if 'BB %B' in filtered.columns:
-                    filtered = filtered[filtered['BB %B'].apply(lambda x: x is None or x < 0.3)]
+                    def check_bb_oversold(x):
+                        if x is None or pd.isna(x):
+                            return True
+                        if isinstance(x, str):
+                            return True  # Skip string values like 'N/A'
+                        try:
+                            return float(x) < 0.3
+                        except (ValueError, TypeError):
+                            return True
+                    filtered = filtered[filtered['BB %B'].apply(check_bb_oversold)]
             
             if len(filtered) == 0:
                 return selections
