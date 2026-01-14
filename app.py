@@ -4045,7 +4045,8 @@ elif page == "PMCC Dashboard":
     
     st.markdown("**Scan for LEAP call options (9-15 months out, deep ITM for PMCC strategy)**")
     
-    # Filter controls
+    # Basic Option Filters
+    st.markdown("##### 🎯 Option Filters")
     col1, col2, col3 = st.columns(3)
     
     with col1:
@@ -4058,7 +4059,62 @@ elif page == "PMCC Dashboard":
     
     with col3:
         min_oi = st.number_input("Min Open Interest", min_value=0, max_value=1000, value=50, step=10, key="pmcc_min_oi")
-        st.write("")
+        max_bid_ask_spread = st.number_input("Max Bid-Ask Spread %", min_value=0.0, max_value=20.0, value=5.0, step=0.5, key="pmcc_max_spread", help="Filter out options with wide spreads (higher cost to enter/exit)")
+    
+    # Advanced Filters - Expandable
+    with st.expander("📊 Advanced Filters (Technical & Value)", expanded=False):
+        adv_col1, adv_col2, adv_col3 = st.columns(3)
+        
+        with adv_col1:
+            st.markdown("**💰 Value Filters**")
+            max_extrinsic_pct = st.number_input(
+                "Max Extrinsic Value %", 
+                min_value=0.0, max_value=50.0, value=15.0, step=1.0, 
+                key="pmcc_max_extrinsic",
+                help="Extrinsic value as % of option price. Lower = less time premium you're paying for."
+            )
+            max_iv = st.number_input(
+                "Max IV %", 
+                min_value=0.0, max_value=200.0, value=100.0, step=5.0, 
+                key="pmcc_max_iv",
+                help="Maximum implied volatility. Lower IV = cheaper LEAPs."
+            )
+        
+        with adv_col2:
+            st.markdown("**📈 Trend Filters**")
+            require_above_ma = st.checkbox(
+                "Price above 50-day MA", 
+                value=False, 
+                key="pmcc_above_ma",
+                help="Only show stocks trading above their 50-day moving average (uptrend)"
+            )
+            min_rsi = st.number_input(
+                "Min RSI", 
+                min_value=0, max_value=100, value=30, step=5, 
+                key="pmcc_min_rsi",
+                help="Minimum RSI to avoid oversold stocks. Default 30."
+            )
+            max_rsi = st.number_input(
+                "Max RSI", 
+                min_value=0, max_value=100, value=70, step=5, 
+                key="pmcc_max_rsi",
+                help="Maximum RSI to avoid overbought stocks. Default 70."
+            )
+        
+        with adv_col3:
+            st.markdown("**🎯 Efficiency Filters**")
+            min_capital_efficiency = st.number_input(
+                "Min Capital Efficiency %", 
+                min_value=0.0, max_value=100.0, value=0.0, step=5.0, 
+                key="pmcc_min_efficiency",
+                help="LEAP cost as % of 100 shares. Lower = more capital efficient. E.g., 60% means LEAP costs 60% of owning shares."
+            )
+            max_capital_efficiency = st.number_input(
+                "Max Capital Efficiency %", 
+                min_value=0.0, max_value=100.0, value=85.0, step=5.0, 
+                key="pmcc_max_efficiency",
+                help="Maximum capital efficiency. Typically want < 85% to make PMCC worthwhile."
+            )
     
     # Preset filter buttons
     st.write("")
@@ -4071,6 +4127,9 @@ elif page == "PMCC Dashboard":
             st.session_state.pmcc_delta_min = 0.85
             st.session_state.pmcc_delta_max = 0.95
             st.session_state.pmcc_min_oi = 100
+            st.session_state.pmcc_max_spread = 3.0
+            st.session_state.pmcc_max_extrinsic = 10.0
+            st.session_state.pmcc_above_ma = True
             st.rerun()
     
     with preset_col2:
@@ -4080,6 +4139,9 @@ elif page == "PMCC Dashboard":
             st.session_state.pmcc_delta_min = 0.75
             st.session_state.pmcc_delta_max = 0.85
             st.session_state.pmcc_min_oi = 50
+            st.session_state.pmcc_max_spread = 5.0
+            st.session_state.pmcc_max_extrinsic = 15.0
+            st.session_state.pmcc_above_ma = False
             st.rerun()
     
     with preset_col3:
@@ -4089,6 +4151,9 @@ elif page == "PMCC Dashboard":
             st.session_state.pmcc_delta_min = 0.70
             st.session_state.pmcc_delta_max = 0.80
             st.session_state.pmcc_min_oi = 25
+            st.session_state.pmcc_max_spread = 7.0
+            st.session_state.pmcc_max_extrinsic = 20.0
+            st.session_state.pmcc_above_ma = False
             st.rerun()
     
     st.write("")
@@ -4110,9 +4175,22 @@ elif page == "PMCC Dashboard":
                     tradier = TradierAPI()
                     
                     st.write(f"🔍 Scanning {len(pmcc_watchlist)} symbols...")
-                    st.write(f"🎯 Filters: DTE {dte_min}-{dte_max}, Delta {delta_min:.2f}-{delta_max:.2f}, Min OI {min_oi}")
+                    st.write(f"🎯 Option Filters: DTE {dte_min}-{dte_max}, Delta {delta_min:.2f}-{delta_max:.2f}")
+                    st.write(f"💰 Value Filters: Max Spread {max_bid_ask_spread}%, Max Extrinsic {max_extrinsic_pct}%")
                     
-                    # Scan for LEAPs
+                    # Get advanced filter values (with defaults if not set)
+                    adv_max_iv = st.session_state.get('pmcc_max_iv', 100.0)
+                    adv_require_above_ma = st.session_state.get('pmcc_above_ma', False)
+                    adv_min_rsi = st.session_state.get('pmcc_min_rsi', 30)
+                    adv_max_rsi = st.session_state.get('pmcc_max_rsi', 70)
+                    adv_min_efficiency = st.session_state.get('pmcc_min_efficiency', 0.0)
+                    adv_max_efficiency = st.session_state.get('pmcc_max_efficiency', 85.0)
+                    adv_max_extrinsic = st.session_state.get('pmcc_max_extrinsic', 15.0)
+                    
+                    if adv_require_above_ma:
+                        st.write(f"📈 Trend Filter: Requiring price above 50-day MA")
+                    
+                    # Scan for LEAPs with all filters
                     results = scan_leap_options(
                         tradier,
                         pmcc_watchlist,
@@ -4120,7 +4198,16 @@ elif page == "PMCC Dashboard":
                         dte_max=dte_max,
                         delta_min=delta_min,
                         delta_max=delta_max,
-                        min_oi=min_oi
+                        min_oi=min_oi,
+                        max_bid_ask_spread=max_bid_ask_spread,
+                        max_extrinsic_pct=adv_max_extrinsic,
+                        max_iv=adv_max_iv,
+                        require_above_ma=adv_require_above_ma,
+                        min_rsi=adv_min_rsi,
+                        max_rsi=adv_max_rsi,
+                        min_capital_efficiency=adv_min_efficiency,
+                        max_capital_efficiency=adv_max_efficiency,
+                        include_technical=True
                     )
                     
                     st.session_state.pmcc_leap_scan_results = results
@@ -4137,26 +4224,84 @@ elif page == "PMCC Dashboard":
     if st.session_state.pmcc_leap_scan_results:
         st.write("")
         st.markdown(f"### 📊 LEAP Scan Results ({len(st.session_state.pmcc_leap_scan_results)} opportunities)")
+        st.caption("🎯 Sorted by PMCC Score (highest = best candidate)")
         
         results_df = pd.DataFrame(st.session_state.pmcc_leap_scan_results)
         
-        # Format for display
-        display_df = results_df[[
-            'symbol', 'underlying_price', 'strike', 'expiration', 'dte',
-            'delta', 'price', 'cost_per_contract', 'open_interest', 'volume'
-        ]].copy()
+        # Build display columns based on what's available
+        base_cols = ['symbol', 'underlying_price', 'strike', 'expiration', 'dte', 'delta', 'price', 'cost_per_contract']
         
-        display_df.columns = [
-            'Symbol', 'Stock Price', 'Strike', 'Expiration', 'DTE',
-            'Delta', 'Premium', 'Cost/Contract', 'Open Int', 'Volume'
-        ]
+        # Add enhanced columns if available
+        enhanced_cols = []
+        if 'pmcc_score' in results_df.columns:
+            enhanced_cols.append('pmcc_score')
+        if 'extrinsic_pct' in results_df.columns:
+            enhanced_cols.append('extrinsic_pct')
+        if 'capital_efficiency' in results_df.columns:
+            enhanced_cols.append('capital_efficiency')
+        if 'bid_ask_spread_pct' in results_df.columns:
+            enhanced_cols.append('bid_ask_spread_pct')
+        if 'iv' in results_df.columns:
+            enhanced_cols.append('iv')
+        if 'rsi' in results_df.columns:
+            enhanced_cols.append('rsi')
+        if 'ma_percent' in results_df.columns:
+            enhanced_cols.append('ma_percent')
+        
+        # Add basic cols
+        enhanced_cols.extend(['open_interest', 'volume'])
+        
+        # Create display dataframe
+        display_cols = base_cols + [c for c in enhanced_cols if c in results_df.columns]
+        display_df = results_df[display_cols].copy()
+        
+        # Rename columns for display
+        col_rename = {
+            'symbol': 'Symbol',
+            'underlying_price': 'Stock $',
+            'strike': 'Strike',
+            'expiration': 'Expiration',
+            'dte': 'DTE',
+            'delta': 'Delta',
+            'price': 'Premium',
+            'cost_per_contract': 'Cost',
+            'pmcc_score': '🎯 Score',
+            'extrinsic_pct': 'Extr %',
+            'capital_efficiency': 'Cap Eff %',
+            'bid_ask_spread_pct': 'Spread %',
+            'iv': 'IV %',
+            'rsi': 'RSI',
+            'ma_percent': 'MA %',
+            'open_interest': 'OI',
+            'volume': 'Vol'
+        }
+        display_df.rename(columns=col_rename, inplace=True)
         
         # Format columns
-        display_df['Stock Price'] = display_df['Stock Price'].apply(lambda x: f"${x:.2f}")
-        display_df['Strike'] = display_df['Strike'].apply(lambda x: f"${x:.2f}")
-        display_df['Delta'] = display_df['Delta'].apply(lambda x: f"{x:.3f}")
-        display_df['Premium'] = display_df['Premium'].apply(lambda x: f"${x:.2f}")
-        display_df['Cost/Contract'] = display_df['Cost/Contract'].apply(lambda x: f"${x:,.0f}")
+        if 'Stock $' in display_df.columns:
+            display_df['Stock $'] = display_df['Stock $'].apply(lambda x: f"${x:.2f}")
+        if 'Strike' in display_df.columns:
+            display_df['Strike'] = display_df['Strike'].apply(lambda x: f"${x:.0f}")
+        if 'Delta' in display_df.columns:
+            display_df['Delta'] = display_df['Delta'].apply(lambda x: f"{x:.2f}")
+        if 'Premium' in display_df.columns:
+            display_df['Premium'] = display_df['Premium'].apply(lambda x: f"${x:.2f}")
+        if 'Cost' in display_df.columns:
+            display_df['Cost'] = display_df['Cost'].apply(lambda x: f"${x:,.0f}")
+        if '🎯 Score' in display_df.columns:
+            display_df['🎯 Score'] = display_df['🎯 Score'].apply(lambda x: f"{x:.0f}" if pd.notna(x) else "N/A")
+        if 'Extr %' in display_df.columns:
+            display_df['Extr %'] = display_df['Extr %'].apply(lambda x: f"{x:.1f}%" if pd.notna(x) else "N/A")
+        if 'Cap Eff %' in display_df.columns:
+            display_df['Cap Eff %'] = display_df['Cap Eff %'].apply(lambda x: f"{x:.0f}%" if pd.notna(x) else "N/A")
+        if 'Spread %' in display_df.columns:
+            display_df['Spread %'] = display_df['Spread %'].apply(lambda x: f"{x:.1f}%" if pd.notna(x) else "N/A")
+        if 'IV %' in display_df.columns:
+            display_df['IV %'] = display_df['IV %'].apply(lambda x: f"{x:.0f}%" if pd.notna(x) and x > 0 else "N/A")
+        if 'RSI' in display_df.columns:
+            display_df['RSI'] = display_df['RSI'].apply(lambda x: f"{x:.0f}" if pd.notna(x) else "N/A")
+        if 'MA %' in display_df.columns:
+            display_df['MA %'] = display_df['MA %'].apply(lambda x: f"{x:+.1f}%" if pd.notna(x) else "N/A")
         
         st.dataframe(display_df, use_container_width=True, hide_index=True)
         
