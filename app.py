@@ -3910,48 +3910,131 @@ elif page == "PMCC Dashboard":
     st.divider()
     
     # ========================================
-    # SECTION 2: TRADINGVIEW IMPORT & WATCHLIST
+    # SECTION 2: WATCHLIST MANAGEMENT (Same style as CSP Dashboard)
     # ========================================
-    st.markdown('<div class="section-header">📝 Watchlist Management</div>', unsafe_allow_html=True)
+    st.subheader("📝 Watchlist Management")
     
     # Read watchlist
     try:
         with open('pmcc_watchlist.txt', 'r') as f:
-            watchlist = [line.strip() for line in f if line.strip()]
+            pmcc_watchlist = [line.strip() for line in f if line.strip()]
+    except FileNotFoundError:
+        pmcc_watchlist = []
     except:
-        watchlist = []
+        pmcc_watchlist = []
     
-    # Manual ticker addition
-    col1, col2 = st.columns([3, 1])
+    col1, col2, col3 = st.columns([2, 1, 1])
+    
     with col1:
-        new_ticker = st.text_input("Add ticker manually", placeholder="AAPL", key="pmcc_manual_ticker")
-    with col2:
-        st.write("")
-        st.write("")
-        if st.button("➕ Add", use_container_width=True, key="pmcc_add_ticker"):
-            if new_ticker:
-                ticker = new_ticker.upper().strip()
-                if ticker not in watchlist:
-                    with open('pmcc_watchlist.txt', 'a') as f:
-                        f.write(f"{ticker}\\n")
-                    st.success(f"✅ Added {ticker}")
-                    st.rerun()
-                else:
-                    st.warning(f"{ticker} already in watchlist")
+        st.info(f"📋 Currently monitoring **{len(pmcc_watchlist)}** symbols from watchlist")
     
-    # Display current watchlist
-    if watchlist:
-        st.write("")
-        st.markdown(f"**Current Watchlist ({len(watchlist)} tickers):**")
-        st.write(", ".join(watchlist))
+    with col2:
+        if st.button("👁️ View/Edit Watchlist", use_container_width=True, key="pmcc_view_edit"):
+            st.session_state.show_pmcc_watchlist_editor = not st.session_state.get('show_pmcc_watchlist_editor', False)
+    
+    with col3:
+        if st.button("🗑️ Clear Watchlist", use_container_width=True, type="secondary", key="pmcc_clear_watchlist"):
+            if len(pmcc_watchlist) > 0:
+                with open('pmcc_watchlist.txt', 'w') as f:
+                    f.write("")
+                st.success("✅ Watchlist cleared!")
+                st.rerun()
+    
+    # Show watchlist editor if toggled
+    if st.session_state.get('show_pmcc_watchlist_editor', False):
+        st.subheader("✏️ Edit Watchlist")
         
-        if st.button("🗑️ Clear Watchlist", key="pmcc_clear_watchlist"):
-            with open('pmcc_watchlist.txt', 'w') as f:
-                f.write("")
-            st.success("✅ Watchlist cleared!")
-            st.rerun()
-    else:
-        st.info("📝 No tickers in watchlist. Add some to get started!")
+        # Add new ticker section
+        st.markdown("**➕ Add New Ticker(s)**")
+        add_col1, add_col2 = st.columns([3, 1])
+        with add_col1:
+            new_ticker_input = st.text_input(
+                "Enter ticker symbol(s)",
+                placeholder="e.g., AAPL or AAPL, MSFT, GOOGL",
+                key="pmcc_new_ticker_input",
+                label_visibility="collapsed"
+            ).upper().strip()
+        with add_col2:
+            if st.button("➕ Add Ticker(s)", type="primary", use_container_width=True, key="pmcc_add_tickers"):
+                if new_ticker_input:
+                    # Parse comma-separated tickers and remove duplicates from input
+                    new_tickers = list(dict.fromkeys([t.strip() for t in new_ticker_input.split(',') if t.strip()]))
+                    added = []
+                    already_in_watchlist = []
+                    
+                    for ticker in new_tickers:
+                        if ticker in pmcc_watchlist:
+                            already_in_watchlist.append(ticker)
+                        else:
+                            pmcc_watchlist.append(ticker)
+                            added.append(ticker)
+                    
+                    if added:
+                        # Save updated watchlist
+                        updated_watchlist = sorted(pmcc_watchlist)
+                        with open('pmcc_watchlist.txt', 'w') as f:
+                            for symbol in updated_watchlist:
+                                f.write(f"{symbol}\n")
+                        st.success(f"✅ Added {len(added)} ticker(s): {', '.join(added)}")
+                    
+                    if already_in_watchlist:
+                        st.info(f"ℹ️ Already in watchlist (skipped): {', '.join(already_in_watchlist)}")
+                    
+                    if added:
+                        # Close the dialog after adding
+                        st.session_state.show_pmcc_watchlist_editor = False
+                        st.rerun()
+                else:
+                    st.warning("⚠️ Please enter a ticker symbol")
+        
+        st.divider()
+        
+        if len(pmcc_watchlist) > 0:
+            # Create DataFrame for editing
+            watchlist_df = pd.DataFrame({
+                'Remove': [False] * len(pmcc_watchlist),
+                'Symbol': pmcc_watchlist
+            })
+            
+            edited_watchlist = st.data_editor(
+                watchlist_df,
+                column_config={
+                    "Remove": st.column_config.CheckboxColumn(
+                        "Remove",
+                        help="Check to remove from watchlist",
+                        default=False,
+                    ),
+                    "Symbol": st.column_config.TextColumn("Symbol", disabled=True),
+                },
+                hide_index=True,
+                use_container_width=True,
+                key="pmcc_watchlist_editor"
+            )
+            
+            # Remove selected symbols
+            if st.button("🗑️ Remove Selected", type="primary", key="pmcc_remove_selected"):
+                symbols_to_keep = edited_watchlist[edited_watchlist['Remove'] == False]['Symbol'].tolist()
+                
+                with open('pmcc_watchlist.txt', 'w') as f:
+                    for symbol in sorted(symbols_to_keep):
+                        f.write(f"{symbol}\n")
+                
+                removed_count = len(pmcc_watchlist) - len(symbols_to_keep)
+                st.success(f"✅ Removed {removed_count} symbols from watchlist!")
+                st.session_state.show_pmcc_watchlist_editor = False
+                st.rerun()
+        else:
+            st.info("📝 No tickers in watchlist. Add some above!")
+    
+    # Show current watchlist symbols in a grid (collapsed by default)
+    with st.expander(f"📋 Current Watchlist Symbols ({len(pmcc_watchlist)} tickers)", expanded=False):
+        if pmcc_watchlist:
+            # Display in a grid of 8 columns
+            cols = st.columns(8)
+            for i, symbol in enumerate(sorted(pmcc_watchlist)):
+                cols[i % 8].write(symbol)
+        else:
+            st.info("📝 No tickers in watchlist. Add some to get started!")
     
     st.divider()
     
@@ -4016,7 +4099,7 @@ elif page == "PMCC Dashboard":
     
     # Scan button
     if st.button("🔍 Scan for LEAPs", type="primary", use_container_width=True, key="pmcc_scan"):
-        if not watchlist:
+        if not pmcc_watchlist:
             st.warning("⚠️ Please add tickers to your watchlist first!")
         else:
             try:
@@ -4026,13 +4109,13 @@ elif page == "PMCC Dashboard":
                     
                     tradier = TradierAPI()
                     
-                    st.write(f"🔍 Scanning {len(watchlist)} symbols...")
+                    st.write(f"🔍 Scanning {len(pmcc_watchlist)} symbols...")
                     st.write(f"🎯 Filters: DTE {dte_min}-{dte_max}, Delta {delta_min:.2f}-{delta_max:.2f}, Min OI {min_oi}")
                     
                     # Scan for LEAPs
                     results = scan_leap_options(
                         tradier,
-                        watchlist,
+                        pmcc_watchlist,
                         dte_min=dte_min,
                         dte_max=dte_max,
                         delta_min=delta_min,
