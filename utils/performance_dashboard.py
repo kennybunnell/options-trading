@@ -415,6 +415,7 @@ def render_options_table(positions: List[Dict], position_type: str):
             'option_type': position_type,
             'quantity': qty,
             'current_price': current_price,
+            'premium_collected': premium_collected,
             'premium_realized': premium_realized,
             'account_id': pos.get('account_id')
         })
@@ -492,8 +493,10 @@ def render_options_table(positions: List[Dict], position_type: str):
         
         # Calculate totals
         total_cost = sum([p['current_price'] * p['quantity'] * 100 for p in selected_positions])
+        total_premium = sum([p.get('premium_collected', 0) for p in selected_positions])
         
         st.write(f"Total Cost to Close: **${total_cost:,.2f}**")
+        st.write(f"Total Premium Collected: **${total_premium:,.2f}**")
         
         # Dry Run Toggle
         col1, col2 = st.columns([1, 3])
