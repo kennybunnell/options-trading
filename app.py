@@ -657,8 +657,8 @@ if page == "Home":
             except:
                 pass
         
-        # Convert to sorted list
-        months_list = sorted(aggregated_monthly.values(), key=lambda x: x['month_name'])
+        # Convert to sorted list (newest first to match Performance page)
+        months_list = sorted(aggregated_monthly.values(), key=lambda x: x['month_name'], reverse=True)
         
         if months_list:
             month_names = [m['month_name'] for m in months_list]
