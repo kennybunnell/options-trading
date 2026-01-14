@@ -1428,6 +1428,9 @@ elif page == "CSP Dashboard":
             st.session_state.csp_show_selected_only = False  # Show all opportunities
             st.session_state.csp_min_score = 0  # Reset score filter to 0 (no filter)
             st.session_state.csp_active_preset = None  # Clear any active preset
+            
+            # Force rerun to update toggle widget state
+            st.rerun()
         else:
             # Clear opportunities if none found
             if 'csp_opportunities' in st.session_state:
