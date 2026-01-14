@@ -4695,37 +4695,7 @@ elif page == "PMCC Dashboard":
             else:
                 return f"🔴 {val:.2f}"
         
-        # Apply emoji formatting to indicator columns
-        if 'pmcc_score' in display_df.columns:
-            display_df['pmcc_score'] = display_df['pmcc_score'].apply(score_emoji)
-        if 'extrinsic_pct' in display_df.columns:
-            display_df['extrinsic_pct'] = display_df['extrinsic_pct'].apply(extrinsic_emoji)
-        if 'capital_efficiency' in display_df.columns:
-            display_df['capital_efficiency'] = display_df['capital_efficiency'].apply(cap_eff_emoji)
-        if 'bid_ask_spread_pct' in display_df.columns:
-            display_df['bid_ask_spread_pct'] = display_df['bid_ask_spread_pct'].apply(spread_emoji)
-        if 'iv' in display_df.columns:
-            display_df['iv'] = display_df['iv'].apply(iv_emoji)
-        if 'rsi' in display_df.columns:
-            display_df['rsi'] = display_df['rsi'].apply(rsi_emoji)
-        if 'ma_percent' in display_df.columns:
-            display_df['ma_percent'] = display_df['ma_percent'].apply(ma_emoji)
-        if 'delta' in display_df.columns:
-            display_df['delta'] = display_df['delta'].apply(delta_emoji)
-        
-        # Format cost as clean dollars
-        if 'cost_per_contract' in display_df.columns:
-            display_df['cost_per_contract'] = display_df['cost_per_contract'].apply(lambda x: f"${x:,.0f}" if pd.notna(x) else "")
-        
-        # Format other currency columns
-        if 'underlying_price' in display_df.columns:
-            display_df['underlying_price'] = display_df['underlying_price'].apply(lambda x: f"${x:.2f}" if pd.notna(x) else "")
-        if 'strike' in display_df.columns:
-            display_df['strike'] = display_df['strike'].apply(lambda x: f"${x:.0f}" if pd.notna(x) else "")
-        if 'price' in display_df.columns:
-            display_df['price'] = display_df['price'].apply(lambda x: f"${x:.2f}" if pd.notna(x) else "")
-        
-        # Select columns for display
+        # Select columns for display FIRST (before formatting)
         display_cols = ['Select', 'Qty', 'symbol', 'underlying_price', 'strike', 'expiration', 'dte', 'delta', 'price', 'cost_per_contract']
         
         # Add enhanced columns if available
@@ -4736,6 +4706,36 @@ elif page == "PMCC Dashboard":
         # Filter to only existing columns
         display_cols = [c for c in display_cols if c in display_df.columns]
         display_df = display_df[display_cols].copy()
+        
+        # Now apply emoji formatting to indicator columns (after column selection)
+        if 'pmcc_score' in display_df.columns:
+            display_df['pmcc_score'] = display_df['pmcc_score'].apply(score_emoji).astype(str)
+        if 'extrinsic_pct' in display_df.columns:
+            display_df['extrinsic_pct'] = display_df['extrinsic_pct'].apply(extrinsic_emoji).astype(str)
+        if 'capital_efficiency' in display_df.columns:
+            display_df['capital_efficiency'] = display_df['capital_efficiency'].apply(cap_eff_emoji).astype(str)
+        if 'bid_ask_spread_pct' in display_df.columns:
+            display_df['bid_ask_spread_pct'] = display_df['bid_ask_spread_pct'].apply(spread_emoji).astype(str)
+        if 'iv' in display_df.columns:
+            display_df['iv'] = display_df['iv'].apply(iv_emoji).astype(str)
+        if 'rsi' in display_df.columns:
+            display_df['rsi'] = display_df['rsi'].apply(rsi_emoji).astype(str)
+        if 'ma_percent' in display_df.columns:
+            display_df['ma_percent'] = display_df['ma_percent'].apply(ma_emoji).astype(str)
+        if 'delta' in display_df.columns:
+            display_df['delta'] = display_df['delta'].apply(delta_emoji).astype(str)
+        
+        # Format cost as clean dollars
+        if 'cost_per_contract' in display_df.columns:
+            display_df['cost_per_contract'] = display_df['cost_per_contract'].apply(lambda x: f"${x:,.0f}" if pd.notna(x) else "").astype(str)
+        
+        # Format other currency columns
+        if 'underlying_price' in display_df.columns:
+            display_df['underlying_price'] = display_df['underlying_price'].apply(lambda x: f"${x:.2f}" if pd.notna(x) else "").astype(str)
+        if 'strike' in display_df.columns:
+            display_df['strike'] = display_df['strike'].apply(lambda x: f"${x:.0f}" if pd.notna(x) else "").astype(str)
+        if 'price' in display_df.columns:
+            display_df['price'] = display_df['price'].apply(lambda x: f"${x:.2f}" if pd.notna(x) else "").astype(str)
         
         # Rename columns for display
         col_rename = {
