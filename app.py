@@ -365,13 +365,13 @@ with st.sidebar:
     # Navigation - Combined approach with sections
     st.markdown('<div class="nav-section">TRADING</div>', unsafe_allow_html=True)
     
-    # All navigation options
-    all_pages = ["🏠 Dashboard", "💰 CSP Dashboard", "📞 Covered Calls", "🎯 PMCC Dashboard", "📈 Performance", "⚙️ Settings"]
-    trading_pages = ["🏠 Dashboard", "💰 CSP Dashboard", "📞 Covered Calls", "🎯 PMCC Dashboard", "📈 Performance"]
+    # All navigation options - Performance first as default
+    all_pages = ["📊 Performance", "🏠 Dashboard", "💵 CSP Dashboard", "📈 Covered Calls", "🎯 PMCC Dashboard", "⚙️ Settings"]
+    trading_pages = ["📊 Performance", "🏠 Dashboard", "💵 CSP Dashboard", "📈 Covered Calls", "🎯 PMCC Dashboard"]
     
-    # Initialize default page
+    # Initialize default page - Performance is now default
     if 'nav_page' not in st.session_state:
-        st.session_state.nav_page = "🏠 Dashboard"
+        st.session_state.nav_page = "📊 Performance"
     
     # Trading section radio buttons
     for page_option in trading_pages:
@@ -507,11 +507,11 @@ with st.sidebar:
 
 # Map page names back to original names for compatibility
 page_mapping = {
+    "📊 Performance": "Performance",
     "🏠 Dashboard": "Home",
-    "💰 CSP Dashboard": "CSP Dashboard",
-    "📞 Covered Calls": "CC Dashboard",
+    "💵 CSP Dashboard": "CSP Dashboard",
+    "📈 Covered Calls": "CC Dashboard",
     "🎯 PMCC Dashboard": "PMCC Dashboard",
-    "📈 Performance": "Performance",
     "⚙️ Settings": "Settings"
 }
 page = page_mapping.get(page, page)
