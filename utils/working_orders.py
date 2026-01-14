@@ -15,6 +15,19 @@ import pytz
 import time
 
 
+# Helper function for order success celebration (balloons + cha-ching sound)
+def celebrate_success():
+    """Play cha-ching sound and show balloons for successful order submission"""
+    st.balloons()
+    # Embed audio player with cha-ching sound (auto-plays)
+    cha_ching_audio = """
+    <audio autoplay>
+        <source src="https://www.myinstants.com/media/sounds/cash-register-purchase.mp3" type="audio/mpeg">
+    </audio>
+    """
+    st.markdown(cha_ching_audio, unsafe_allow_html=True)
+
+
 def is_market_open():
     """Check if the US stock market is currently open"""
     eastern = pytz.timezone('US/Eastern')
@@ -558,6 +571,8 @@ def render_working_orders_dashboard(api, account_number):
                     
                     if success_count > 0:
                         st.success(f"✅ Replaced {success_count} order(s) successfully!")
+                        if failed_count == 0:
+                            celebrate_success()
                     if failed_count > 0:
                         st.warning(f"⚠️ {failed_count} order(s) failed to replace")
                     
@@ -578,6 +593,7 @@ def render_working_orders_dashboard(api, account_number):
                 
                 if success_count > 0:
                     st.success(f"✅ Canceled {success_count} order(s)")
+                    celebrate_success()
                     time.sleep(1)
                     st.rerun()
         

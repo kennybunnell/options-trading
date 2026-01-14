@@ -43,6 +43,18 @@ def format_bb_with_emoji(bb_value):
     except (ValueError, TypeError):
         return None
 
+# Helper function for order success celebration (balloons + cha-ching sound)
+def celebrate_success():
+    """Play cha-ching sound and show balloons for successful order submission"""
+    st.balloons()
+    # Embed audio player with cha-ching sound (auto-plays)
+    cha_ching_audio = """
+    <audio autoplay>
+        <source src="https://www.myinstants.com/media/sounds/cash-register-purchase.mp3" type="audio/mpeg">
+    </audio>
+    """
+    st.markdown(cha_ching_audio, unsafe_allow_html=True)
+
 # Page config
 st.set_page_config(
     page_title="Options Trading Dashboard",
@@ -2652,7 +2664,7 @@ elif page == "CSP Dashboard":
                             else:
                                 if success_count == len(selected_rows):
                                     st.success(f"🎉 **All {success_count} orders submitted successfully!**")
-                                    st.balloons()
+                                    celebrate_success()
                                     
                                     # Clear selections
                                     st.session_state.csp_opportunities['Select'] = False
@@ -3851,7 +3863,7 @@ elif page == "CC Dashboard":
                                         if success_count > 0:
                                             st.success(f"✅ {success_count} order(s) submitted successfully!")
                                             if success_count == len(results):
-                                                st.balloons()
+                                                celebrate_success()
                                             
                                             # Auto-fetch positions to update available contracts
                                             st.info("🔄 Refreshing positions to update available contracts...")
@@ -5228,6 +5240,7 @@ elif page == "PMCC Dashboard":
                         
                         if fail_count == 0:
                             status.update(label=f"✅ All {success_count} orders submitted successfully!", state="complete")
+                            celebrate_success()
                         else:
                             status.update(label=f"⚠️ {success_count} succeeded, {fail_count} failed", state="complete")
                         
@@ -5406,7 +5419,7 @@ elif page == "PMCC Dashboard":
                                     st.success(f"✅ {result['message']}")
                                     st.info(f"📊 Order ID: {result.get('order_id', 'N/A')}")
                                     st.info(f"🕒 Status: {result.get('status', 'Pending')}")
-                                    st.balloons()
+                                    celebrate_success()
                                 else:
                                     status.update(label="❌ Order failed", state="error")
                                     st.error(f"❌ {result['message']}")
