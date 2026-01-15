@@ -407,11 +407,11 @@ class TastytradeAPI:
 
     def buy_to_close_covered_call(self, account_number, option_symbol, quantity, price):
         """
-        Submit a buy-to-close order for a covered call
+        Submit a buy-to-close order for a covered call or CSP
         
         Args:
             account_number: Tastytrade account number
-            option_symbol: Full option symbol from position
+            option_symbol: Full option symbol from position (with or without spaces)
             quantity: Number of contracts to buy back
             price: Limit price per contract
         
@@ -426,7 +426,23 @@ class TastytradeAPI:
             headers = self._get_headers()
             
             # Extract underlying symbol from option symbol (first 6 chars, stripped)
+            # Handle both spaced and non-spaced formats
             underlying_symbol = option_symbol[:6].strip()
+            
+            # Ensure option symbol has proper spacing for Tastytrade API
+            # OCC format requires 6-char ticker padded with spaces
+            clean_symbol = option_symbol.replace(' ', '')
+            if len(clean_symbol) > 6:
+                # Extract parts: TICKER + DATE + TYPE + STRIKE
+                import re
+                match = re.match(r'([A-Z]+)(\d{6})([CP])(\d+)', clean_symbol)
+                if match:
+                    ticker = match.group(1).ljust(6)  # Pad to 6 chars
+                    rest = match.group(2) + match.group(3) + match.group(4)
+                    option_symbol = ticker + rest
+                else:
+                    # Fallback: just use as-is
+                    option_symbol = clean_symbol
             
             # Buy to Close (BTC) order
             legs = [{
@@ -439,29 +455,66 @@ class TastytradeAPI:
             payload = {
                 'time-in-force': 'Day',
                 'order-type': 'Limit',
-                'underlying-symbol': underlying_symbol,  # Required field
-                'price': str(price),
+                'underlying-symbol': underlying_symbol,
+                'price': str(round(price, 2)),  # Ensure proper price format
                 'price-effect': 'Debit',  # We pay to buy back
                 'legs': legs
             }
+            
+            # Log for debugging
+            print(f"\n=== BUY TO CLOSE ORDER ===")
+            print(f"Account: {account_number}")
+            print(f"Symbol: {option_symbol}")
+            print(f"Underlying: {underlying_symbol}")
+            print(f"Quantity: {quantity}")
+            print(f"Price: {price}")
+            print(f"Payload: {payload}")
+            print(f"==========================\n")
             
             response = requests.post(url, headers=headers, json=payload)
             
             if response.status_code == 201:
                 data = response.json()
+                order_id = data['data'].get('id')
+                print(f"SUCCESS: Order ID {order_id}")
                 return {
                     'success': True,
-                    'order_id': data['data'].get('id'),
+                    'order_id': order_id,
                     'message': f"Buy-to-close order submitted for {quantity} contracts"
                 }
             else:
-                error_msg = response.json().get('error', {}).get('message', 'Unknown error')
-                return {
-                    'success': False,
-                    'message': f"Order failed: {error_msg}"
-                }
+                # Capture full error response for debugging
+                try:
+                    error_data = response.json()
+                    error_msg = error_data.get('error', {}).get('message', 'Unknown error')
+                    errors = error_data.get('error', {}).get('errors', [])
+                    
+                    print(f"\n=== BUY TO CLOSE ERROR ===")
+                    print(f"Status Code: {response.status_code}")
+                    print(f"Error Message: {error_msg}")
+                    print(f"Errors: {errors}")
+                    print(f"Full Response: {error_data}")
+                    print(f"==========================\n")
+                    
+                    if errors:
+                        error_details = '; '.join([e.get('message', str(e)) for e in errors])
+                        return {
+                            'success': False,
+                            'message': f"Order failed: {error_msg} - {error_details}"
+                        }
+                    else:
+                        return {
+                            'success': False,
+                            'message': f"Order failed: {error_msg}"
+                        }
+                except:
+                    return {
+                        'success': False,
+                        'message': f"Order failed with status {response.status_code}"
+                    }
                 
         except Exception as e:
+            print(f"BUY TO CLOSE EXCEPTION: {str(e)}")
             return {
                 'success': False,
                 'message': f"Exception: {str(e)}"
