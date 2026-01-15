@@ -526,43 +526,69 @@ def render_options_table(positions: List[Dict], position_type: str):
             if st.button("🚀 Submit REAL Close Orders", type="primary", use_container_width=True, key=f"{position_type}_live_btn"):
                 st.write("**📤 Submitting close orders...**")
                 
-                # Import API at function level to avoid circular imports
-                from utils.tastytrade_api import TastytradeAPI
-                api = TastytradeAPI()
-                
-                results = []
-                for pos_data in selected_positions:
-                    # Use buy_to_close_covered_call for both CCs and CSPs (it's actually a generic buy-to-close)
-                    result = api.buy_to_close_covered_call(
-                        account_number=pos_data['account_id'],
-                        option_symbol=pos_data['symbol'],
-                        quantity=pos_data['quantity'],
-                        price=pos_data['current_price']
-                    )
-                    results.append({
-                        **result,
-                        'symbol': pos_data['underlying'],
-                        'strike': pos_data['strike'],
-                        'quantity': pos_data['quantity']
-                    })
-                
-                # Display results
-                success_count = sum([1 for r in results if r.get('success')])
-                fail_count = len(results) - success_count
-                
-                if success_count > 0:
-                    st.success(f"✅ Successfully submitted {success_count} close order(s)!")
-                    st.balloons()
-                
-                if fail_count > 0:
-                    st.error(f"❌ {fail_count} order(s) failed")
-                
-                # Show individual results
-                for result in results:
-                    if result.get('success'):
-                        st.success(f"✅ {result['symbol']} ${result['strike']:.2f}: Order ID {result.get('order_id')}")
-                    else:
-                        st.error(f"❌ {result['symbol']} ${result['strike']:.2f}: {result.get('message')}")
+                try:
+                    # Import API at function level to avoid circular imports
+                    from utils.tastytrade_api import TastytradeAPI
+                    api = TastytradeAPI()
+                    
+                    st.write(f"Processing {len(selected_positions)} position(s)...")
+                    
+                    results = []
+                    for i, pos_data in enumerate(selected_positions, 1):
+                        st.write(f"Submitting order {i}/{len(selected_positions)}: {pos_data['underlying']} ${pos_data['strike']:.2f}...")
+                        
+                        # Log the data being sent
+                        print(f"\n=== ORDER {i} ===")
+                        print(f"Account: {pos_data.get('account_id')}")
+                        print(f"Symbol: {pos_data.get('symbol')}")
+                        print(f"Underlying: {pos_data.get('underlying')}")
+                        print(f"Quantity: {pos_data.get('quantity')}")
+                        print(f"Price: {pos_data.get('current_price')}")
+                        print(f"================\n")
+                        
+                        # Use buy_to_close_covered_call for both CCs and CSPs (it's actually a generic buy-to-close)
+                        result = api.buy_to_close_covered_call(
+                            account_number=pos_data['account_id'],
+                            option_symbol=pos_data['symbol'],
+                            quantity=pos_data['quantity'],
+                            price=pos_data['current_price']
+                        )
+                        
+                        results.append({
+                            **result,
+                            'symbol': pos_data['underlying'],
+                            'strike': pos_data['strike'],
+                            'quantity': pos_data['quantity']
+                        })
+                    
+                    st.write("")
+                    st.write("**📊 Results:**")
+                    
+                    # Display results
+                    success_count = sum([1 for r in results if r.get('success')])
+                    fail_count = len(results) - success_count
+                    
+                    if success_count > 0:
+                        st.success(f"✅ Successfully submitted {success_count} close order(s)!")
+                        st.balloons()
+                    
+                    if fail_count > 0:
+                        st.error(f"❌ {fail_count} order(s) failed")
+                    
+                    # Show individual results
+                    for result in results:
+                        if result.get('success'):
+                            st.success(f"✅ {result['symbol']} ${result['strike']:.2f}: Order ID {result.get('order_id')}")
+                        else:
+                            error_msg = result.get('message', 'Unknown error')
+                            st.error(f"❌ {result['symbol']} ${result['strike']:.2f}: {error_msg}")
+                            # Also show in expander for more details
+                            with st.expander(f"Error details for {result['symbol']}"):
+                                st.code(error_msg)
+                    
+                except Exception as e:
+                    st.error(f"❌ Critical error during order submission: {str(e)}")
+                    st.exception(e)
         
         st.write("")
     
