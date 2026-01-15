@@ -433,6 +433,20 @@ def render_options_table(positions: List[Dict], position_type: str):
     
     df = pd.DataFrame(table_data)
     
+    # Dry Run Toggle - placed BEFORE data editor to prevent state loss
+    st.write("")
+    col1, col2 = st.columns([1, 3])
+    with col1:
+        dry_run = st.toggle("🧪 Dry Run Mode", value=True, key=f"{position_type}_dry_run", 
+                          help="Test order submission without executing real orders")
+    with col2:
+        if dry_run:
+            st.caption("🧪 Orders will be simulated, not actually submitted")
+        else:
+            st.caption("⚠️ LIVE MODE - Orders will be submitted to Tastytrade!")
+    
+    st.write("")
+    
     # Add button to auto-select all green (80%+) positions
     col1, col2, col3 = st.columns([1, 2, 2])
     with col1:
@@ -497,12 +511,6 @@ def render_options_table(positions: List[Dict], position_type: str):
         
         st.write(f"Total Cost to Close: **${total_cost:,.2f}**")
         st.write(f"Total Premium Collected: **${total_premium:,.2f}**")
-        
-        # Dry Run Toggle
-        col1, col2 = st.columns([1, 3])
-        with col1:
-            dry_run = st.toggle("🧪 Dry Run Mode", value=True, key=f"{position_type}_dry_run", 
-                              help="Test order submission without executing real orders")
         
         st.write("")
         
