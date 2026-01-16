@@ -503,31 +503,35 @@ def render_options_table(positions: List[Dict], position_type: str):
         
         st.write("")
         
-        # Dry Run Toggle - placed AFTER selection to avoid reset
-        col1, col2 = st.columns([1, 3])
-        with col1:
-            dry_run = st.toggle("🧪 Dry Run Mode", value=st.session_state[f"{position_type}_dry_run_mode"], 
-                              key=f"{position_type}_dry_run_toggle", 
-                              help="Test order submission without executing real orders")
-            # Update session state
-            st.session_state[f"{position_type}_dry_run_mode"] = dry_run
-        with col2:
-            if dry_run:
-                st.caption("🧪 Orders will be simulated, not actually submitted")
-            else:
-                st.caption("⚠️ LIVE MODE - Orders will be submitted to Tastytrade!")
+        # Use radio buttons instead of toggle to prevent state loss
+        st.write("**Select Order Mode:**")
+        mode = st.radio(
+            "Mode",
+            options=["Dry Run (Test)", "Live Orders"],
+            index=0 if st.session_state.get(f"{position_type}_dry_run_mode", True) else 1,
+            key=f"{position_type}_mode_radio",
+            horizontal=True,
+            help="Choose whether to test orders or submit them live",
+            label_visibility="collapsed"
+        )
+        
+        dry_run = (mode == "Dry Run (Test)")
+        st.session_state[f"{position_type}_dry_run_mode"] = dry_run
+        
+        if dry_run:
+            st.info("🧪 **DRY RUN MODE**: Orders will be simulated, not actually submitted.")
+        else:
+            st.warning("⚠️ **LIVE MODE**: Orders will be submitted to Tastytrade!")
         
         st.write("")
         
         if dry_run:
-            st.info("🧪 **DRY RUN MODE**: Orders will be simulated, not actually submitted.")
             if st.button("🧪 Run Dry Run Test", key=f"{position_type}_dryrun_btn"):
                 st.write("**🧪 Dry Run Results:**")
                 for pos_data in selected_positions:
                     st.success(f"✅ Would close {pos_data['quantity']} contract(s) of {pos_data['underlying']} ${pos_data['strike']:.0f} {pos_data['option_type']} at ${pos_data['current_price']:.2f}")
-                st.info("💡 Toggle off Dry Run Mode to submit real orders.")
+                st.info("💡 Select 'Live Orders' mode above to submit real orders.")
         else:
-            st.warning("⚠️ **LIVE MODE**: Orders will be submitted to Tastytrade!")
             if st.button("🚀 Submit REAL Close Orders", type="primary", key=f"{position_type}_live_btn"):
                 st.write("**📤 Submitting close orders...**")
                 
