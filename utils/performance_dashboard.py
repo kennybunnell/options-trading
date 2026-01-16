@@ -479,11 +479,11 @@ def render_options_table(positions: List[Dict], position_type: str, working_orde
     if f"{position_type}_dry_run_mode" not in st.session_state:
         st.session_state[f"{position_type}_dry_run_mode"] = True
     
-    # Calculate counts for each threshold
-    count_80 = sum(1 for row in table_data if row['Realized %'] >= 80)
-    count_85 = sum(1 for row in table_data if row['Realized %'] >= 85)
-    count_90 = sum(1 for row in table_data if row['Realized %'] >= 90)
-    count_95 = sum(1 for row in table_data if row['Realized %'] >= 95)
+    # Calculate counts for each threshold (only eligible positions, excluding those with working orders)
+    count_80 = sum(1 for row in table_data if row['Realized %'] >= 80 and not row.get('_has_working_order', False))
+    count_85 = sum(1 for row in table_data if row['Realized %'] >= 85 and not row.get('_has_working_order', False))
+    count_90 = sum(1 for row in table_data if row['Realized %'] >= 90 and not row.get('_has_working_order', False))
+    count_95 = sum(1 for row in table_data if row['Realized %'] >= 95 and not row.get('_has_working_order', False))
     
     # Add threshold selection buttons
     st.write("**Quick Select by Profit Threshold:**")
