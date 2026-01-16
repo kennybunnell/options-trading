@@ -245,7 +245,6 @@ def render_positions_view(api, selected_account):
     # Display table
     st.dataframe(
         display_df,
-        use_container_width=True,
         hide_index=True,
         height=600
     )
@@ -257,6 +256,5 @@ def render_positions_view(api, selected_account):
         label="📥 Export to CSV",
         data=csv,
         file_name=f"positions_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-        mime="text/csv",
-        use_container_width=False
+        mime="text/csv"
     )

@@ -189,7 +189,7 @@ def render_working_orders_dashboard(api, account_number):
     col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
     
     with col1:
-        if st.button("🔄 Refresh Orders", use_container_width=True):
+        if st.button("🔄 Refresh Orders"):
             st.session_state.working_orders_data = None
             st.rerun()
     
@@ -467,7 +467,6 @@ def render_working_orders_dashboard(api, account_number):
         
         edited_df = st.data_editor(
             display_df,
-            use_container_width=True,
             hide_index=True,
             column_config={
                 "Select": st.column_config.CheckboxColumn("Select", default=False),
@@ -493,30 +492,29 @@ def render_working_orders_dashboard(api, account_number):
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            if st.button("✅ Select All", use_container_width=True):
+            if st.button("✅ Select All"):
                 # Add all order IDs to selected set
                 for idx, row in df.iterrows():
                     st.session_state.working_orders_selected.add(row['order_id'])
                 st.rerun()
         
         with col2:
-            if st.button("⬜ Deselect All", use_container_width=True):
+            if st.button("⬜ Deselect All"):
                 st.session_state.working_orders_selected = set()
                 st.rerun()
         
         with col3:
             replace_all_btn = st.button(
                 f"🔄 Replace All to Suggested ({int(df['Needs Replace'].sum())})",
-                use_container_width=True,
                 type="primary",
                 disabled=df['Needs Replace'].sum() == 0
             )
         
         with col4:
             if len(selected) > 0:
-                cancel_btn = st.button(f"❌ Cancel Selected ({len(selected)})", use_container_width=True)
+                cancel_btn = st.button(f"❌ Cancel Selected ({len(selected)})")
             else:
-                st.button("❌ Cancel Selected (0)", use_container_width=True, disabled=True)
+                st.button("❌ Cancel Selected (0)", disabled=True)
         
         # Handle Replace All
         if replace_all_btn:
@@ -601,7 +599,7 @@ def render_working_orders_dashboard(api, account_number):
         if st.session_state.auto_replace_log:
             with st.expander("📜 Replacement Log"):
                 log_df = pd.DataFrame(st.session_state.auto_replace_log[-20:])  # Last 20 entries
-                st.dataframe(log_df, use_container_width=True, hide_index=True)
+                st.dataframe(log_df, hide_index=True)
                 if st.button("Clear Log"):
                     st.session_state.auto_replace_log = []
                     st.rerun()

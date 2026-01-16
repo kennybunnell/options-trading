@@ -464,7 +464,6 @@ def render_options_table(positions: List[Dict], position_type: str):
     # Display with checkboxes for selection
     edited_df = st.data_editor(
         df,
-        use_container_width=True,
         hide_index=True,
         column_config={
             "Select": st.column_config.CheckboxColumn(
@@ -746,7 +745,7 @@ def render_performance_overview():
         hovermode='x unified'
     )
     
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig)
     
     st.divider()
     
@@ -783,7 +782,7 @@ def render_performance_overview():
             showlegend=False
         )
         
-        st.plotly_chart(fig_csp, use_container_width=True)
+        st.plotly_chart(fig_csp)
         
         # CSP Stats
         csp_contracts = len(premium_data.get('csp_premiums', {})) * 10  # Estimate
@@ -827,7 +826,7 @@ def render_performance_overview():
             showlegend=False
         )
         
-        st.plotly_chart(fig_cc, use_container_width=True)
+        st.plotly_chart(fig_cc)
         
         # CC Stats
         cc_contracts = len(premium_data.get('cc_premiums', {})) * 5  # Estimate
@@ -995,7 +994,6 @@ def render_stock_basis(api=None):
     
     st.dataframe(
         df_display,
-        use_container_width=True,
         hide_index=True,
         column_config={
             "Symbol": st.column_config.TextColumn("Symbol", width="small"),
@@ -1097,7 +1095,6 @@ def render_trade_history():
         
         st.dataframe(
             df,
-            use_container_width=True,
             hide_index=True,
             column_config={
                 "Date": st.column_config.TextColumn("Date", width="small"),
@@ -1148,7 +1145,6 @@ def render_trade_history():
         
         st.dataframe(
             df,
-            use_container_width=True,
             hide_index=True
         )
 

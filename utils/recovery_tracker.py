@@ -204,7 +204,7 @@ def render_recovery_chart_only(stock_positions: List[Dict], cc_premiums: Dict):
         )
     )
     
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig)
 
 
 def render_recovery_tracker(stock_positions: List[Dict], cc_premiums: Dict):

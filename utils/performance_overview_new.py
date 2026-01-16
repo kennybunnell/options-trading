@@ -299,7 +299,7 @@ def render_performance_overview_real(api, account_numbers):
         hovermode='x unified'
     )
     
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig)
     
     st.divider()
     
@@ -335,7 +335,7 @@ def render_performance_overview_real(api, account_numbers):
             showlegend=False
         )
         
-        st.plotly_chart(fig_csp, use_container_width=True)
+        st.plotly_chart(fig_csp)
         
         # CSP Stats - REAL DATA
         avg_csp_per_trade = total_csp_net / total_csp_trades if total_csp_trades > 0 else 0
@@ -377,7 +377,7 @@ def render_performance_overview_real(api, account_numbers):
             showlegend=False
         )
         
-        st.plotly_chart(fig_cc, use_container_width=True)
+        st.plotly_chart(fig_cc)
         
         # CC Stats - REAL DATA
         avg_cc_per_trade = total_cc_net / total_cc_trades if total_cc_trades > 0 else 0
@@ -417,4 +417,4 @@ def render_performance_overview_real(api, account_numbers):
     
     import pandas as pd
     df = pd.DataFrame(table_data)
-    st.dataframe(df, use_container_width=True, hide_index=True)
+    st.dataframe(df, hide_index=True)

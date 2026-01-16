@@ -528,7 +528,7 @@ def render_projections_tab(api, account_numbers: List[str], portfolio_value: flo
         comparison_data.append(row)
     
     df = pd.DataFrame(comparison_data)
-    st.dataframe(df, use_container_width=True, hide_index=True)
+    st.dataframe(df, hide_index=True)
     
     # Cumulative income projections
     st.markdown("#### Cumulative Income Projections")
@@ -543,7 +543,7 @@ def render_projections_tab(api, account_numbers: List[str], portfolio_value: flo
         income_data.append(row)
     
     df_income = pd.DataFrame(income_data)
-    st.dataframe(df_income, use_container_width=True, hide_index=True)
+    st.dataframe(df_income, hide_index=True)
     
     # Growth chart
     st.markdown("#### Portfolio Growth Visualization")
@@ -649,7 +649,7 @@ def render_projections_tab(api, account_numbers: List[str], portfolio_value: flo
         hovermode='x unified'
     )
     
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig)
     
     # Disclaimer
     st.markdown("---")

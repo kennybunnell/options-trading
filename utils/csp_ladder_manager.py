@@ -168,7 +168,6 @@ def render_csp_ladder_manager(api, account_id: str):
     
     st.dataframe(
         df_display[['Tranche', 'Expiration', 'Days', 'Deployed', 'Target', 'Progress', 'Status', 'Action']],
-        use_container_width=True,
         hide_index=True
     )
     

@@ -378,7 +378,7 @@ with st.sidebar:
         if st.session_state.nav_page == page_option:
             st.markdown(f'<div style="background-color: #1a1d23; border-left: 3px solid #d4af37; padding: 0.6rem 0.8rem; border-radius: 4px; color: #ffffff; box-shadow: 0 0 15px rgba(16, 185, 129, 0.2);">{page_option}</div>', unsafe_allow_html=True)
         else:
-            if st.button(page_option, key=f"nav_{page_option}", use_container_width=True):
+            if st.button(page_option, key=f"nav_{page_option}"):
                 st.session_state.nav_page = page_option
                 st.rerun()
     
@@ -388,7 +388,7 @@ with st.sidebar:
     if st.session_state.nav_page == "⚙️ Settings":
         st.markdown(f'<div style="background-color: #1a1d23; border-left: 3px solid #d4af37; padding: 0.6rem 0.8rem; border-radius: 4px; color: #ffffff; box-shadow: 0 0 15px rgba(16, 185, 129, 0.2);">⚙️ Settings</div>', unsafe_allow_html=True)
     else:
-        if st.button("⚙️ Settings", key="nav_settings", use_container_width=True):
+        if st.button("⚙️ Settings", key="nav_settings"):
             st.session_state.nav_page = "⚙️ Settings"
             st.rerun()
     
@@ -738,7 +738,7 @@ if page == "Home":
                 hovermode='x unified'
             )
             
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig)
         else:
             st.info("No premium data available yet.")
         
@@ -815,7 +815,7 @@ elif page == "CSP Dashboard":
         display_df['% Recognized'] = display_df['% Recognized'].apply(lambda x: f"{x:.1f}%")
         display_df['Collateral'] = display_df['Collateral'].apply(lambda x: f"${x:,.0f}")
         
-        st.dataframe(display_df, use_container_width=True, hide_index=True)
+        st.dataframe(display_df, hide_index=True)
         
         # Summary metrics
         total_premium = sum([p['premium_collected'] for p in short_put_details])
@@ -893,11 +893,11 @@ elif page == "CSP Dashboard":
         st.info(f"📋 Currently monitoring **{len(watchlist)}** symbols from watchlist")
     
     with col2:
-        if st.button("👁️ View/Edit Watchlist", use_container_width=True):
+        if st.button("👁️ View/Edit Watchlist"):
             st.session_state.show_watchlist_editor = not st.session_state.get('show_watchlist_editor', False)
     
     with col3:
-        if st.button("🗑️ Clear Watchlist", use_container_width=True, type="secondary"):
+        if st.button("🗑️ Clear Watchlist", type="secondary"):
             if len(watchlist) > 0:
                 with open('watchlist.txt', 'w') as f:
                     f.write("")
@@ -919,7 +919,7 @@ elif page == "CSP Dashboard":
                 label_visibility="collapsed"
             ).upper().strip()
         with add_col2:
-            if st.button("➕ Add Ticker(s)", type="primary", use_container_width=True):
+            if st.button("➕ Add Ticker(s)", type="primary"):
                 if new_ticker_input:
                     # Parse comma-separated tickers and remove duplicates from input
                     new_tickers = list(dict.fromkeys([t.strip() for t in new_ticker_input.split(',') if t.strip()]))
@@ -971,7 +971,6 @@ elif page == "CSP Dashboard":
                     "Symbol": st.column_config.TextColumn("Symbol", disabled=True),
                 },
                 hide_index=True,
-                use_container_width=True,
                 key="watchlist_editor"
             )
             
@@ -1023,10 +1022,10 @@ elif page == "CSP Dashboard":
     scan_col1, scan_col2 = st.columns([3, 1])
     
     with scan_col1:
-        fetch_clicked = st.button("🔄 Fetch Opportunities", type="primary", use_container_width=True)
+        fetch_clicked = st.button("🔄 Fetch Opportunities", type="primary")
     
     with scan_col2:
-        if st.button("🗑️ Clear Results", use_container_width=True, key="csp_clear_results", help="Clear all scan results and start fresh"):
+        if st.button("🗑️ Clear Results", key="csp_clear_results", help="Clear all scan results and start fresh"):
             # Clear scan results
             if 'csp_opportunities' in st.session_state:
                 del st.session_state.csp_opportunities
@@ -1608,12 +1607,12 @@ elif page == "CSP Dashboard":
         col1, col2, col3, col4, col5, col6 = st.columns([1, 1.5, 1.5, 1.5, 1, 1])
         
         with col1:
-            if st.button("🗑️ Clear All", use_container_width=True, key="csp_clear_all"):
+            if st.button("🗑️ Clear All", key="csp_clear_all"):
                 st.session_state.csp_opportunities['Select'] = False
                 st.rerun()
         
         with col2:
-            if st.button("🟢 Conservative", use_container_width=True, key="csp_preset_conservative", 
+            if st.button("🟢 Conservative", key="csp_preset_conservative", 
                        help=f"Δ {st.session_state.csp_conservative_delta_min}-{st.session_state.csp_conservative_delta_max}, DTE {st.session_state.csp_conservative_dte_min}-{st.session_state.csp_conservative_dte_max}, OI ≥{st.session_state.csp_conservative_oi_min}, RSI ≤{st.session_state.csp_conservative_rsi_max}, Score ≥{st.session_state.csp_conservative_min_score}"):
                 # Track active preset for Delta formatting
                 st.session_state.csp_active_preset = 'conservative'
@@ -1646,7 +1645,7 @@ elif page == "CSP Dashboard":
                 st.rerun()
         
         with col3:
-            if st.button("🟡 Medium", use_container_width=True, key="csp_preset_medium",
+            if st.button("🟡 Medium", key="csp_preset_medium",
                        help=f"Δ {st.session_state.csp_medium_delta_min}-{st.session_state.csp_medium_delta_max}, DTE {st.session_state.csp_medium_dte_min}-{st.session_state.csp_medium_dte_max}, OI ≥{st.session_state.csp_medium_oi_min}, RSI ≤{st.session_state.csp_medium_rsi_max}, Score ≥{st.session_state.csp_medium_min_score}"):
                 # Track active preset for Delta formatting
                 st.session_state.csp_active_preset = 'medium'
@@ -1679,7 +1678,7 @@ elif page == "CSP Dashboard":
                 st.rerun()
         
         with col4:
-            if st.button("🔴 Aggressive", use_container_width=True, key="csp_preset_aggressive",
+            if st.button("🔴 Aggressive", key="csp_preset_aggressive",
                        help=f"Δ {st.session_state.csp_aggressive_delta_min}-{st.session_state.csp_aggressive_delta_max}, DTE {st.session_state.csp_aggressive_dte_min}-{st.session_state.csp_aggressive_dte_max}, OI ≥{st.session_state.csp_aggressive_oi_min}, RSI ≤{st.session_state.csp_aggressive_rsi_max}, Score ≥{st.session_state.csp_aggressive_min_score}"):
                 # Track active preset for Delta formatting
                 st.session_state.csp_active_preset = 'aggressive'
@@ -1712,7 +1711,7 @@ elif page == "CSP Dashboard":
                 st.rerun()
         
         with col5:
-            if st.button("✅ Select All", use_container_width=True, key="csp_select_all"):
+            if st.button("✅ Select All", key="csp_select_all"):
                 st.session_state.csp_opportunities['Select'] = True
                 st.rerun()
         
@@ -1764,7 +1763,7 @@ elif page == "CSP Dashboard":
             
             col1, col2 = st.columns(2)
             with col1:
-                if st.button("💾 Commit Conservative", use_container_width=True, key="csp_commit_conservative"):
+                if st.button("💾 Commit Conservative", key="csp_commit_conservative"):
                     st.session_state.csp_conservative_delta_min = cons_delta_min
                     st.session_state.csp_conservative_delta_max = cons_delta_max
                     st.session_state.csp_conservative_dte_min = cons_dte_min
@@ -1777,7 +1776,7 @@ elif page == "CSP Dashboard":
                     st.success("✅ Conservative criteria committed!")
                     st.rerun()
             with col2:
-                if st.button("🔄 Reset Conservative", use_container_width=True, key="csp_reset_conservative"):
+                if st.button("🔄 Reset Conservative", key="csp_reset_conservative"):
                     st.session_state.csp_conservative_delta_min = 0.10
                     st.session_state.csp_conservative_delta_max = 0.20
                     st.session_state.csp_conservative_dte_min = 7
@@ -1813,7 +1812,7 @@ elif page == "CSP Dashboard":
             
             col1, col2 = st.columns(2)
             with col1:
-                if st.button("💾 Commit Medium", use_container_width=True, key="csp_commit_medium"):
+                if st.button("💾 Commit Medium", key="csp_commit_medium"):
                     st.session_state.csp_medium_delta_min = med_delta_min
                     st.session_state.csp_medium_delta_max = med_delta_max
                     st.session_state.csp_medium_dte_min = med_dte_min
@@ -1826,7 +1825,7 @@ elif page == "CSP Dashboard":
                     st.success("✅ Medium criteria committed!")
                     st.rerun()
             with col2:
-                if st.button("🔄 Reset Medium", use_container_width=True, key="csp_reset_medium"):
+                if st.button("🔄 Reset Medium", key="csp_reset_medium"):
                     st.session_state.csp_medium_delta_min = 0.15
                     st.session_state.csp_medium_delta_max = 0.30
                     st.session_state.csp_medium_dte_min = 7
@@ -1862,7 +1861,7 @@ elif page == "CSP Dashboard":
             
             col1, col2 = st.columns(2)
             with col1:
-                if st.button("💾 Commit Aggressive", use_container_width=True, key="csp_commit_aggressive"):
+                if st.button("💾 Commit Aggressive", key="csp_commit_aggressive"):
                     st.session_state.csp_aggressive_delta_min = agg_delta_min
                     st.session_state.csp_aggressive_delta_max = agg_delta_max
                     st.session_state.csp_aggressive_dte_min = agg_dte_min
@@ -1875,7 +1874,7 @@ elif page == "CSP Dashboard":
                     st.success("✅ Aggressive criteria committed!")
                     st.rerun()
             with col2:
-                if st.button("🔄 Reset Aggressive", use_container_width=True, key="csp_reset_aggressive"):
+                if st.button("🔄 Reset Aggressive", key="csp_reset_aggressive"):
                     st.session_state.csp_aggressive_delta_min = 0.20
                     st.session_state.csp_aggressive_delta_max = 0.40
                     st.session_state.csp_aggressive_dte_min = 7
@@ -1896,31 +1895,31 @@ elif page == "CSP Dashboard":
         col1, col2, col3, col4, col5, col6 = st.columns([1, 1, 1, 1, 1, 2])
         
         with col1:
-            if st.button("➕ +1", use_container_width=True, key="csp_qty_plus1", help="Add 1 to selected quantities"):
+            if st.button("➕ +1", key="csp_qty_plus1", help="Add 1 to selected quantities"):
                 mask = st.session_state.csp_opportunities['Select'] == True
                 st.session_state.csp_opportunities.loc[mask, 'Qty'] = st.session_state.csp_opportunities.loc[mask, 'Qty'] + 1
                 st.rerun()
         
         with col2:
-            if st.button("➕ +5", use_container_width=True, key="csp_qty_plus5", help="Add 5 to selected quantities"):
+            if st.button("➕ +5", key="csp_qty_plus5", help="Add 5 to selected quantities"):
                 mask = st.session_state.csp_opportunities['Select'] == True
                 st.session_state.csp_opportunities.loc[mask, 'Qty'] = st.session_state.csp_opportunities.loc[mask, 'Qty'] + 5
                 st.rerun()
         
         with col3:
-            if st.button("➕ +10", use_container_width=True, key="csp_qty_plus10", help="Add 10 to selected quantities"):
+            if st.button("➕ +10", key="csp_qty_plus10", help="Add 10 to selected quantities"):
                 mask = st.session_state.csp_opportunities['Select'] == True
                 st.session_state.csp_opportunities.loc[mask, 'Qty'] = st.session_state.csp_opportunities.loc[mask, 'Qty'] + 10
                 st.rerun()
         
         with col4:
-            if st.button("➖ -1", use_container_width=True, key="csp_qty_minus1", help="Subtract 1 from selected quantities (min 1)"):
+            if st.button("➖ -1", key="csp_qty_minus1", help="Subtract 1 from selected quantities (min 1)"):
                 mask = st.session_state.csp_opportunities['Select'] == True
                 st.session_state.csp_opportunities.loc[mask, 'Qty'] = st.session_state.csp_opportunities.loc[mask, 'Qty'].apply(lambda x: max(1, x - 1))
                 st.rerun()
         
         with col5:
-            if st.button("🔄 Reset", use_container_width=True, key="csp_qty_reset", help="Reset selected quantities to 1"):
+            if st.button("🔄 Reset", key="csp_qty_reset", help="Reset selected quantities to 1"):
                 mask = st.session_state.csp_opportunities['Select'] == True
                 st.session_state.csp_opportunities.loc[mask, 'Qty'] = 1
                 st.rerun()
@@ -2122,7 +2121,6 @@ elif page == "CSP Dashboard":
             },
             disabled=[col for col in display_df.columns if col not in ['Select', 'Qty']],
             hide_index=True,
-            use_container_width=True,
             height=dynamic_height,
             key=editor_key
         )
@@ -2170,7 +2168,7 @@ elif page == "CSP Dashboard":
                             button_label = f"🏷️ {symbol} ${strike:.0f}"
                             button_type = "secondary"
                         
-                        if st.button(button_label, key=f"mark_btn_{idx}", use_container_width=True, type=button_type,
+                        if st.button(button_label, key=f"mark_btn_{idx}", type=button_type,
                                    help=f"{symbol} ${strike:.0f} exp {expiration}"):
                             # Toggle mark state
                             if idx in st.session_state.csp_marked_indices:
@@ -2188,7 +2186,7 @@ elif page == "CSP Dashboard":
             col1, col2, col3, col4, col5 = st.columns([1, 1, 1, 1, 2])
             
             with col1:
-                if st.button("➕ +1 Marked", use_container_width=True, 
+                if st.button("➕ +1 Marked", 
                            disabled=len(st.session_state.csp_marked_indices) == 0,
                            help="Increment quantity by 1 for marked options"):
                     for idx in st.session_state.csp_marked_indices:
@@ -2199,7 +2197,7 @@ elif page == "CSP Dashboard":
                     st.rerun()
             
             with col2:
-                if st.button("➖ -1 Marked", use_container_width=True, 
+                if st.button("➖ -1 Marked", 
                            disabled=len(st.session_state.csp_marked_indices) == 0,
                            help="Decrement quantity by 1 for marked options (min 1)"):
                     for idx in st.session_state.csp_marked_indices:
@@ -2210,7 +2208,7 @@ elif page == "CSP Dashboard":
                     st.rerun()
             
             with col3:
-                if st.button("🗑️ Remove Marked", use_container_width=True, type="primary", 
+                if st.button("🗑️ Remove Marked", type="primary", 
                            disabled=len(st.session_state.csp_marked_indices) == 0,
                            help=f"Remove {len(st.session_state.csp_marked_indices)} marked options"):
                     # Unselect all marked rows
@@ -2224,7 +2222,7 @@ elif page == "CSP Dashboard":
                     st.rerun()
             
             with col4:
-                if st.button("↩️ Clear Marks", use_container_width=True, 
+                if st.button("↩️ Clear Marks", 
                            disabled=len(st.session_state.csp_marked_indices) == 0,
                            help="Clear all marks without removing"):
                     st.session_state.csp_marked_indices = set()
@@ -2323,7 +2321,6 @@ elif page == "CSP Dashboard":
             with col1:
                 if st.button(
                     "🤖 AI Analysis",
-                    use_container_width=True,
                     help="Analyze selected stocks for earnings, news, and risks"
                 ):
                     # Get unique symbols from selected rows
@@ -2339,8 +2336,7 @@ elif page == "CSP Dashboard":
                 if st.button(
                     f"🚀 Submit {int(total_contracts)} Contracts",
                     type="primary",
-                    disabled=not can_submit,
-                    use_container_width=True
+                    disabled=not can_submit
                 ):
                     st.session_state.show_order_confirmation = True
             
@@ -2378,8 +2374,7 @@ elif page == "CSP Dashboard":
                             label="📄 Download DOCX",
                             data=docx_data,
                             file_name=f"AI_Analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx",
-                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                            use_container_width=True
+                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                         )
                     except Exception as e:
                         st.error(f"DOCX export error: {str(e)}")
@@ -2393,15 +2388,14 @@ elif page == "CSP Dashboard":
                             label="📕 Download PDF",
                             data=pdf_data,
                             file_name=f"AI_Analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
-                            mime="application/pdf",
-                            use_container_width=True
+                            mime="application/pdf"
                         )
                     except Exception as e:
                         st.error(f"PDF export error: {str(e)}")
                 
                 with col3:
                     # Clear button
-                    if st.button("🗑️ Clear Analysis", use_container_width=True):
+                    if st.button("🗑️ Clear Analysis"):
                         del st.session_state.ai_analysis_results
                         st.rerun()
             
@@ -2607,7 +2601,7 @@ elif page == "CSP Dashboard":
                 summary_df['Status'] = summary_df['Passed'].apply(color_result)
                 display_df = summary_df[['Check', 'Status', 'Details']]
                 
-                st.dataframe(display_df, use_container_width=True, hide_index=True)
+                st.dataframe(display_df, hide_index=True)
                 
                 if all_passed:
                     st.success("🎉 **ALL VALIDATIONS PASSED** - Ready to proceed!")
@@ -2619,7 +2613,7 @@ elif page == "CSP Dashboard":
                 # Show order details
                 st.write("**Order Details:**")
                 order_details = selected_rows[['Symbol', 'Qty', 'Strike', 'Expiration', 'DTE', 'Premium', 'Premium %', 'Weekly %', 'Delta']]
-                st.dataframe(order_details, use_container_width=True)
+                st.dataframe(order_details)
                 
                 st.write(f"**Total Premium to Collect:** ${total_premium:,.2f}")
                 st.write(f"**Total Collateral Required:** ${total_collateral:,.2f}")
@@ -2639,7 +2633,7 @@ elif page == "CSP Dashboard":
                         button_type = "primary"
                         button_disabled = not all_passed
                     
-                    if st.button(button_label, type=button_type, use_container_width=True, disabled=button_disabled, key="submit_orders_btn"):
+                    if st.button(button_label, type=button_type, disabled=button_disabled, key="submit_orders_btn"):
                         # Submit orders (or simulate)
                         with st.spinner("Processing orders..." if not dry_run else "Simulating orders..."):
                             success_count = 0
@@ -2702,12 +2696,12 @@ elif page == "CSP Dashboard":
                                             st.write(f"- {order}")
                 
                 with col2:
-                    if st.button("❌ Cancel", use_container_width=True, key="cancel_orders_btn"):
+                    if st.button("❌ Cancel", key="cancel_orders_btn"):
                         st.session_state.show_order_confirmation = False
                         st.rerun()
                 
                 with col3:
-                    if st.button("🔄 Re-scan Prices", use_container_width=True, key="rescan_btn"):
+                    if st.button("🔄 Re-scan Prices", key="rescan_btn"):
                         st.session_state.show_order_confirmation = False
                         st.info("Please click 'Fetch Opportunities' again to refresh prices")
 
@@ -2722,8 +2716,7 @@ elif page == "CSP Dashboard":
                 label="📥 Download Opportunities CSV",
                 data=csv,
                 file_name=f"csp_opportunities_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                mime="text/csv",
-                use_container_width=True
+                mime="text/csv"
             )
         
         with col2:
@@ -2732,8 +2725,7 @@ elif page == "CSP Dashboard":
                     label="📄 Download Scan Log",
                     data=st.session_state.csp_scan_log,
                     file_name=f"csp_scan_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                    mime="text/plain",
-                    use_container_width=True
+                    mime="text/plain"
                 )
             else:
                 st.info("ℹ️ Scan log will be available after first scan")
@@ -2750,8 +2742,7 @@ elif page == "CSP Dashboard":
                 label="📄 Download Scan Log for Analysis",
                 data=st.session_state.csp_scan_log,
                 file_name=f"csp_scan_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                mime="text/plain",
-                use_container_width=True
+                mime="text/plain"
             )
 
 # This is the complete refactored CC Dashboard section
@@ -2813,7 +2804,7 @@ elif page == "CC Dashboard":
     
     # Step 1: Fetch Positions Button
     st.write("")
-    if st.button("🔍 Fetch Portfolio Positions", type="primary", use_container_width=True):
+    if st.button("🔍 Fetch Portfolio Positions", type="primary"):
         try:
             from utils.covered_calls import get_eligible_stock_positions
             
@@ -2938,7 +2929,6 @@ elif page == "CC Dashboard":
             # Display table with checkboxes
             edited_df = st.data_editor(
                 eligible_display,
-                use_container_width=True,
                 hide_index=True,
                 disabled=['Symbol', 'Shares', 'Price', 'Market Value', 'Max Contracts'],
                 column_config={
@@ -2975,10 +2965,10 @@ elif page == "CC Dashboard":
                 cc_scan_col1, cc_scan_col2 = st.columns([3, 1])
                 
                 with cc_scan_col1:
-                    cc_scan_clicked = st.button(f"🔍 Scan {len(selected_symbols)} Selected Stocks for Covered Calls", type="primary", use_container_width=True)
+                    cc_scan_clicked = st.button(f"🔍 Scan {len(selected_symbols)} Selected Stocks for Covered Calls", type="primary")
                 
                 with cc_scan_col2:
-                    if st.button("🗑️ Clear Results", use_container_width=True, key="cc_clear_results", help="Clear all scan results and start fresh"):
+                    if st.button("🗑️ Clear Results", key="cc_clear_results", help="Clear all scan results and start fresh"):
                         # Clear scan results
                         if 'cc_opportunities' in st.session_state:
                             del st.session_state.cc_opportunities
@@ -3294,12 +3284,12 @@ elif page == "CC Dashboard":
             col1, col2, col3, col4, col5, col6 = st.columns([1, 1.5, 1.5, 1.5, 1, 1])
             
             with col1:
-                if st.button("🗑️ Clear All", use_container_width=True, key="cc_clear_all"):
+                if st.button("🗑️ Clear All", key="cc_clear_all"):
                     st.session_state.cc_opportunities['Select'] = False
                     st.rerun()
             
             with col2:
-                if st.button("🟢 Conservative", use_container_width=True, key="cc_preset_conservative", 
+                if st.button("🟢 Conservative", key="cc_preset_conservative", 
                            help=f"Δ {st.session_state.cc_conservative_delta_min}-{st.session_state.cc_conservative_delta_max}, DTE {st.session_state.cc_conservative_dte_min}-{st.session_state.cc_conservative_dte_max}, Score ≥{st.session_state.cc_conservative_min_score} | Qty=1 contract"):
                     # Track active preset for Delta formatting
                     st.session_state.cc_active_preset = 'conservative'
@@ -3329,7 +3319,7 @@ elif page == "CC Dashboard":
                     st.rerun()
             
             with col3:
-                if st.button("🟡 Medium", use_container_width=True, key="cc_preset_medium",
+                if st.button("🟡 Medium", key="cc_preset_medium",
                            help=f"Δ {st.session_state.cc_medium_delta_min}-{st.session_state.cc_medium_delta_max}, DTE {st.session_state.cc_medium_dte_min}-{st.session_state.cc_medium_dte_max}, Score ≥{st.session_state.cc_medium_min_score} | Qty=50% of shares"):
                     # Track active preset for Delta formatting
                     st.session_state.cc_active_preset = 'medium'
@@ -3359,7 +3349,7 @@ elif page == "CC Dashboard":
                     st.rerun()
             
             with col4:
-                if st.button("🔴 Aggressive", use_container_width=True, key="cc_preset_aggressive",
+                if st.button("🔴 Aggressive", key="cc_preset_aggressive",
                            help=f"Δ {st.session_state.cc_aggressive_delta_min}-{st.session_state.cc_aggressive_delta_max}, DTE {st.session_state.cc_aggressive_dte_min}-{st.session_state.cc_aggressive_dte_max}, Score ≥{st.session_state.cc_aggressive_min_score} | Qty=100% of shares"):
                     # Track active preset for Delta formatting
                     st.session_state.cc_active_preset = 'aggressive'
@@ -3389,7 +3379,7 @@ elif page == "CC Dashboard":
                     st.rerun()
             
             with col5:
-                if st.button("✅ Select All", use_container_width=True, key="cc_select_all"):
+                if st.button("✅ Select All", key="cc_select_all"):
                     st.session_state.cc_opportunities['Select'] = True
                     st.rerun()
             
@@ -3404,31 +3394,31 @@ elif page == "CC Dashboard":
             col1, col2, col3, col4, col5, col6, col7 = st.columns([1, 1, 1, 1, 1.2, 1, 2])
             
             with col1:
-                if st.button("➥ +1", use_container_width=True, key="cc_qty_plus1", help="Add 1 to selected quantities"):
+                if st.button("➥ +1", key="cc_qty_plus1", help="Add 1 to selected quantities"):
                     mask = st.session_state.cc_opportunities['Select'] == True
                     st.session_state.cc_opportunities.loc[mask, 'Qty'] = st.session_state.cc_opportunities.loc[mask, 'Qty'] + 1
                     st.rerun()
             
             with col2:
-                if st.button("➥ +5", use_container_width=True, key="cc_qty_plus5", help="Add 5 to selected quantities"):
+                if st.button("➥ +5", key="cc_qty_plus5", help="Add 5 to selected quantities"):
                     mask = st.session_state.cc_opportunities['Select'] == True
                     st.session_state.cc_opportunities.loc[mask, 'Qty'] = st.session_state.cc_opportunities.loc[mask, 'Qty'] + 5
                     st.rerun()
             
             with col3:
-                if st.button("➥ +10", use_container_width=True, key="cc_qty_plus10", help="Add 10 to selected quantities"):
+                if st.button("➥ +10", key="cc_qty_plus10", help="Add 10 to selected quantities"):
                     mask = st.session_state.cc_opportunities['Select'] == True
                     st.session_state.cc_opportunities.loc[mask, 'Qty'] = st.session_state.cc_opportunities.loc[mask, 'Qty'] + 10
                     st.rerun()
             
             with col4:
-                if st.button("➖ -1", use_container_width=True, key="cc_qty_minus1", help="Subtract 1 from selected quantities (min 1)"):
+                if st.button("➖ -1", key="cc_qty_minus1", help="Subtract 1 from selected quantities (min 1)"):
                     mask = st.session_state.cc_opportunities['Select'] == True
                     st.session_state.cc_opportunities.loc[mask, 'Qty'] = st.session_state.cc_opportunities.loc[mask, 'Qty'].apply(lambda x: max(1, x - 1))
                     st.rerun()
             
             with col5:
-                if st.button("🔺 Max Out", use_container_width=True, key="cc_qty_max", help="Set selected quantities to maximum available contracts"):
+                if st.button("🔺 Max Out", key="cc_qty_max", help="Set selected quantities to maximum available contracts"):
                     mask = st.session_state.cc_opportunities['Select'] == True
                     # Set Qty to max_contracts for selected rows
                     for idx in st.session_state.cc_opportunities[mask].index:
@@ -3437,7 +3427,7 @@ elif page == "CC Dashboard":
                     st.rerun()
             
             with col6:
-                if st.button("🔄 Reset", use_container_width=True, key="cc_qty_reset", help="Reset selected quantities to 1"):
+                if st.button("🔄 Reset", key="cc_qty_reset", help="Reset selected quantities to 1"):
                     mask = st.session_state.cc_opportunities['Select'] == True
                     st.session_state.cc_opportunities.loc[mask, 'Qty'] = 1
                     st.rerun()
@@ -3468,7 +3458,7 @@ elif page == "CC Dashboard":
                 
                 col1, col2 = st.columns(2)
                 with col1:
-                    if st.button("💾 Commit Conservative", use_container_width=True, key="commit_conservative"):
+                    if st.button("💾 Commit Conservative", key="commit_conservative"):
                         st.session_state.cc_conservative_delta_min = cons_delta_min
                         st.session_state.cc_conservative_delta_max = cons_delta_max
                         st.session_state.cc_conservative_dte_min = cons_dte_min
@@ -3478,7 +3468,7 @@ elif page == "CC Dashboard":
                         st.success("✅ Conservative criteria committed!")
                         st.rerun()
                 with col2:
-                    if st.button("🔄 Reset Conservative", use_container_width=True, key="reset_conservative"):
+                    if st.button("🔄 Reset Conservative", key="reset_conservative"):
                         st.session_state.cc_conservative_delta_min = 0.10
                         st.session_state.cc_conservative_delta_max = 0.20
                         st.session_state.cc_conservative_dte_min = 7
@@ -3502,7 +3492,7 @@ elif page == "CC Dashboard":
                 
                 col1, col2 = st.columns(2)
                 with col1:
-                    if st.button("💾 Commit Medium", use_container_width=True, key="commit_medium"):
+                    if st.button("💾 Commit Medium", key="commit_medium"):
                         st.session_state.cc_medium_delta_min = med_delta_min
                         st.session_state.cc_medium_delta_max = med_delta_max
                         st.session_state.cc_medium_dte_min = med_dte_min
@@ -3512,7 +3502,7 @@ elif page == "CC Dashboard":
                         st.success("✅ Medium criteria committed!")
                         st.rerun()
                 with col2:
-                    if st.button("🔄 Reset Medium", use_container_width=True, key="reset_medium"):
+                    if st.button("🔄 Reset Medium", key="reset_medium"):
                         st.session_state.cc_medium_delta_min = 0.15
                         st.session_state.cc_medium_delta_max = 0.30
                         st.session_state.cc_medium_dte_min = 7
@@ -3536,7 +3526,7 @@ elif page == "CC Dashboard":
                 
                 col1, col2 = st.columns(2)
                 with col1:
-                    if st.button("💾 Commit Aggressive", use_container_width=True, key="commit_aggressive"):
+                    if st.button("💾 Commit Aggressive", key="commit_aggressive"):
                         st.session_state.cc_aggressive_delta_min = agg_delta_min
                         st.session_state.cc_aggressive_delta_max = agg_delta_max
                         st.session_state.cc_aggressive_dte_min = agg_dte_min
@@ -3546,7 +3536,7 @@ elif page == "CC Dashboard":
                         st.success("✅ Aggressive criteria committed!")
                         st.rerun()
                 with col2:
-                    if st.button("🔄 Reset Aggressive", use_container_width=True, key="reset_aggressive"):
+                    if st.button("🔄 Reset Aggressive", key="reset_aggressive"):
                         st.session_state.cc_aggressive_delta_min = 0.20
                         st.session_state.cc_aggressive_delta_max = 0.40
                         st.session_state.cc_aggressive_dte_min = 7
@@ -3712,7 +3702,6 @@ elif page == "CC Dashboard":
             
             edited_opp = st.data_editor(
                 display_opp,
-                use_container_width=True,
                 hide_index=True,
                 column_config={
                     "Select": st.column_config.CheckboxColumn(
@@ -3829,7 +3818,7 @@ elif page == "CC Dashboard":
                         st.caption(f"This will submit {int(total_contracts)} covered call order(s) as limit orders at the mid price (between bid/ask).")
                 with col2:
                     button_label = "🧪 Run Dry Run Test" if dry_run else "🚀 Submit REAL Orders"
-                    if st.button(button_label, type="primary", use_container_width=True, key="submit_cc_orders"):
+                    if st.button(button_label, type="primary", key="submit_cc_orders"):
                         # Submit orders (or simulate)
                         spinner_msg = "Simulating orders..." if dry_run else "📫 Submitting orders to Tastytrade..."
                         with st.spinner(spinner_msg):
@@ -3942,7 +3931,7 @@ elif page == "PMCC Dashboard":
     st.markdown('<div class="section-header">🎯 Active PMCC Positions</div>', unsafe_allow_html=True)
     
     # Fetch LEAP positions
-    if st.button("🔍 Refresh PMCC Positions", type="primary", use_container_width=True):
+    if st.button("🔍 Refresh PMCC Positions", type="primary"):
         try:
             with st.status("Fetching PMCC positions...", expanded=True) as status:
                 st.write("📊 Fetching LEAP positions...")
@@ -4041,7 +4030,7 @@ elif page == "PMCC Dashboard":
         display_leap_df['Current Value'] = display_leap_df['Current Value'].apply(lambda x: f"${x:,.0f}")
         display_leap_df['P/L'] = display_leap_df['P/L'].apply(lambda x: f"${x:,.0f}")
         
-        st.dataframe(display_leap_df, use_container_width=True, hide_index=True)
+        st.dataframe(display_leap_df, hide_index=True)
         
         # Summary metrics
         total_cost = sum([p['cost_basis'] for p in st.session_state.pmcc_leap_positions])
@@ -4098,7 +4087,7 @@ elif page == "PMCC Dashboard":
         display_short_df['Current Value'] = display_short_df['Current Value'].apply(lambda x: f"${x:,.0f}")
         display_short_df['P/L'] = display_short_df['P/L'].apply(lambda x: f"${x:,.0f}")
         
-        st.dataframe(display_short_df, use_container_width=True, hide_index=True)
+        st.dataframe(display_short_df, hide_index=True)
         
         # Summary metrics
         total_premium = sum([p['premium_collected'] for p in st.session_state.pmcc_short_calls])
@@ -4262,7 +4251,7 @@ elif page == "PMCC Dashboard":
                     st.warning(f"⚠️ {high_risk_count} position(s) require immediate attention")
                 
                 with col2:
-                    if st.button("📧 Send Alert", use_container_width=True, key="pmcc_send_alert"):
+                    if st.button("📧 Send Alert", key="pmcc_send_alert"):
                         from utils.pmcc_notifications import send_assignment_risk_alert, get_notification_preferences
                         
                         prefs = get_notification_preferences()
@@ -4315,11 +4304,11 @@ elif page == "PMCC Dashboard":
         st.info(f"📋 Currently monitoring **{len(pmcc_watchlist)}** symbols from watchlist")
     
     with col2:
-        if st.button("👁️ View/Edit Watchlist", use_container_width=True, key="pmcc_view_edit"):
+        if st.button("👁️ View/Edit Watchlist", key="pmcc_view_edit"):
             st.session_state.show_pmcc_watchlist_editor = not st.session_state.get('show_pmcc_watchlist_editor', False)
     
     with col3:
-        if st.button("🗑️ Clear Watchlist", use_container_width=True, type="secondary", key="pmcc_clear_watchlist"):
+        if st.button("🗑️ Clear Watchlist", type="secondary", key="pmcc_clear_watchlist"):
             if len(pmcc_watchlist) > 0:
                 with open('pmcc_watchlist.txt', 'w') as f:
                     f.write("")
@@ -4341,7 +4330,7 @@ elif page == "PMCC Dashboard":
                 label_visibility="collapsed"
             ).upper().strip()
         with add_col2:
-            if st.button("➕ Add Ticker(s)", type="primary", use_container_width=True, key="pmcc_add_tickers"):
+            if st.button("➕ Add Ticker(s)", type="primary", key="pmcc_add_tickers"):
                 if new_ticker_input:
                     # Parse comma-separated tickers and remove duplicates from input
                     new_tickers = list(dict.fromkeys([t.strip() for t in new_ticker_input.split(',') if t.strip()]))
@@ -4393,7 +4382,6 @@ elif page == "PMCC Dashboard":
                     "Symbol": st.column_config.TextColumn("Symbol", disabled=True),
                 },
                 hide_index=True,
-                use_container_width=True,
                 key="pmcc_watchlist_editor"
             )
             
@@ -4509,7 +4497,7 @@ elif page == "PMCC Dashboard":
         st.session_state.pmcc_leap_scan_results = []
     
     # Scan button
-    if st.button("🔍 Scan for LEAPs", type="primary", use_container_width=True, key="pmcc_scan"):
+    if st.button("🔍 Scan for LEAPs", type="primary", key="pmcc_scan"):
         if not pmcc_watchlist:
             st.warning("⚠️ Please add tickers to your watchlist first!")
         else:
@@ -4681,14 +4669,14 @@ elif page == "PMCC Dashboard":
         col1, col2, col3, col4, col5, col6 = st.columns([1, 1.5, 1.5, 1.5, 1, 1])
         
         with col1:
-            if st.button("🗑️ Clear All", use_container_width=True, key="pmcc_clear_all"):
+            if st.button("🗑️ Clear All", key="pmcc_clear_all"):
                 st.session_state.pmcc_opportunities['Select'] = False
                 if 'pmcc_active_preset' in st.session_state:
                     del st.session_state.pmcc_active_preset
                 st.rerun()
         
         with col2:
-            if st.button("🟢 Conservative", use_container_width=True, key="pmcc_preset_conservative",
+            if st.button("🟢 Conservative", key="pmcc_preset_conservative",
                        help=f"Δ {st.session_state.pmcc_conservative_delta_min}-{st.session_state.pmcc_conservative_delta_max}, DTE {st.session_state.pmcc_conservative_dte_min}-{st.session_state.pmcc_conservative_dte_max}, Extr≤{st.session_state.pmcc_conservative_extrinsic_max}%"):
                 # Track active preset
                 st.session_state.pmcc_active_preset = 'conservative'
@@ -4720,7 +4708,7 @@ elif page == "PMCC Dashboard":
                 st.rerun()
         
         with col3:
-            if st.button("🟡 Medium", use_container_width=True, key="pmcc_preset_medium",
+            if st.button("🟡 Medium", key="pmcc_preset_medium",
                        help=f"Δ {st.session_state.pmcc_medium_delta_min}-{st.session_state.pmcc_medium_delta_max}, DTE {st.session_state.pmcc_medium_dte_min}-{st.session_state.pmcc_medium_dte_max}, Extr≤{st.session_state.pmcc_medium_extrinsic_max}%"):
                 # Track active preset
                 st.session_state.pmcc_active_preset = 'medium'
@@ -4752,7 +4740,7 @@ elif page == "PMCC Dashboard":
                 st.rerun()
         
         with col4:
-            if st.button("🔴 Aggressive", use_container_width=True, key="pmcc_preset_aggressive",
+            if st.button("🔴 Aggressive", key="pmcc_preset_aggressive",
                        help=f"Δ {st.session_state.pmcc_aggressive_delta_min}-{st.session_state.pmcc_aggressive_delta_max}, DTE {st.session_state.pmcc_aggressive_dte_min}-{st.session_state.pmcc_aggressive_dte_max}, Extr≤{st.session_state.pmcc_aggressive_extrinsic_max}%"):
                 # Track active preset
                 st.session_state.pmcc_active_preset = 'aggressive'
@@ -4784,7 +4772,7 @@ elif page == "PMCC Dashboard":
                 st.rerun()
         
         with col5:
-            if st.button("✅ Select All", use_container_width=True, key="pmcc_select_all"):
+            if st.button("✅ Select All", key="pmcc_select_all"):
                 st.session_state.pmcc_opportunities['Select'] = True
                 st.rerun()
         
@@ -4795,17 +4783,17 @@ elif page == "PMCC Dashboard":
         # Quantity adjustment buttons
         col1, col2, col3, col4 = st.columns(4)
         with col1:
-            if st.button("➕ +1 Qty", use_container_width=True, key="pmcc_qty_plus1"):
+            if st.button("➕ +1 Qty", key="pmcc_qty_plus1"):
                 mask = st.session_state.pmcc_opportunities['Select'] == True
                 st.session_state.pmcc_opportunities.loc[mask, 'Qty'] += 1
                 st.rerun()
         with col2:
-            if st.button("➖ -1 Qty", use_container_width=True, key="pmcc_qty_minus1"):
+            if st.button("➖ -1 Qty", key="pmcc_qty_minus1"):
                 mask = st.session_state.pmcc_opportunities['Select'] == True
                 st.session_state.pmcc_opportunities.loc[mask, 'Qty'] = st.session_state.pmcc_opportunities.loc[mask, 'Qty'].apply(lambda x: max(1, x - 1))
                 st.rerun()
         with col3:
-            if st.button("🔄 Reset Qty", use_container_width=True, key="pmcc_qty_reset"):
+            if st.button("🔄 Reset Qty", key="pmcc_qty_reset"):
                 st.session_state.pmcc_opportunities['Qty'] = 1
                 st.rerun()
         with col4:
@@ -4842,7 +4830,7 @@ elif page == "PMCC Dashboard":
             
             col1, col2 = st.columns(2)
             with col1:
-                if st.button("💾 Commit Conservative", use_container_width=True, key="pmcc_commit_conservative"):
+                if st.button("💾 Commit Conservative", key="pmcc_commit_conservative"):
                     st.session_state.pmcc_conservative_delta_min = cons_delta_min
                     st.session_state.pmcc_conservative_delta_max = cons_delta_max
                     st.session_state.pmcc_conservative_dte_min = cons_dte_min
@@ -4855,7 +4843,7 @@ elif page == "PMCC Dashboard":
                     st.success("✅ Conservative criteria committed!")
                     st.rerun()
             with col2:
-                if st.button("🔄 Reset Conservative", use_container_width=True, key="pmcc_reset_conservative"):
+                if st.button("🔄 Reset Conservative", key="pmcc_reset_conservative"):
                     st.session_state.pmcc_conservative_delta_min = 0.80
                     st.session_state.pmcc_conservative_delta_max = 0.95
                     st.session_state.pmcc_conservative_dte_min = 300
@@ -4890,7 +4878,7 @@ elif page == "PMCC Dashboard":
             
             col1, col2 = st.columns(2)
             with col1:
-                if st.button("💾 Commit Medium", use_container_width=True, key="pmcc_commit_medium"):
+                if st.button("💾 Commit Medium", key="pmcc_commit_medium"):
                     st.session_state.pmcc_medium_delta_min = med_delta_min
                     st.session_state.pmcc_medium_delta_max = med_delta_max
                     st.session_state.pmcc_medium_dte_min = med_dte_min
@@ -4903,7 +4891,7 @@ elif page == "PMCC Dashboard":
                     st.success("✅ Medium criteria committed!")
                     st.rerun()
             with col2:
-                if st.button("🔄 Reset Medium", use_container_width=True, key="pmcc_reset_medium"):
+                if st.button("🔄 Reset Medium", key="pmcc_reset_medium"):
                     st.session_state.pmcc_medium_delta_min = 0.75
                     st.session_state.pmcc_medium_delta_max = 0.90
                     st.session_state.pmcc_medium_dte_min = 270
@@ -4938,7 +4926,7 @@ elif page == "PMCC Dashboard":
             
             col1, col2 = st.columns(2)
             with col1:
-                if st.button("💾 Commit Aggressive", use_container_width=True, key="pmcc_commit_aggressive"):
+                if st.button("💾 Commit Aggressive", key="pmcc_commit_aggressive"):
                     st.session_state.pmcc_aggressive_delta_min = agg_delta_min
                     st.session_state.pmcc_aggressive_delta_max = agg_delta_max
                     st.session_state.pmcc_aggressive_dte_min = agg_dte_min
@@ -4951,7 +4939,7 @@ elif page == "PMCC Dashboard":
                     st.success("✅ Aggressive criteria committed!")
                     st.rerun()
             with col2:
-                if st.button("🔄 Reset Aggressive", use_container_width=True, key="pmcc_reset_aggressive"):
+                if st.button("🔄 Reset Aggressive", key="pmcc_reset_aggressive"):
                     st.session_state.pmcc_aggressive_delta_min = 0.70
                     st.session_state.pmcc_aggressive_delta_max = 0.85
                     st.session_state.pmcc_aggressive_dte_min = 240
@@ -5183,7 +5171,6 @@ elif page == "PMCC Dashboard":
                 "MA %": st.column_config.TextColumn("MA %"),
             },
             hide_index=True,
-            use_container_width=True,
             height=dynamic_height,
             key="pmcc_leap_editor"
         )
@@ -5220,7 +5207,7 @@ elif page == "PMCC Dashboard":
             st.write("")
             
             # Submit orders button
-            if st.button("💰 Buy Selected LEAPs (Submit Orders)", type="primary", use_container_width=True, key="pmcc_buy_selected"):
+            if st.button("💰 Buy Selected LEAPs (Submit Orders)", type="primary", key="pmcc_buy_selected"):
                 try:
                     with st.status("Submitting LEAP buy orders...", expanded=True) as status:
                         from utils.pmcc_orders import submit_leap_buy_order
@@ -5309,7 +5296,7 @@ elif page == "PMCC Dashboard":
                 st.session_state.pmcc_short_call_scan_results = []
             
             st.write("")
-            if st.button("🔍 Scan Short Calls", type="primary", use_container_width=True, key="pmcc_scan_short"):
+            if st.button("🔍 Scan Short Calls", type="primary", key="pmcc_scan_short"):
                 try:
                     with st.status("Scanning for short call opportunities...", expanded=True) as status:
                         from utils.pmcc_scanner import scan_short_call_opportunities
@@ -5369,7 +5356,7 @@ elif page == "PMCC Dashboard":
                 display_df['Distance %'] = display_df['Distance %'].apply(lambda x: f"{x:.1f}%")
                 display_df['Above LEAP'] = display_df['Above LEAP'].apply(lambda x: f"${x:.2f}")
                 
-                st.dataframe(display_df, use_container_width=True, hide_index=True)
+                st.dataframe(display_df, hide_index=True)
                 
                 # Add action to sell short call
                 st.write("")
@@ -5412,7 +5399,7 @@ elif page == "PMCC Dashboard":
                     st.info(f"📊 This trade would contribute **{current_roi:.1f}% ROI** on your LEAP cost basis")
                     
                     st.write("")
-                    if st.button("💰 Sell Short Call (Submit Order)", type="primary", use_container_width=True, key="pmcc_sell_short"):
+                    if st.button("💰 Sell Short Call (Submit Order)", type="primary", key="pmcc_sell_short"):
                         try:
                             with st.status("Submitting short call order...", expanded=True) as status:
                                 from utils.pmcc_orders import submit_short_call_order
@@ -5589,7 +5576,7 @@ elif page == "Settings":
                                 
                                 import pandas as pd
                                 bp_df = pd.DataFrame(bp_data)
-                                st.dataframe(bp_df, use_container_width=True, hide_index=True)
+                                st.dataframe(bp_df, hide_index=True)
                                 
                                 # Show ALL fields in expandable section
                                 with st.expander("📄 View ALL API Fields (Raw)"):
@@ -5602,7 +5589,7 @@ elif page == "Settings":
                                             all_data.append({'Field': key, 'Value': str(value)})
                                     
                                     all_df = pd.DataFrame(all_data)
-                                    st.dataframe(all_df, use_container_width=True, hide_index=True)
+                                    st.dataframe(all_df, hide_index=True)
                             else:
                                 st.error(f"❌ Could not fetch balances for {account_number}")
                 else:
