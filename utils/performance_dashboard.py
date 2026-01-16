@@ -427,9 +427,11 @@ def render_options_table(positions: List[Dict], position_type: str):
     table_data = [table_data[i] for i in sorted_indices]
     positions_raw = [positions_raw[i] for i in sorted_indices]
     
-    # Initialize session state for auto-selection
+    # Initialize session state for auto-selection and selections storage
     if f'{position_type}_auto_select_green' not in st.session_state:
         st.session_state[f'{position_type}_auto_select_green'] = False
+    if f'{position_type}_selections' not in st.session_state:
+        st.session_state[f'{position_type}_selections'] = set()
     
     df = pd.DataFrame(table_data)
     
@@ -441,15 +443,18 @@ def render_options_table(positions: List[Dict], position_type: str):
     col1, col2, col3 = st.columns([1, 2, 2])
     with col1:
         if st.button("🟢 Select All Green (80%+)", key=f"{position_type}_select_green"):
-            st.session_state[f'{position_type}_auto_select_green'] = True
+            # Store indices of green positions
+            green_indices = set()
+            for i, row in enumerate(table_data):
+                if '🟢' in row['Action']:
+                    green_indices.add(i)
+            st.session_state[f'{position_type}_selections'] = green_indices
+            st.rerun()
     
-    # Auto-select green positions if button was clicked
-    if st.session_state[f'{position_type}_auto_select_green']:
-        for i, row in enumerate(table_data):
-            if '🟢' in row['Action']:  # Check if it's a green CLOSE action
-                df.at[i, 'Select'] = True
-        # Reset flag after applying
-        st.session_state[f'{position_type}_auto_select_green'] = False
+    # Restore selections from session state
+    for idx in st.session_state[f'{position_type}_selections']:
+        if idx < len(df):
+            df.at[idx, 'Select'] = True
     
     # Display with checkboxes for selection
     edited_df = st.data_editor(
@@ -480,11 +485,14 @@ def render_options_table(positions: List[Dict], position_type: str):
             ),
             "Action": st.column_config.TextColumn("Action", width="small"),
         },
-        key=f"{position_type}_positions_table"
+        key=f"{position_type}_positions_table",
+        on_change=lambda: st.session_state.update({f'{position_type}_selections': set(edited_df[edited_df['Select'] == True].index.tolist())})
     )
     
-    # Close positions functionality
+    # Update session state with current selections
     selected_rows = edited_df[edited_df['Select'] == True]
+    if len(selected_rows) > 0:
+        st.session_state[f'{position_type}_selections'] = set(selected_rows.index.tolist())
     
     if len(selected_rows) > 0:
         st.write("")
