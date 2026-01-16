@@ -647,6 +647,14 @@ def render_options_table(positions: List[Dict], position_type: str):
                             with st.expander(f"Error details for {result['symbol']}"):
                                 st.code(error_msg)
                     
+                    # Clear selections and refresh if any orders succeeded
+                    if success_count > 0:
+                        st.session_state[f'{position_type}_selections'] = set()
+                        st.info("🔄 Refreshing positions in 3 seconds...")
+                        import time
+                        time.sleep(3)
+                        st.rerun()
+                    
                 except Exception as e:
                     st.error(f"❌ Critical error during order submission: {str(e)}")
                     st.exception(e)
