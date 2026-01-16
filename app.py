@@ -808,12 +808,12 @@ elif page == "CSP Dashboard":
         ]
         
         # Format currency and percentages
-        display_df['Strike'] = display_df['Strike'].apply(lambda x: f"${x:.2f}")
-        display_df['Premium Collected'] = display_df['Premium Collected'].apply(lambda x: f"${x:.2f}")
-        display_df['Current Value'] = display_df['Current Value'].apply(lambda x: f"${x:.2f}")
-        display_df['P/L'] = display_df['P/L'].apply(lambda x: f"${x:.2f}")
-        display_df['% Recognized'] = display_df['% Recognized'].apply(lambda x: f"{x:.1f}%")
-        display_df['Collateral'] = display_df['Collateral'].apply(lambda x: f"${x:,.0f}")
+        display_df['Strike'] = display_df['Strike'].apply(lambda x: f"${x:.2f}" if x and x == x else "N/A")
+        display_df['Premium Collected'] = display_df['Premium Collected'].apply(lambda x: f"${x:.2f}" if x and x == x else "N/A")
+        display_df['Current Value'] = display_df['Current Value'].apply(lambda x: f"${x:.2f}" if x and x == x else "N/A")
+        display_df['P/L'] = display_df['P/L'].apply(lambda x: f"${x:.2f}" if x and x == x else "N/A")
+        display_df['% Recognized'] = display_df['% Recognized'].apply(lambda x: f"{x:.1f}%" if x and x == x else "N/A")
+        display_df['Collateral'] = display_df['Collateral'].apply(lambda x: f"${x:,.0f}" if x and x == x else "N/A")
         
         st.dataframe(display_df, hide_index=True)
         
@@ -2912,8 +2912,8 @@ elif page == "CC Dashboard":
             eligible_display.columns = ['Select', 'Symbol', 'Shares', 'Price', 'Market Value', 'Max Contracts']
             
             # Format numbers
-            eligible_display['Price'] = eligible_display['Price'].apply(lambda x: f"${x:.2f}")
-            eligible_display['Market Value'] = eligible_display['Market Value'].apply(lambda x: f"${x:,.2f}")
+            eligible_display['Price'] = eligible_display['Price'].apply(lambda x: f"${x:.2f}" if x and x == x else "N/A")
+            eligible_display['Market Value'] = eligible_display['Market Value'].apply(lambda x: f"${x:,.2f}" if x and x == x else "N/A")
             
             # Selection buttons
             col1, col2, col3 = st.columns([1, 1, 4])
@@ -3684,11 +3684,11 @@ elif page == "CC Dashboard":
             # Apply formatting
             if 'Score' in display_opp.columns:
                 display_opp['Score'] = display_opp['Score'].apply(format_score)
-            display_opp['Stock Price'] = display_opp['Stock Price'].apply(lambda x: f"${x:.2f}")
-            display_opp['Strike'] = display_opp['Strike'].apply(lambda x: f"${x:.2f}")
+            display_opp['Stock Price'] = display_opp['Stock Price'].apply(lambda x: f"${x:.2f}" if x and x == x else "N/A")
+            display_opp['Strike'] = display_opp['Strike'].apply(lambda x: f"${x:.2f}" if x and x == x else "N/A")
             display_opp['Delta'] = display_opp['Delta'].apply(format_delta)
-            display_opp['Premium'] = display_opp['Premium'].apply(lambda x: f"${x:.2f}")
-            display_opp['Weekly %'] = display_opp['Weekly %'].apply(lambda x: f"{x:.2f}%")
+            display_opp['Premium'] = display_opp['Premium'].apply(lambda x: f"${x:.2f}" if x and x == x else "N/A")
+            display_opp['Weekly %'] = display_opp['Weekly %'].apply(lambda x: f"{x:.2f}%" if x and x == x else "N/A")
             display_opp['RSI'] = display_opp['RSI'].apply(format_rsi)
             display_opp['IV Rank'] = display_opp['IV Rank'].apply(format_iv_rank)
             display_opp['BB %B'] = display_opp['BB %B'].apply(format_bb_pct_b)
@@ -4025,10 +4025,10 @@ elif page == "PMCC Dashboard":
         ]
         
         # Format currency
-        display_leap_df['Strike'] = display_leap_df['Strike'].apply(lambda x: f"${x:.2f}")
-        display_leap_df['Cost Basis'] = display_leap_df['Cost Basis'].apply(lambda x: f"${x:,.0f}")
-        display_leap_df['Current Value'] = display_leap_df['Current Value'].apply(lambda x: f"${x:,.0f}")
-        display_leap_df['P/L'] = display_leap_df['P/L'].apply(lambda x: f"${x:,.0f}")
+        display_leap_df['Strike'] = display_leap_df['Strike'].apply(lambda x: f"${x:.2f}" if x and x == x else "N/A")
+        display_leap_df['Cost Basis'] = display_leap_df['Cost Basis'].apply(lambda x: f"${x:,.0f}" if x and x == x else "N/A")
+        display_leap_df['Current Value'] = display_leap_df['Current Value'].apply(lambda x: f"${x:,.0f}" if x and x == x else "N/A")
+        display_leap_df['P/L'] = display_leap_df['P/L'].apply(lambda x: f"${x:,.0f}" if x and x == x else "N/A")
         
         st.dataframe(display_leap_df, hide_index=True)
         
@@ -4082,10 +4082,10 @@ elif page == "PMCC Dashboard":
         ]
         
         # Format currency
-        display_short_df['Strike'] = display_short_df['Strike'].apply(lambda x: f"${x:.2f}")
-        display_short_df['Premium Collected'] = display_short_df['Premium Collected'].apply(lambda x: f"${x:,.0f}")
-        display_short_df['Current Value'] = display_short_df['Current Value'].apply(lambda x: f"${x:,.0f}")
-        display_short_df['P/L'] = display_short_df['P/L'].apply(lambda x: f"${x:,.0f}")
+        display_short_df['Strike'] = display_short_df['Strike'].apply(lambda x: f"${x:.2f}" if x and x == x else "N/A")
+        display_short_df['Premium Collected'] = display_short_df['Premium Collected'].apply(lambda x: f"${x:,.0f}" if x and x == x else "N/A")
+        display_short_df['Current Value'] = display_short_df['Current Value'].apply(lambda x: f"${x:,.0f}" if x and x == x else "N/A")
+        display_short_df['P/L'] = display_short_df['P/L'].apply(lambda x: f"${x:,.0f}" if x and x == x else "N/A")
         
         st.dataframe(display_short_df, hide_index=True)
         
@@ -5350,11 +5350,11 @@ elif page == "PMCC Dashboard":
                 ]
                 
                 # Format columns
-                display_df['Strike'] = display_df['Strike'].apply(lambda x: f"${x:.2f}")
-                display_df['Delta'] = display_df['Delta'].apply(lambda x: f"{x:.3f}")
-                display_df['Premium'] = display_df['Premium'].apply(lambda x: f"${x:.0f}")
-                display_df['Distance %'] = display_df['Distance %'].apply(lambda x: f"{x:.1f}%")
-                display_df['Above LEAP'] = display_df['Above LEAP'].apply(lambda x: f"${x:.2f}")
+                display_df['Strike'] = display_df['Strike'].apply(lambda x: f"${x:.2f}" if x and x == x else "N/A")
+                display_df['Delta'] = display_df['Delta'].apply(lambda x: f"{x:.3f}" if x and x == x else "N/A")
+                display_df['Premium'] = display_df['Premium'].apply(lambda x: f"${x:.0f}" if x and x == x else "N/A")
+                display_df['Distance %'] = display_df['Distance %'].apply(lambda x: f"{x:.1f}%" if x and x == x else "N/A")
+                display_df['Above LEAP'] = display_df['Above LEAP'].apply(lambda x: f"${x:.2f}" if x and x == x else "N/A")
                 
                 st.dataframe(display_df, hide_index=True)
                 
