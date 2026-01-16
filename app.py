@@ -1,5 +1,5 @@
 import streamlit as st
-# Force redeploy: 2026-01-13 17:38 MST
+# Force redeploy: 2026-01-16 15:53 MST - Add score buttons + remove oversold checkbox
 import os
 from dotenv import load_dotenv
 import pandas as pd
@@ -1718,21 +1718,6 @@ elif page == "CSP Dashboard":
         with col6:
             selected_count = st.session_state.csp_opportunities['Select'].sum()
             st.metric("Selected", selected_count)
-        
-        # Oversold filter checkbox - placed right below preset buttons
-        st.write("")
-        col_oversold, col_space = st.columns([1, 4])
-        
-        with col_oversold:
-            oversold_filter = st.checkbox(
-                "📉 Oversold Only", 
-                value=st.session_state.csp_oversold_filter,
-                key="csp_oversold_toggle",
-                help="Additional filter: RSI < 40 AND BB %B < 0.3 (stocks that have pulled back)"
-            )
-            if oversold_filter != st.session_state.csp_oversold_filter:
-                st.session_state.csp_oversold_filter = oversold_filter
-                st.rerun()
         
         st.write("")
         st.write("---")
