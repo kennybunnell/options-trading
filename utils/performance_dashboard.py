@@ -516,14 +516,14 @@ def render_options_table(positions: List[Dict], position_type: str):
         
         if dry_run:
             st.info("🧪 **DRY RUN MODE**: Orders will be simulated, not actually submitted.")
-            if st.button("🧪 Run Dry Run Test", use_container_width=True, key=f"{position_type}_dryrun_btn"):
+            if st.button("🧪 Run Dry Run Test", key=f"{position_type}_dryrun_btn"):
                 st.write("**🧪 Dry Run Results:**")
                 for pos_data in selected_positions:
                     st.success(f"✅ Would close {pos_data['quantity']} contract(s) of {pos_data['underlying']} ${pos_data['strike']:.0f} {pos_data['option_type']} at ${pos_data['current_price']:.2f}")
                 st.info("💡 Toggle off Dry Run Mode to submit real orders.")
         else:
             st.warning("⚠️ **LIVE MODE**: Orders will be submitted to Tastytrade!")
-            if st.button("🚀 Submit REAL Close Orders", type="primary", use_container_width=True, key=f"{position_type}_live_btn"):
+            if st.button("🚀 Submit REAL Close Orders", type="primary", key=f"{position_type}_live_btn"):
                 st.write("**📤 Submitting close orders...**")
                 
                 try:
