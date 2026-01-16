@@ -1956,57 +1956,32 @@ elif page == "CSP Dashboard":
         
         # Score-based selection buttons - right above the table
         st.write("**Filter by Composite Score:**")
-        score_col1, score_col2, score_col3, score_col4, score_col5, score_col6 = st.columns([1, 1, 1, 1, 1, 2])
+        score_cols = st.columns(9)
         
         opp_df = st.session_state.csp_opportunities
         
-        with score_col1:
-            count_100 = len(opp_df[opp_df['score'] == 100]) if 'score' in opp_df.columns else 0
-            if st.button(f"💯 100% ({count_100})", key="csp_score_100", help="Select opportunities with perfect 100 score"):
-                st.session_state.csp_opportunities['Select'] = False
-                if 'score' in st.session_state.csp_opportunities.columns:
-                    mask = st.session_state.csp_opportunities['score'] == 100
-                    st.session_state.csp_opportunities.loc[mask, 'Select'] = True
-                st.rerun()
+        # Define score thresholds and their button configs
+        score_buttons = [
+            (80, "🟢 80+", "csp_score_80"),
+            (75, "🟢 75+", "csp_score_75"),
+            (70, "🟡 70+", "csp_score_70"),
+            (65, "🟡 65+", "csp_score_65"),
+            (60, "🟠 60+", "csp_score_60"),
+            (55, "🟠 55+", "csp_score_55"),
+            (50, "🔴 50+", "csp_score_50"),
+            (45, "🔴 45+", "csp_score_45"),
+            (40, "⚫ 40+", "csp_score_40"),
+        ]
         
-        with score_col2:
-            count_95 = len(opp_df[opp_df['score'] >= 95]) if 'score' in opp_df.columns else 0
-            if st.button(f"🟢 95%+ ({count_95})", key="csp_score_95", help="Select opportunities with score >= 95"):
-                st.session_state.csp_opportunities['Select'] = False
-                if 'score' in st.session_state.csp_opportunities.columns:
-                    mask = st.session_state.csp_opportunities['score'] >= 95
-                    st.session_state.csp_opportunities.loc[mask, 'Select'] = True
-                st.rerun()
-        
-        with score_col3:
-            count_90 = len(opp_df[opp_df['score'] >= 90]) if 'score' in opp_df.columns else 0
-            if st.button(f"🟡 90%+ ({count_90})", key="csp_score_90", help="Select opportunities with score >= 90"):
-                st.session_state.csp_opportunities['Select'] = False
-                if 'score' in st.session_state.csp_opportunities.columns:
-                    mask = st.session_state.csp_opportunities['score'] >= 90
-                    st.session_state.csp_opportunities.loc[mask, 'Select'] = True
-                st.rerun()
-        
-        with score_col4:
-            count_85 = len(opp_df[opp_df['score'] >= 85]) if 'score' in opp_df.columns else 0
-            if st.button(f"🟠 85%+ ({count_85})", key="csp_score_85", help="Select opportunities with score >= 85"):
-                st.session_state.csp_opportunities['Select'] = False
-                if 'score' in st.session_state.csp_opportunities.columns:
-                    mask = st.session_state.csp_opportunities['score'] >= 85
-                    st.session_state.csp_opportunities.loc[mask, 'Select'] = True
-                st.rerun()
-        
-        with score_col5:
-            count_80 = len(opp_df[opp_df['score'] >= 80]) if 'score' in opp_df.columns else 0
-            if st.button(f"🔴 80%+ ({count_80})", key="csp_score_80", help="Select opportunities with score >= 80"):
-                st.session_state.csp_opportunities['Select'] = False
-                if 'score' in st.session_state.csp_opportunities.columns:
-                    mask = st.session_state.csp_opportunities['score'] >= 80
-                    st.session_state.csp_opportunities.loc[mask, 'Select'] = True
-                st.rerun()
-        
-        with score_col6:
-            st.write("")  # Empty column for spacing
+        for idx, (threshold, label, key) in enumerate(score_buttons):
+            with score_cols[idx]:
+                count = len(opp_df[opp_df['score'] >= threshold]) if 'score' in opp_df.columns else 0
+                if st.button(f"{label} ({count})", key=key, help=f"Select opportunities with score >= {threshold}"):
+                    st.session_state.csp_opportunities['Select'] = False
+                    if 'score' in st.session_state.csp_opportunities.columns:
+                        mask = st.session_state.csp_opportunities['score'] >= threshold
+                        st.session_state.csp_opportunities.loc[mask, 'Select'] = True
+                    st.rerun()
         
         st.write("")
         
@@ -3625,55 +3600,30 @@ elif page == "CC Dashboard":
             
             # Score-based selection buttons - right above the table
             st.write("**Filter by Composite Score:**")
-            score_col1, score_col2, score_col3, score_col4, score_col5, score_col6 = st.columns([1, 1, 1, 1, 1, 2])
+            score_cols = st.columns(9)
             
-            with score_col1:
-                count_100 = len(opp_df[opp_df['score'] == 100]) if 'score' in opp_df.columns else 0
-                if st.button(f"💯 100% ({count_100})", key="cc_score_100", help="Select opportunities with perfect 100 score"):
-                    st.session_state.cc_opportunities['Select'] = False
-                    if 'score' in st.session_state.cc_opportunities.columns:
-                        mask = st.session_state.cc_opportunities['score'] == 100
-                        st.session_state.cc_opportunities.loc[mask, 'Select'] = True
-                    st.rerun()
+            # Define score thresholds and their button configs
+            score_buttons = [
+                (80, "🟢 80+", "cc_score_80"),
+                (75, "🟢 75+", "cc_score_75"),
+                (70, "🟡 70+", "cc_score_70"),
+                (65, "🟡 65+", "cc_score_65"),
+                (60, "🟠 60+", "cc_score_60"),
+                (55, "🟠 55+", "cc_score_55"),
+                (50, "🔴 50+", "cc_score_50"),
+                (45, "🔴 45+", "cc_score_45"),
+                (40, "⚫ 40+", "cc_score_40"),
+            ]
             
-            with score_col2:
-                count_95 = len(opp_df[opp_df['score'] >= 95]) if 'score' in opp_df.columns else 0
-                if st.button(f"🟢 95%+ ({count_95})", key="cc_score_95", help="Select opportunities with score >= 95"):
-                    st.session_state.cc_opportunities['Select'] = False
-                    if 'score' in st.session_state.cc_opportunities.columns:
-                        mask = st.session_state.cc_opportunities['score'] >= 95
-                        st.session_state.cc_opportunities.loc[mask, 'Select'] = True
-                    st.rerun()
-            
-            with score_col3:
-                count_90 = len(opp_df[opp_df['score'] >= 90]) if 'score' in opp_df.columns else 0
-                if st.button(f"🟡 90%+ ({count_90})", key="cc_score_90", help="Select opportunities with score >= 90"):
-                    st.session_state.cc_opportunities['Select'] = False
-                    if 'score' in st.session_state.cc_opportunities.columns:
-                        mask = st.session_state.cc_opportunities['score'] >= 90
-                        st.session_state.cc_opportunities.loc[mask, 'Select'] = True
-                    st.rerun()
-            
-            with score_col4:
-                count_85 = len(opp_df[opp_df['score'] >= 85]) if 'score' in opp_df.columns else 0
-                if st.button(f"🟠 85%+ ({count_85})", key="cc_score_85", help="Select opportunities with score >= 85"):
-                    st.session_state.cc_opportunities['Select'] = False
-                    if 'score' in st.session_state.cc_opportunities.columns:
-                        mask = st.session_state.cc_opportunities['score'] >= 85
-                        st.session_state.cc_opportunities.loc[mask, 'Select'] = True
-                    st.rerun()
-            
-            with score_col5:
-                count_80 = len(opp_df[opp_df['score'] >= 80]) if 'score' in opp_df.columns else 0
-                if st.button(f"🔴 80%+ ({count_80})", key="cc_score_80", help="Select opportunities with score >= 80"):
-                    st.session_state.cc_opportunities['Select'] = False
-                    if 'score' in st.session_state.cc_opportunities.columns:
-                        mask = st.session_state.cc_opportunities['score'] >= 80
-                        st.session_state.cc_opportunities.loc[mask, 'Select'] = True
-                    st.rerun()
-            
-            with score_col6:
-                st.write("")  # Empty column for spacing
+            for idx, (threshold, label, key) in enumerate(score_buttons):
+                with score_cols[idx]:
+                    count = len(opp_df[opp_df['score'] >= threshold]) if 'score' in opp_df.columns else 0
+                    if st.button(f"{label} ({count})", key=key, help=f"Select opportunities with score >= {threshold}"):
+                        st.session_state.cc_opportunities['Select'] = False
+                        if 'score' in st.session_state.cc_opportunities.columns:
+                            mask = st.session_state.cc_opportunities['score'] >= threshold
+                            st.session_state.cc_opportunities.loc[mask, 'Select'] = True
+                        st.rerun()
             
             st.write("")
             
