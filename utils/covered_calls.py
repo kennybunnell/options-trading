@@ -251,7 +251,7 @@ def pre_scan_covered_calls(api, tradier_api, holdings, min_prescan_delta=0.10, m
                 st.warning(f"  ⚠️ No option chain data returned for {symbol}")
                 continue
             
-            st.write(f"  ✅ Got option chain data (RSI: {rsi if rsi else 'N/A'}, IV Rank: {iv_rank if iv_rank else 'N/A'}, BB%B: {bb_pct_b:.2f if bb_pct_b else 'N/A'})")
+            st.write(f"  ✅ Got option chain data (RSI: {rsi if rsi else 'N/A'}, IV Rank: {iv_rank if iv_rank else 'N/A'}, BB%B: {f'{bb_pct_b:.2f}' if bb_pct_b else 'N/A'})")
             
             # Convert Tradier format to grouped by expiration
             from collections import defaultdict
