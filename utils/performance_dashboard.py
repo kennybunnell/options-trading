@@ -439,16 +439,60 @@ def render_options_table(positions: List[Dict], position_type: str):
     if f"{position_type}_dry_run_mode" not in st.session_state:
         st.session_state[f"{position_type}_dry_run_mode"] = True
     
-    # Add button to auto-select all green (80%+) positions
-    col1, col2, col3 = st.columns([1, 2, 2])
+    # Calculate counts for each threshold
+    count_80 = sum(1 for row in table_data if row['Realized %'] >= 80)
+    count_85 = sum(1 for row in table_data if row['Realized %'] >= 85)
+    count_90 = sum(1 for row in table_data if row['Realized %'] >= 90)
+    count_95 = sum(1 for row in table_data if row['Realized %'] >= 95)
+    
+    # Add threshold selection buttons
+    st.write("**Quick Select by Profit Threshold:**")
+    col1, col2, col3, col4, col5 = st.columns(5)
+    
     with col1:
-        if st.button("🟢 Select All Green (80%+)", key=f"{position_type}_select_green"):
-            # Store indices of green positions
-            green_indices = set()
+        if st.button(f"🔴 80%+ ({count_80})", key=f"{position_type}_select_80", 
+                    help="Select positions with 80% or more profit realized"):
+            selected_indices = set()
             for i, row in enumerate(table_data):
-                if '🟢' in row['Action']:
-                    green_indices.add(i)
-            st.session_state[f'{position_type}_selections'] = green_indices
+                if row['Realized %'] >= 80:
+                    selected_indices.add(i)
+            st.session_state[f'{position_type}_selections'] = selected_indices
+            st.rerun()
+    
+    with col2:
+        if st.button(f"🟠 85%+ ({count_85})", key=f"{position_type}_select_85",
+                    help="Select positions with 85% or more profit realized"):
+            selected_indices = set()
+            for i, row in enumerate(table_data):
+                if row['Realized %'] >= 85:
+                    selected_indices.add(i)
+            st.session_state[f'{position_type}_selections'] = selected_indices
+            st.rerun()
+    
+    with col3:
+        if st.button(f"🟡 90%+ ({count_90})", key=f"{position_type}_select_90",
+                    help="Select positions with 90% or more profit realized"):
+            selected_indices = set()
+            for i, row in enumerate(table_data):
+                if row['Realized %'] >= 90:
+                    selected_indices.add(i)
+            st.session_state[f'{position_type}_selections'] = selected_indices
+            st.rerun()
+    
+    with col4:
+        if st.button(f"🟢 95%+ ({count_95})", key=f"{position_type}_select_95",
+                    help="Select positions with 95% or more profit realized (BEST!)"):
+            selected_indices = set()
+            for i, row in enumerate(table_data):
+                if row['Realized %'] >= 95:
+                    selected_indices.add(i)
+            st.session_state[f'{position_type}_selections'] = selected_indices
+            st.rerun()
+    
+    with col5:
+        if st.button("⚪ Clear All", key=f"{position_type}_clear_all",
+                    help="Clear all selections"):
+            st.session_state[f'{position_type}_selections'] = set()
             st.rerun()
     
     # Restore selections from session state
