@@ -868,17 +868,26 @@ elif page == "CSP Dashboard":
     
     st.divider()
     
-    # Read watchlist (falls back to default if user's watchlist doesn't exist)
+    # Read watchlist from persistent data directory
+    import os
+    watchlist_file = 'data/watchlist.txt'
+    
+    # Ensure data directory exists
+    os.makedirs('data', exist_ok=True)
+    
     try:
-        with open('watchlist.txt', 'r') as f:
+        with open(watchlist_file, 'r') as f:
             watchlist = [line.strip() for line in f if line.strip()]
     except FileNotFoundError:
-        # First time setup: copy from default template
+        # First time setup: copy from default template or create empty
         try:
             import shutil
-            shutil.copy('watchlist.txt.default', 'watchlist.txt')
-            with open('watchlist.txt', 'r') as f:
-                watchlist = [line.strip() for line in f if line.strip()]
+            if os.path.exists('watchlist.txt.default'):
+                shutil.copy('watchlist.txt.default', watchlist_file)
+                with open(watchlist_file, 'r') as f:
+                    watchlist = [line.strip() for line in f if line.strip()]
+            else:
+                watchlist = []
         except:
             watchlist = []
     except:
@@ -899,7 +908,7 @@ elif page == "CSP Dashboard":
     with col3:
         if st.button("🗑️ Clear Watchlist", type="secondary"):
             if len(watchlist) > 0:
-                with open('watchlist.txt', 'w') as f:
+                with open('data/watchlist.txt', 'w') as f:
                     f.write("")
                 st.success("✅ Watchlist cleared!")
                 st.rerun()
@@ -936,7 +945,7 @@ elif page == "CSP Dashboard":
                     if added:
                         # Save updated watchlist
                         updated_watchlist = sorted(watchlist)
-                        with open('watchlist.txt', 'w') as f:
+                        with open('data/watchlist.txt', 'w') as f:
                             for symbol in updated_watchlist:
                                 f.write(f"{symbol}\n")
                         st.success(f"✅ Added {len(added)} ticker(s): {', '.join(added)}")
@@ -978,7 +987,7 @@ elif page == "CSP Dashboard":
             if st.button("🗑️ Remove Selected", type="primary"):
                 symbols_to_keep = edited_watchlist[edited_watchlist['Remove'] == False]['Symbol'].tolist()
                 
-                with open('watchlist.txt', 'w') as f:
+                with open('data/watchlist.txt', 'w') as f:
                     for symbol in sorted(symbols_to_keep):
                         f.write(f"{symbol}\n")
                 
