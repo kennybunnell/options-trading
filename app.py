@@ -3590,6 +3590,30 @@ elif page == "CC Dashboard":
             st.write("")
             st.write("---")
             
+            # Initialize show_selected_only toggle in session state
+            if 'cc_show_selected_only' not in st.session_state:
+                st.session_state.cc_show_selected_only = False
+            
+            # Toggle to show only selected contracts
+            col1, col2 = st.columns([1, 4])
+            with col1:
+                show_selected_only = st.toggle(
+                    "👁️ Selected Only",
+                    value=st.session_state.cc_show_selected_only,
+                    key="cc_show_selected_toggle",
+                    help="Show only the contracts you've selected (checked)"
+                )
+                st.session_state.cc_show_selected_only = show_selected_only
+            with col2:
+                selected_count = st.session_state.cc_opportunities['Select'].sum()
+                total_count = len(st.session_state.cc_opportunities)
+                if show_selected_only:
+                    st.caption(f"Showing {selected_count} selected of {total_count} total opportunities")
+                else:
+                    st.caption(f"Showing all {total_count} opportunities ({selected_count} selected)")
+            
+            st.write("")
+            
             # Score-based selection buttons - right above the table
             st.write("**Filter by Composite Score:**")
             score_col1, score_col2, score_col3, score_col4, score_col5, score_col6 = st.columns([1, 1, 1, 1, 1, 2])
@@ -3643,6 +3667,10 @@ elif page == "CC Dashboard":
                 st.write("")  # Empty column for spacing
             
             st.write("")
+            
+            # Apply "show selected only" filter if enabled
+            if show_selected_only:
+                opp_df = opp_df[opp_df['Select'] == True].copy()
             
             # Display dataframe - include Score column if it exists
             base_cols = ['Select', 'Qty', 'symbol']
