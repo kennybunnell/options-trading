@@ -215,13 +215,29 @@ def render_active_positions(api, tradier_api=None):
         if st.session_state.positions_last_updated:
             st.caption(f"Last updated: {st.session_state.positions_last_updated.strftime('%H:%M:%S')}")
     
-    # Fetch positions
+    # Fetch positions and working orders
     if st.session_state.cached_positions is None:
-        with st.spinner("Fetching positions..."):
+        with st.spinner("Fetching positions and working orders..."):
             st.session_state.cached_positions = fetch_all_positions_from_api(api)
             st.session_state.positions_last_updated = datetime.now()
+            
+            # Also fetch working orders for all accounts
+            working_orders = {}
+            for account in api.get_accounts():
+                account_num = account.get('account', {}).get('account-number')
+                if account_num:
+                    orders = api.get_live_orders(account_num)
+                    # Filter for buy-to-close orders
+                    for order in orders:
+                        for leg in order.get('legs', []):
+                            if leg.get('action') == 'Buy to Close':
+                                symbol = leg.get('symbol', '')
+                                working_orders[symbol] = order.get('id')
+            
+            st.session_state.working_orders = working_orders
     
     positions = st.session_state.cached_positions
+    working_orders = st.session_state.get('working_orders', {})
     
     # Categorize positions
     csp_positions = []
@@ -240,14 +256,23 @@ def render_active_positions(api, tradier_api=None):
     tab1, tab2 = st.tabs(["📄 Active CSPs", "📄 Active CCs"])
     
     with tab1:
-        render_options_table(csp_positions, "CSP")
+        render_options_table(csp_positions, "CSP", working_orders)
     
     with tab2:
-        render_options_table(cc_positions, "CC")
+        render_options_table(cc_positions, "CC", working_orders)
 
 
-def render_options_table(positions: List[Dict], position_type: str):
-    """Render options table using Streamlit native components"""
+def render_options_table(positions: List[Dict], position_type: str, working_orders: Dict = None):
+    """Render options table using Streamlit native components
+    
+    Args:
+        positions: List of position dictionaries
+        position_type: 'CSP' or 'CC'
+        working_orders: Dict mapping option symbols to order IDs for positions with pending close orders
+    """
+    
+    if working_orders is None:
+        working_orders = {}
     
     if not positions:
         st.info(f"No open {position_type} positions")
@@ -301,6 +326,11 @@ def render_options_table(positions: List[Dict], position_type: str):
         st.metric("Ready to Close", ready_to_close)
     
     st.divider()
+    
+    # Check if any positions have working orders
+    positions_with_orders = sum(1 for pos in positions if pos['symbol'] in working_orders)
+    if positions_with_orders > 0:
+        st.info(f"ℹ️ {positions_with_orders} position(s) have pending close orders and cannot be selected.")
     
     # Build dataframe with raw data for closing
     table_data = []
@@ -392,6 +422,15 @@ def render_options_table(positions: List[Dict], position_type: str):
         else:
             account_display = account_name
         
+        # Check if this position has a working close order
+        has_working_order = pos['symbol'] in working_orders
+        
+        # Override action if working order exists
+        if has_working_order:
+            action_display = '⏳ Closing...'
+        else:
+            action_display = recommendation
+        
         table_data.append({
             'Select': False,
             'Account': account_display,
@@ -404,7 +443,8 @@ def render_options_table(positions: List[Dict], position_type: str):
             'Premium Collected': f"${premium_collected:,.0f}",
             'Current Value': f"${current_value:,.0f}",
             'Realized %': premium_realized,  # Numeric value for progress bar
-            'Action': recommendation
+            'Action': action_display,
+            '_has_working_order': has_working_order  # Hidden field for logic
         })
         
         # Store raw data for closing
@@ -450,11 +490,11 @@ def render_options_table(positions: List[Dict], position_type: str):
     col1, col2, col3, col4, col5 = st.columns(5)
     
     with col1:
-        if st.button(f"🔴 80%+ ({count_80})", key=f"{position_type}_select_80", 
+        if st.button(f"🔴 80%+ ({count_80})", key=f"{position_type}_select_80",
                     help="Select positions with 80% or more profit realized"):
             selected_indices = set()
             for i, row in enumerate(table_data):
-                if row['Realized %'] >= 80:
+                if row['Realized %'] >= 80 and not row.get('_has_working_order', False):
                     selected_indices.add(i)
             st.session_state[f'{position_type}_selections'] = selected_indices
             st.rerun()
@@ -464,7 +504,7 @@ def render_options_table(positions: List[Dict], position_type: str):
                     help="Select positions with 85% or more profit realized"):
             selected_indices = set()
             for i, row in enumerate(table_data):
-                if row['Realized %'] >= 85:
+                if row['Realized %'] >= 85 and not row.get('_has_working_order', False):
                     selected_indices.add(i)
             st.session_state[f'{position_type}_selections'] = selected_indices
             st.rerun()
@@ -474,7 +514,7 @@ def render_options_table(positions: List[Dict], position_type: str):
                     help="Select positions with 90% or more profit realized"):
             selected_indices = set()
             for i, row in enumerate(table_data):
-                if row['Realized %'] >= 90:
+                if row['Realized %'] >= 90 and not row.get('_has_working_order', False):
                     selected_indices.add(i)
             st.session_state[f'{position_type}_selections'] = selected_indices
             st.rerun()
@@ -484,7 +524,7 @@ def render_options_table(positions: List[Dict], position_type: str):
                     help="Select positions with 95% or more profit realized (BEST!)"):
             selected_indices = set()
             for i, row in enumerate(table_data):
-                if row['Realized %'] >= 95:
+                if row['Realized %'] >= 95 and not row.get('_has_working_order', False):
                     selected_indices.add(i)
             st.session_state[f'{position_type}_selections'] = selected_indices
             st.rerun()
@@ -528,15 +568,21 @@ def render_options_table(positions: List[Dict], position_type: str):
                 width="medium"
             ),
             "Action": st.column_config.TextColumn("Action", width="small"),
+            "_has_working_order": None,  # Hide this column
         },
         key=f"{position_type}_positions_table",
         on_change=lambda: st.session_state.update({f'{position_type}_selections': set(edited_df[edited_df['Select'] == True].index.tolist())})
     )
     
-    # Update session state with current selections
+    # Update session state with current selections, but exclude positions with working orders
     selected_rows = edited_df[edited_df['Select'] == True]
     if len(selected_rows) > 0:
-        st.session_state[f'{position_type}_selections'] = set(selected_rows.index.tolist())
+        # Filter out positions that have working orders
+        valid_selections = set()
+        for idx in selected_rows.index.tolist():
+            if not table_data[idx].get('_has_working_order', False):
+                valid_selections.add(idx)
+        st.session_state[f'{position_type}_selections'] = valid_selections
     
     if len(selected_rows) > 0:
         st.write("")
