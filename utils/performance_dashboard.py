@@ -484,12 +484,8 @@ def render_options_table(positions: List[Dict], position_type: str):
                     help="Select positions with 95% or more profit realized (BEST!)"):
             selected_indices = set()
             for i, row in enumerate(table_data):
-                realized_pct = row['Realized %']
-                print(f"DEBUG: Row {i}: {row['Symbol']} {row['Strike']} - Realized %: {realized_pct}")
-                if realized_pct >= 95:
-                    print(f"  -> SELECTED (>= 95)")
+                if row['Realized %'] >= 95:
                     selected_indices.add(i)
-            print(f"DEBUG: Total selected for 95%+: {len(selected_indices)} indices: {selected_indices}")
             st.session_state[f'{position_type}_selections'] = selected_indices
             st.rerun()
     
