@@ -1979,12 +1979,18 @@ elif page == "CSP Dashboard":
         
         for idx, (threshold, label, key) in enumerate(score_buttons):
             with score_cols[idx]:
-                count = len(opp_df[opp_df['score'] >= threshold]) if 'score' in opp_df.columns else 0
-                if st.button(f"{label} ({count})", key=key, help=f"Select opportunities with score >= {threshold}"):
-                    st.session_state.csp_opportunities['Select'] = False
+                # Count currently SELECTED opportunities with score >= threshold
+                if 'score' in opp_df.columns and 'Select' in opp_df.columns:
+                    selected_df = opp_df[opp_df['Select'] == True]
+                    count = len(selected_df[selected_df['score'] >= threshold])
+                else:
+                    count = 0
+                
+                if st.button(f"{label} ({count})", key=key, help=f"Refine selection: Keep only opportunities with score >= {threshold}"):
+                    # Uncheck opportunities with score < threshold (refine the selection)
                     if 'score' in st.session_state.csp_opportunities.columns:
-                        mask = st.session_state.csp_opportunities['score'] >= threshold
-                        st.session_state.csp_opportunities.loc[mask, 'Select'] = True
+                        mask = st.session_state.csp_opportunities['score'] < threshold
+                        st.session_state.csp_opportunities.loc[mask, 'Select'] = False
                     st.rerun()
         
         st.write("")
@@ -3623,12 +3629,18 @@ elif page == "CC Dashboard":
             
             for idx, (threshold, label, key) in enumerate(score_buttons):
                 with score_cols[idx]:
-                    count = len(opp_df[opp_df['score'] >= threshold]) if 'score' in opp_df.columns else 0
-                    if st.button(f"{label} ({count})", key=key, help=f"Select opportunities with score >= {threshold}"):
-                        st.session_state.cc_opportunities['Select'] = False
+                    # Count currently SELECTED opportunities with score >= threshold
+                    if 'score' in opp_df.columns and 'Select' in opp_df.columns:
+                        selected_df = opp_df[opp_df['Select'] == True]
+                        count = len(selected_df[selected_df['score'] >= threshold])
+                    else:
+                        count = 0
+                    
+                    if st.button(f"{label} ({count})", key=key, help=f"Refine selection: Keep only opportunities with score >= {threshold}"):
+                        # Uncheck opportunities with score < threshold (refine the selection)
                         if 'score' in st.session_state.cc_opportunities.columns:
-                            mask = st.session_state.cc_opportunities['score'] >= threshold
-                            st.session_state.cc_opportunities.loc[mask, 'Select'] = True
+                            mask = st.session_state.cc_opportunities['score'] < threshold
+                            st.session_state.cc_opportunities.loc[mask, 'Select'] = False
                         st.rerun()
             
             st.write("")
