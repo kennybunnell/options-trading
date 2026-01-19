@@ -1958,12 +1958,14 @@ elif page == "CSP Dashboard":
         
         # Score-based selection buttons - right above the table
         st.write("**Filter by Composite Score:**")
-        score_cols = st.columns(9)
+        score_cols = st.columns(11)
         
         opp_df = st.session_state.csp_opportunities
         
         # Define score thresholds and their button configs
         score_buttons = [
+            (100, "⭐ 100", "csp_score_100"),
+            (90, "🟢 90+", "csp_score_90"),
             (80, "🟢 80+", "csp_score_80"),
             (75, "🟢 75+", "csp_score_75"),
             (70, "🟡 70+", "csp_score_70"),
@@ -3602,10 +3604,12 @@ elif page == "CC Dashboard":
             
             # Score-based selection buttons - right above the table
             st.write("**Filter by Composite Score:**")
-            score_cols = st.columns(9)
+            score_cols = st.columns(11)
             
             # Define score thresholds and their button configs
             score_buttons = [
+                (100, "⭐ 100", "cc_score_100"),
+                (90, "🟢 90+", "cc_score_90"),
                 (80, "🟢 80+", "cc_score_80"),
                 (75, "🟢 75+", "cc_score_75"),
                 (70, "🟡 70+", "cc_score_70"),
