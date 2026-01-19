@@ -8,6 +8,11 @@ from datetime import datetime
 # Load environment variables
 load_dotenv()
 
+# Configure absolute paths for persistent data storage
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(BASE_DIR, 'data')
+os.makedirs(DATA_DIR, exist_ok=True)
+
 from utils.tastytrade_api import TastytradeAPI
 from utils.csp_ladder_manager import render_csp_ladder_manager
 
@@ -868,12 +873,9 @@ elif page == "CSP Dashboard":
     
     st.divider()
     
-    # Read watchlist from persistent data directory
-    import os
-    watchlist_file = 'data/watchlist.txt'
-    
-    # Ensure data directory exists
-    os.makedirs('data', exist_ok=True)
+    # Read watchlist from persistent data directory (using absolute paths)
+    watchlist_file = os.path.join(DATA_DIR, 'watchlist.txt')
+    default_watchlist_file = os.path.join(BASE_DIR, 'watchlist.txt.default')
     
     try:
         with open(watchlist_file, 'r') as f:
@@ -882,8 +884,8 @@ elif page == "CSP Dashboard":
         # First time setup: copy from default template or create empty
         try:
             import shutil
-            if os.path.exists('watchlist.txt.default'):
-                shutil.copy('watchlist.txt.default', watchlist_file)
+            if os.path.exists(default_watchlist_file):
+                shutil.copy(default_watchlist_file, watchlist_file)
                 with open(watchlist_file, 'r') as f:
                     watchlist = [line.strip() for line in f if line.strip()]
             else:
@@ -908,7 +910,7 @@ elif page == "CSP Dashboard":
     with col3:
         if st.button("🗑️ Clear Watchlist", type="secondary"):
             if len(watchlist) > 0:
-                with open('data/watchlist.txt', 'w') as f:
+                with open(watchlist_file, 'w') as f:
                     f.write("")
                 st.success("✅ Watchlist cleared!")
                 st.rerun()
@@ -945,7 +947,7 @@ elif page == "CSP Dashboard":
                     if added:
                         # Save updated watchlist
                         updated_watchlist = sorted(watchlist)
-                        with open('data/watchlist.txt', 'w') as f:
+                        with open(watchlist_file, 'w') as f:
                             for symbol in updated_watchlist:
                                 f.write(f"{symbol}\n")
                         st.success(f"✅ Added {len(added)} ticker(s): {', '.join(added)}")
@@ -987,7 +989,7 @@ elif page == "CSP Dashboard":
             if st.button("🗑️ Remove Selected", type="primary"):
                 symbols_to_keep = edited_watchlist[edited_watchlist['Remove'] == False]['Symbol'].tolist()
                 
-                with open('data/watchlist.txt', 'w') as f:
+                with open(watchlist_file, 'w') as f:
                     for symbol in sorted(symbols_to_keep):
                         f.write(f"{symbol}\n")
                 
@@ -4371,9 +4373,10 @@ elif page == "PMCC Dashboard":
     # ========================================
     st.subheader("📝 Watchlist Management")
     
-    # Read watchlist
+    # Read watchlist (using absolute paths)
+    pmcc_watchlist_file = os.path.join(DATA_DIR, 'pmcc_watchlist.txt')
     try:
-        with open('pmcc_watchlist.txt', 'r') as f:
+        with open(pmcc_watchlist_file, 'r') as f:
             pmcc_watchlist = [line.strip() for line in f if line.strip()]
     except FileNotFoundError:
         pmcc_watchlist = []
@@ -4392,7 +4395,7 @@ elif page == "PMCC Dashboard":
     with col3:
         if st.button("🗑️ Clear Watchlist", type="secondary", key="pmcc_clear_watchlist"):
             if len(pmcc_watchlist) > 0:
-                with open('pmcc_watchlist.txt', 'w') as f:
+                with open(pmcc_watchlist_file, 'w') as f:
                     f.write("")
                 st.success("✅ Watchlist cleared!")
                 st.rerun()
@@ -4429,7 +4432,7 @@ elif page == "PMCC Dashboard":
                     if added:
                         # Save updated watchlist
                         updated_watchlist = sorted(pmcc_watchlist)
-                        with open('pmcc_watchlist.txt', 'w') as f:
+                        with open(pmcc_watchlist_file, 'w') as f:
                             for symbol in updated_watchlist:
                                 f.write(f"{symbol}\n")
                         st.success(f"✅ Added {len(added)} ticker(s): {', '.join(added)}")
@@ -4471,7 +4474,7 @@ elif page == "PMCC Dashboard":
             if st.button("🗑️ Remove Selected", type="primary", key="pmcc_remove_selected"):
                 symbols_to_keep = edited_watchlist[edited_watchlist['Remove'] == False]['Symbol'].tolist()
                 
-                with open('pmcc_watchlist.txt', 'w') as f:
+                with open(pmcc_watchlist_file, 'w') as f:
                     for symbol in sorted(symbols_to_keep):
                         f.write(f"{symbol}\n")
                 
