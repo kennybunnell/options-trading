@@ -5570,8 +5570,7 @@ elif page == "Performance":
     from utils.performance_dashboard import (
         render_active_positions,
         render_stock_basis,
-        render_performance_overview,
-        render_positions_view
+        render_performance_overview
     )
     from utils.performance_overview_new import render_performance_overview_real
     from utils.projections import render_projections_tab
@@ -5608,7 +5607,7 @@ elif page == "Performance":
             pass
     
     # Create tabs FIRST - at the top of the page (Performance Overview is default/first)
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📊 Performance Overview", "📋 Working Orders", "📍 Positions", "📈 Active Positions", "💰 Stock Basis & Returns", "📈 Projections"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Performance Overview", "📋 Working Orders", "📈 Active Positions", "💰 Stock Basis & Returns", "📈 Projections"])
     
     with tab1:
         # Use the new REAL DATA version of Performance Overview
@@ -5618,15 +5617,12 @@ elif page == "Performance":
         render_working_orders_dashboard(api, selected_account)
     
     with tab3:
-        render_positions_view(api, selected_account)
-    
-    with tab4:
         render_active_positions(api)
     
-    with tab5:
+    with tab4:
         render_stock_basis(api)
     
-    with tab6:
+    with tab5:
         render_projections_tab(api, all_account_numbers_perf, portfolio_value_perf)
 
 elif page == "Settings":
