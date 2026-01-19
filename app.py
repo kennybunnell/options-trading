@@ -3637,12 +3637,21 @@ elif page == "CC Dashboard":
                 (40, "⚫ 40+", "cc_score_40"),
             ]
             
+            # Debug info above buttons
+            if 'score' in opp_df.columns and 'Select' in opp_df.columns:
+                total_selected = int(opp_df['Select'].sum() if opp_df['Select'].dtype == 'bool' else opp_df['Select'].astype(bool).sum())
+                st.caption(f"🔍 Debug: {total_selected} opportunities currently selected in dataframe")
+            
             for idx, (threshold, label, key) in enumerate(score_buttons):
                 with score_cols[idx]:
                     # Count currently SELECTED opportunities with score >= threshold
                     if 'score' in opp_df.columns and 'Select' in opp_df.columns:
-                        selected_df = opp_df[opp_df['Select'].astype(bool)]
-                        count = len(selected_df[selected_df['score'] >= threshold])
+                        try:
+                            selected_df = opp_df[opp_df['Select'].astype(bool)]
+                            count = len(selected_df[selected_df['score'] >= threshold])
+                        except Exception as e:
+                            count = 0
+                            st.error(f"Error counting: {e}")
                     else:
                         count = 0
                     
