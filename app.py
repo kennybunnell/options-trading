@@ -1442,11 +1442,11 @@ elif page == "CSP Dashboard":
                 return round(score)
             
             # Apply score calculation to each row
-            df['Score'] = df.apply(calculate_csp_score, axis=1)
+            df['score'] = df.apply(calculate_csp_score, axis=1)
             
             df.insert(0, 'Select', False)
             df.insert(1, 'Qty', 1)  # Add quantity column with default value of 1
-            df = df.sort_values('Score', ascending=False)  # Sort by Score instead of Weekly %
+            df = df.sort_values('score', ascending=False)  # Sort by score instead of Weekly %
             st.session_state.csp_opportunities = df
             
             # Reset UI state after fresh scan - show all opportunities, no filters
