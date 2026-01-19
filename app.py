@@ -1977,20 +1977,23 @@ elif page == "CSP Dashboard":
             (40, "⚫ 40+", "csp_score_40"),
         ]
         
+        # Debug info above buttons
+        if 'score' in opp_df.columns and 'Select' in opp_df.columns:
+            total_selected = int(opp_df['Select'].sum() if opp_df['Select'].dtype == 'bool' else opp_df['Select'].astype(bool).sum())
+            st.caption(f"🔍 Debug: {total_selected} opportunities currently selected in dataframe")
+        
         for idx, (threshold, label, key) in enumerate(score_buttons):
             with score_cols[idx]:
                 # Count currently SELECTED opportunities with score >= threshold
                 if 'score' in opp_df.columns and 'Select' in opp_df.columns:
-                    # Debug: Check Select column values
-                    total_selected = opp_df['Select'].sum() if opp_df['Select'].dtype == 'bool' else opp_df['Select'].astype(bool).sum()
-                    print(f"DEBUG: Total selected in opp_df: {total_selected}, threshold: {threshold}")
-                    
-                    selected_df = opp_df[opp_df['Select'].astype(bool)]
-                    count = len(selected_df[selected_df['score'] >= threshold])
-                    print(f"DEBUG: Count for threshold {threshold}: {count}")
+                    try:
+                        selected_df = opp_df[opp_df['Select'].astype(bool)]
+                        count = len(selected_df[selected_df['score'] >= threshold])
+                    except Exception as e:
+                        count = 0
+                        st.error(f"Error counting: {e}")
                 else:
                     count = 0
-                    print(f"DEBUG: Missing columns - score: {'score' in opp_df.columns}, Select: {'Select' in opp_df.columns}")
                 
                 if st.button(f"{label} ({count})", key=key, help=f"Refine selection: Keep only opportunities with score >= {threshold}"):
                     # Uncheck opportunities with score < threshold (refine the selection)
