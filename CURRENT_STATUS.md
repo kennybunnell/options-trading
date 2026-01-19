@@ -20,7 +20,7 @@
    - Real-time summary card (premium, collateral, buying power)
    - One-click order submission to Tastytrade
    - Score-based selection buttons (100%, 95%+, 90%+, 85%+, 80%+, down to 40%)
-   - Watchlist persistence in data/ directory
+   - ✅ **FIXED:** Watchlist persistence (now uses absolute paths)
 
 2. **Covered Calls (CC) Dashboard**
    - Pull existing positions from Tastytrade
@@ -34,6 +34,7 @@
    - LEAPS-based covered call strategy
    - Notification system for alerts
    - Order submission capability
+   - ✅ **FIXED:** Watchlist persistence (now uses absolute paths)
 
 4. **Performance Dashboard**
    - Track trading performance
@@ -76,6 +77,11 @@ prosper-trading-app/
 │   ├── prosper_trading_banner.png (4.7MB)
 │   └── prosper_trading_logo.png (5.0MB)
 ├── data/ (persistent data storage)
+│   ├── watchlist.txt (CSP watchlist - PERSISTENT)
+│   ├── pmcc_watchlist.txt (PMCC watchlist - PERSISTENT)
+│   ├── premium_summary.json
+│   ├── stock_positions.json
+│   └── trades.json
 ├── requirements.txt
 └── Documentation files (README, guides, etc.)
 ```
@@ -84,18 +90,35 @@ prosper-trading-app/
 
 ## 📝 Recent Development History
 
-### Last 5 Commits (as of Jan 19, 2026)
-1. **47cf68f** (3 days ago) - Expand score filter buttons to 5-point increments (80-40) on both CC and CSP dashboards
-2. **9c0d856** - Fix CSP watchlist persistence - save to data/ directory
-3. **d121137** - Add Selected Only toggle to CC Dashboard (was missing)
-4. **bb9138d** - Add score-based selection buttons to CSP Dashboard (100%, 95%+, 90%+, 85%+, 80%+)
-5. **c438ec9** - Move score filter buttons to appear right above contracts table
+### Latest Commits (as of Jan 19, 2026)
+1. **b20ee36** (TODAY) - ✅ Fix watchlist persistence - use absolute paths for data directory
+2. **035efbe** (TODAY) - Add CURRENT_STATUS.md for session continuity tracking
+3. **47cf68f** (3 days ago) - Expand score filter buttons to 5-point increments (80-40) on both CC and CSP dashboards
+4. **9c0d856** - Fix CSP watchlist persistence - save to data/ directory
+5. **d121137** - Add Selected Only toggle to CC Dashboard (was missing)
 
 ### Recent Focus Areas
+- ✅ **FIXED TODAY:** Watchlist persistence issue - tickers now survive app reboots
 - Enhanced user experience with score-based filtering
 - Improved data persistence (watchlists)
 - UI/UX refinements for dashboard controls
 - Bug fixes for format specifiers and display issues
+
+---
+
+## 🔧 Recent Bug Fixes
+
+### Watchlist Persistence Fix (Jan 19, 2026)
+**Problem:** Watchlist tickers were not persisting between app reboots - always reverting to the default 15 tickers.
+
+**Root Cause:** App was using relative paths ('data/watchlist.txt') which don't persist properly in deployed environments.
+
+**Solution:** 
+- Added absolute path configuration using `__file__`
+- Updated all watchlist read/write operations to use absolute paths
+- Applied fix to both CSP and PMCC dashboards
+
+**Result:** Watchlist now persists correctly across app reboots in all deployment environments.
 
 ---
 
@@ -130,7 +153,9 @@ prosper-trading-app/
 ## 📋 Next Steps / Roadmap
 
 ### Immediate Priorities
-- [TO BE DETERMINED BY USER]
+- ✅ **COMPLETED:** Fix watchlist persistence issue
+- ROI Calculator feature (mentioned in previous session)
+- [Additional priorities to be determined]
 
 ### Future Enhancements
 - Enhanced PMCC tracking and management
@@ -189,6 +214,7 @@ streamlit run app.py
 - Technical indicators fetched from Yahoo Finance may have rate limits
 - Order submission includes celebration effects (balloons + cha-ching sound)
 - All monetary values displayed with proper formatting and emoji indicators
+- **Watchlist data now persists using absolute paths** - survives app reboots
 
 ---
 
